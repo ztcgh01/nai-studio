@@ -1269,7 +1269,7 @@ body.folder-lightbox-open{overflow:hidden}
  .clipboard-folder-tools{padding:9px 11px}
 }
 
-/* v1.9.23: Export Studio text-safety pass — Style Atlas artist tags never truncate; long cards adapt to 1-row/full-width layouts; Prompt Book continues across pages instead of clipping. */
+/* v1.9.24: Style Atlas PDF layout polish — artist tags are compacted into comma-separated paragraphs and image boxes stay uniform within the chosen column mode. Long tag blocks still fall back to roomier layouts without clipping. */
 /* v1.9.22: keep model info off artwork; compact labels live beside card titles. */
 .card-title-row,.atlas-image-title-row{display:flex;align-items:center;gap:7px;min-width:0}
 .card-title-row .card-title,.atlas-image-title-row .atlas-image-title{flex:1;min-width:0}
@@ -5456,14 +5456,15 @@ async function confirmAtlasGalleryPicker(){let added=0,skipped=0;const known=new
       const fontSize=tryCols===3?17:19,lineH=tryCols===3?21:24;
       probe.font=`600 ${fontSize}px Inter, Arial, sans-serif`;
       const cards=slice.map(e=>{
-        const tag=String(e.artistsText||artistSummary(e)||'').trim();
+        const rawTag=String(e.artistsText||artistSummary(e)||'').trim();
+        const tag=rawTag.replace(/\r/g,'').split(/\n+/).map(x=>x.trim().replace(/,\s*$/,'')).filter(Boolean).join(', ');
         const lines=exportTextLines(probe,tag,cardW-24,probe.font);
-        const metaH=Math.max(48,24+Math.max(1,lines.length)*lineH);
-        return {e,tag,lines,metaH};
+        return {e,tag,lines};
       });
-      const minImageH=tryCols===1?260:(tryCols===3?220:250);
-      const fits=cards.every(c=>cardH-c.metaH>=minImageH);
-      return {tryCols,tryRows,cardW,cardH,fontSize,lineH,cards,fits};
+      const fixedImageH=requestedCols===3?620:650;
+      const availableMetaH=cardH-fixedImageH;
+      const fits=cards.every(c=>24+Math.max(1,c.lines.length)*lineH<=availableMetaH);
+      return {tryCols,tryRows,cardW,cardH,fontSize,lineH,cards,fits,fixedImageH};
     }
 
     while(cursor<entries.length && pages.length<limitPages){
@@ -5482,7 +5483,7 @@ async function confirmAtlasGalleryPicker(){let added=0,skipped=0;const known=new
         const x=margin+col*(layout.cardW+gapX),y=contentTop+row*(layout.cardH+gapY);
         ctx.strokeStyle='#dedede';ctx.lineWidth=1;ctx.strokeRect(x,y,layout.cardW,layout.cardH);
         const img=await loadBlobImage(card.e.imageBlob);
-        const imageBoxH=layout.cardH-card.metaH;
+        const imageBoxH=Math.min(layout.fixedImageH,layout.cardH-48);
         const pad=10,boxW=layout.cardW-pad*2,boxH=Math.max(1,imageBoxH-pad*2);
         const scale=Math.min(boxW/img.width,boxH/img.height),iw=img.width*scale,ih=img.height*scale;
         ctx.fillStyle='#f7f7f7';ctx.fillRect(x+pad,y+pad,boxW,boxH);
