@@ -1269,6 +1269,7 @@ body.folder-lightbox-open{overflow:hidden}
  .clipboard-folder-tools{padding:9px 11px}
 }
 
+/* v1.9.23: Export Studio text-safety pass — Style Atlas artist tags never truncate; long cards adapt to 1-row/full-width layouts; Prompt Book continues across pages instead of clipping. */
 /* v1.9.22: keep model info off artwork; compact labels live beside card titles. */
 .card-title-row,.atlas-image-title-row{display:flex;align-items:center;gap:7px;min-width:0}
 .card-title-row .card-title,.atlas-image-title-row .atlas-image-title{flex:1;min-width:0}
@@ -5441,50 +5442,88 @@ async function confirmAtlasGalleryPicker(){let added=0,skipped=0;const known=new
   }
   function drawExportLines(ctx,lines,x,y,lineH,maxLines=999){const n=Math.min(lines.length,maxLines);for(let i=0;i<n;i++)ctx.fillText(lines[i],x,y+i*lineH);return y+n*lineH}
   async function renderStyleAtlasPages(entries,cols=2,limitPages=Infinity){
-    const W=1240,H=1754,margin=48,headerH=54,gapX=22,gapY=22;
-    let safeCols=cols===3?3:2;
-    // Image readability is the hard limit. 3 columns are allowed only while each
-    // card keeps a comfortably large image area.
-    let cardW=Math.floor((W-margin*2-gapX*(safeCols-1))/safeCols);
-    if(safeCols===3 && cardW<350){safeCols=2;cardW=Math.floor((W-margin*2-gapX)/2)}
-    const rows=2; // deliberate breathing room: 2x2 or 3x2, never tiny stamp grids
-    const contentTop=margin+headerH;
-    const contentH=H-margin-contentTop;
-    const cardH=Math.floor((contentH-gapY*(rows-1))/rows);
-    const metaH=safeCols===3?78:86;
-    const imageBoxH=cardH-metaH;
-    const perPage=safeCols*rows,pages=[];
-    for(let p=0;p<entries.length && pages.length<limitPages;p+=perPage){
-      const slice=entries.slice(p,p+perPage);
+    const W=1240,H=1754,margin=48,headerH=54,gapX=22,gapY=22,contentTop=margin+headerH,contentH=H-margin-contentTop;
+    const requestedCols=cols===3?3:2;
+    const pages=[];
+    let cursor=0,pageNo=1;
+
+    function pageLayout(startIndex,tryCols,tryRows){
+      const cardW=Math.floor((W-margin*2-gapX*(tryCols-1))/tryCols);
+      const cardH=Math.floor((contentH-gapY*(tryRows-1))/tryRows);
+      const take=Math.min(entries.length-startIndex,tryCols*tryRows);
+      const slice=entries.slice(startIndex,startIndex+take);
+      const probe=document.createElement('canvas').getContext('2d');
+      const fontSize=tryCols===3?17:19,lineH=tryCols===3?21:24;
+      probe.font=`600 ${fontSize}px Inter, Arial, sans-serif`;
+      const cards=slice.map(e=>{
+        const tag=String(e.artistsText||artistSummary(e)||'').trim();
+        const lines=exportTextLines(probe,tag,cardW-24,probe.font);
+        const metaH=Math.max(48,24+Math.max(1,lines.length)*lineH);
+        return {e,tag,lines,metaH};
+      });
+      const minImageH=tryCols===1?260:(tryCols===3?220:250);
+      const fits=cards.every(c=>cardH-c.metaH>=minImageH);
+      return {tryCols,tryRows,cardW,cardH,fontSize,lineH,cards,fits};
+    }
+
+    while(cursor<entries.length && pages.length<limitPages){
+      let layout=pageLayout(cursor,requestedCols,2);
+      if(!layout.fits)layout=pageLayout(cursor,requestedCols,1);
+      // Extremely long artist-tag blocks get a full-width card rather than being clipped.
+      if(!layout.fits)layout=pageLayout(cursor,1,1);
+
       const c=document.createElement('canvas');c.width=W;c.height=H;const ctx=c.getContext('2d');
       ctx.fillStyle='#fff';ctx.fillRect(0,0,W,H);ctx.textBaseline='top';
       ctx.fillStyle='#111';ctx.font='700 19px Inter, Arial, sans-serif';ctx.fillText('NAI STUDIO  /  STYLE ATLAS',margin,29);
-      ctx.fillStyle='#888';ctx.font='14px Inter, Arial, sans-serif';ctx.textAlign='right';ctx.fillText(`${Math.floor(p/perPage)+1}`,W-margin,32);ctx.textAlign='left';
-      for(let i=0;i<slice.length;i++){
-        const e=slice[i],col=i%safeCols,row=Math.floor(i/safeCols);
-        const x=margin+col*(cardW+gapX),y=contentTop+row*(cardH+gapY);
-        ctx.strokeStyle='#dedede';ctx.lineWidth=1;ctx.strokeRect(x,y,cardW,cardH);
-        const img=await loadBlobImage(e.imageBlob);
-        const pad=10,boxW=cardW-pad*2,boxH=imageBoxH-pad*2;
+      ctx.fillStyle='#888';ctx.font='14px Inter, Arial, sans-serif';ctx.textAlign='right';ctx.fillText(`${pageNo}`,W-margin,32);ctx.textAlign='left';
+
+      for(let i=0;i<layout.cards.length;i++){
+        const card=layout.cards[i],col=i%layout.tryCols,row=Math.floor(i/layout.tryCols);
+        const x=margin+col*(layout.cardW+gapX),y=contentTop+row*(layout.cardH+gapY);
+        ctx.strokeStyle='#dedede';ctx.lineWidth=1;ctx.strokeRect(x,y,layout.cardW,layout.cardH);
+        const img=await loadBlobImage(card.e.imageBlob);
+        const imageBoxH=layout.cardH-card.metaH;
+        const pad=10,boxW=layout.cardW-pad*2,boxH=Math.max(1,imageBoxH-pad*2);
         const scale=Math.min(boxW/img.width,boxH/img.height),iw=img.width*scale,ih=img.height*scale;
         ctx.fillStyle='#f7f7f7';ctx.fillRect(x+pad,y+pad,boxW,boxH);
         ctx.drawImage(img,x+pad+(boxW-iw)/2,y+pad+(boxH-ih)/2,iw,ih);
-        const tag=String(e.artistsText||artistSummary(e)||'').trim();
-        ctx.fillStyle='#111';ctx.font=`600 ${safeCols===3?17:19}px Inter, Arial, sans-serif`;
-        const lines=exportTextLines(ctx,tag,cardW-24,ctx.font,3);
-        drawExportLines(ctx,lines,x+12,y+imageBoxH+12,safeCols===3?21:24,3);
+        ctx.fillStyle='#111';ctx.font=`600 ${layout.fontSize}px Inter, Arial, sans-serif`;
+        drawExportLines(ctx,card.lines.length?card.lines:[''],x+12,y+imageBoxH+12,layout.lineH);
       }
       pages.push(c);
+      cursor+=layout.cards.length;
+      pageNo++;
     }
     return pages;
   }
   async function renderPromptPages(entries,limitPages=Infinity){
     const W=1240,H=1754,margin=62,pages=[];
-    for(const e of entries){if(pages.length>=limitPages)break;
-      const c=document.createElement('canvas');c.width=W;c.height=H;const ctx=c.getContext('2d');ctx.fillStyle='#fff';ctx.fillRect(0,0,W,H);ctx.textBaseline='top';ctx.fillStyle='#111';ctx.font='700 34px Inter, Arial, sans-serif';ctx.fillText(displayTitle(e),margin,52);
-      const img=await loadBlobImage(e.imageBlob),imgX=margin,imgY=124,imgW=500,imgH=760,s=Math.min(imgW/img.width,imgH/img.height),iw=img.width*s,ih=img.height*s;ctx.fillStyle='#f5f5f5';ctx.fillRect(imgX,imgY,imgW,imgH);ctx.drawImage(img,imgX+(imgW-iw)/2,imgY+(imgH-ih)/2,iw,ih);
-      ctx.fillStyle='#666';ctx.font='700 18px Inter, Arial, sans-serif';ctx.fillText('PROMPT',610,132);ctx.fillStyle='#111';ctx.font='22px Inter, Arial, sans-serif';drawExportLines(ctx,exportTextLines(ctx,e.prompt||'',W-610-margin,ctx.font,50),610,172,31,50);pages.push(c);
-    }return pages;
+    for(const e of entries){
+      if(pages.length>=limitPages)break;
+      const c=document.createElement('canvas');c.width=W;c.height=H;let ctx=c.getContext('2d');
+      ctx.fillStyle='#fff';ctx.fillRect(0,0,W,H);ctx.textBaseline='top';ctx.fillStyle='#111';ctx.font='700 34px Inter, Arial, sans-serif';ctx.fillText(displayTitle(e),margin,52);
+      const img=await loadBlobImage(e.imageBlob),imgX=margin,imgY=124,imgW=500,imgH=760,s=Math.min(imgW/img.width,imgH/img.height),iw=img.width*s,ih=img.height*s;
+      ctx.fillStyle='#f5f5f5';ctx.fillRect(imgX,imgY,imgW,imgH);ctx.drawImage(img,imgX+(imgW-iw)/2,imgY+(imgH-ih)/2,iw,ih);
+      const tx=610,ty=172,lineH=31,maxW=W-tx-margin;
+      ctx.fillStyle='#666';ctx.font='700 18px Inter, Arial, sans-serif';ctx.fillText('PROMPT',tx,132);
+      ctx.fillStyle='#111';ctx.font='22px Inter, Arial, sans-serif';
+      const lines=exportTextLines(ctx,e.prompt||'',maxW,ctx.font);
+      const firstCan=Math.max(0,Math.floor((H-margin-ty)/lineH));
+      drawExportLines(ctx,lines.slice(0,firstCan),tx,ty,lineH);
+      pages.push(c);
+
+      let rest=lines.slice(firstCan);
+      while(rest.length&&pages.length<limitPages){
+        const p=document.createElement('canvas');p.width=W;p.height=H;ctx=p.getContext('2d');
+        ctx.fillStyle='#fff';ctx.fillRect(0,0,W,H);ctx.textBaseline='top';
+        ctx.fillStyle='#777';ctx.font='700 18px Inter, Arial, sans-serif';ctx.fillText(`${displayTitle(e)}  /  PROMPT CONTINUED`,margin,48);
+        ctx.fillStyle='#111';ctx.font='22px Inter, Arial, sans-serif';
+        const y=100,can=Math.max(1,Math.floor((H-margin-y)/lineH));
+        drawExportLines(ctx,rest.slice(0,can),margin,y,lineH);
+        rest=rest.slice(can);pages.push(p);
+      }
+    }
+    return pages;
   }
   function exportDetailBlocks(e,fields){
     const b=[];if(fields.artists&&e.artistsText)b.push(['ARTIST TAGS',e.artistsText]);if(fields.prompt&&e.prompt)b.push(['PROMPT',e.prompt]);if(fields.characters&&(e.characterPrompts||[]).length)b.push(['CHARACTER PROMPT',(e.characterPrompts||[]).join('\n\n')]);if(fields.uc&&e.uc)b.push(['UC',e.uc]);if(fields.memo&&e.memo)b.push(['MEMO',e.memo]);if(fields.seed&&e.seed!=null)b.push(['SEED',String(e.seed)]);if(fields.model&&e.model)b.push(['MODEL',e.model]);return b;
