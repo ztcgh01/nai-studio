@@ -15,6 +15,8 @@
 .shell{display:grid;grid-template-columns:220px 1fr;min-height:calc(100vh - 58px)}.sidebar{border-right:1px solid var(--line);padding:22px 14px;position:sticky;top:58px;height:calc(100vh - 58px);overflow:auto;background:#fff}.nav-group{display:grid;gap:2px}.nav-item{border:0;border-bottom:1px solid var(--hair);background:#fff;text-align:left;padding:12px 6px;font-weight:760;display:flex;justify-content:space-between}.nav-item:hover{background:#fafafa}.nav-item.active{background:#111;color:#fff;padding-left:11px;padding-right:11px;border-bottom-color:#111}.side-section{border-top:1px solid var(--line);margin-top:24px;padding-top:16px}.side-title{font-size:11px;font-weight:820;letter-spacing:.03em;margin-bottom:10px}.segmented{display:flex;border:1px solid var(--line);border-radius:7px;overflow:hidden;background:#fff}.segmented button{flex:1;border:0;border-right:1px solid var(--line);background:#fff;padding:7px}.segmented button:last-child{border-right:0}.segmented button.active{background:#111;color:#fff}.check-line{display:flex;gap:8px;align-items:center;font-size:12px;margin:9px 0}.main{padding:34px 30px calc(40px + var(--safe-b));min-width:0}.view{display:none}.view.active{display:block}
 .toolbar,.subtoolbar,.section-head{display:flex;align-items:center;justify-content:space-between;gap:14px;margin-bottom:16px}.search-box{flex:1;max-width:800px;background:#fff;border:1px solid var(--line);border-radius:7px;display:flex;align-items:center}.search-box input{width:100%;border:0;background:transparent;outline:0;padding:12px 13px}.icon-btn{border:0;background:transparent;font-size:20px;line-height:1;padding:8px}.btn,.mini-btn{border:1px solid var(--line);background:#fff;border-radius:7px;padding:9px 12px;font-weight:720}.btn:hover,.mini-btn:hover{background:#f5f5f5}.btn.primary{background:#111;color:#fff;border-color:#111}.btn.danger{color:#111;border-style:dashed}.btn.danger:hover{background:#111;color:#fff}.btn.small,.mini-btn{font-size:11px;padding:7px 9px}.btn.active{background:#111;color:#fff}.btn:disabled{opacity:.35;cursor:default}.text-btn{border:0;background:transparent;color:var(--muted);font-size:11px;text-decoration:underline;text-underline-offset:3px}.select{border:1px solid var(--line);border-radius:7px;background:#fff;padding:10px 11px}.tabs{display:flex;border-bottom:1px solid var(--line);gap:0}.tab{border:0;background:#fff;padding:8px 13px;font-weight:800;color:var(--muted);border-bottom:2px solid transparent;margin-bottom:-1px}.tab.active{color:#111;border-bottom-color:#111}.right-tools,.row-between,.bulk-left,.bulk-actions{display:flex;align-items:center;gap:9px}.field-panel{display:flex;gap:13px;flex-wrap:wrap;background:#fafafa;border:1px solid var(--line);border-radius:7px;padding:12px 14px;margin-bottom:14px;font-size:11px}.bulk-bar{display:flex;align-items:center;justify-content:space-between;border:1px solid var(--line);background:#111;color:#fff;border-radius:7px;padding:9px 10px;margin-bottom:14px;font-size:11px;position:relative;z-index:45}.bulk-bar .text-btn{color:#fff}.bulk-bar .btn{border-color:#fff}.bulk-bar .btn.danger{background:#fff;color:#111;border-style:solid}.bulk-bar .btn:not(.danger){background:#111;color:#fff}
 .bulk-more-menu{position:absolute;right:8px;bottom:calc(100% + 8px);width:min(290px,calc(100vw - 24px));background:#fff;color:#111;border:1px solid #111;border-radius:9px;padding:8px;box-shadow:0 12px 32px rgba(0,0,0,.16);display:grid;grid-template-columns:1fr 1fr;gap:6px}.bulk-more-menu .btn{background:#fff!important;color:#111!important;border-color:#d8d8d8!important}.bulk-more-menu .danger{grid-column:1/-1;border-color:#111!important}
+/* v1.9.27: Gallery bulk metadata editor */
+.bulk-edit-shell{width:min(760px,96vw);max-height:94dvh;overflow:auto}.bulk-edit-body{padding:14px;display:grid;gap:10px}.bulk-edit-note{font-size:10px;line-height:1.55;color:#666;border:1px solid #e5e5e5;background:#fafafa;padding:10px 11px;border-radius:7px}.bulk-edit-field{border:1px solid #e3e3e3;border-radius:8px;padding:10px 11px;display:grid;gap:7px;background:#fff}.bulk-edit-field>label:first-child{display:flex;align-items:center;gap:8px;font-size:10px;font-weight:850;letter-spacing:.04em}.bulk-edit-field textarea,.bulk-edit-field select{width:100%;border:1px solid #ddd;border-radius:7px;background:#fff;padding:9px 10px;font:inherit;font-size:11px;line-height:1.5}.bulk-edit-field textarea{min-height:74px;resize:vertical}.bulk-edit-field textarea:disabled,.bulk-edit-field select:disabled{background:#f5f5f5;color:#aaa}.bulk-edit-foot{position:sticky;bottom:0;background:#fff;border-top:1px solid #e7e7e7;padding:10px 14px;display:flex;justify-content:flex-end;gap:8px}.bulk-edit-count{margin-right:auto;align-self:center;font-size:10px;color:#777}
 .gallery{display:grid;grid-template-columns:repeat(auto-fill,minmax(190px,1fr));gap:12px}.card{background:#fff;border:1px solid var(--line);border-radius:var(--radius);overflow:hidden;transition:.14s transform,.14s box-shadow;position:relative}.card:hover{transform:translateY(-2px);box-shadow:0 7px 22px rgba(0,0,0,.06)}.card.selection-mode:has(.card-check:checked){outline:2px solid #111;outline-offset:2px}.thumb{aspect-ratio:4/5;background:#f2f2f2;overflow:hidden;position:relative}.thumb img{width:100%;height:100%;object-fit:cover;display:block}.card-body{padding:10px 11px 11px;border-top:1px solid var(--hair)}.card-title{font-weight:780;font-size:12px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.card-sub{font-size:10px;color:var(--muted);margin-top:4px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.card-controls{position:absolute;top:8px;right:8px;display:flex;gap:5px}.round{width:30px;height:30px;border-radius:50%;border:1px solid #111;background:rgba(255,255,255,.93);color:#111;display:grid;place-items:center}.check-badge{position:absolute;left:8px;top:8px;background:rgba(255,255,255,.94);border:1px solid #111;border-radius:999px;padding:5px 7px;display:flex;align-items:center;gap:5px;font-size:8px;font-weight:900;letter-spacing:.08em;opacity:0;pointer-events:none;transition:opacity .12s}.card.selection-mode .check-badge{opacity:1;pointer-events:auto}.check-badge input{width:13px;height:13px;accent-color:#111;margin:0}
 .list-wrap{overflow:auto;border:1px solid var(--line);border-radius:7px;background:#fff}.list-wrap:not(.selection-mode) .field-select{display:none}.data-table tr.row-selected{background:#f2f2f2}
 .scroll-top-btn{position:fixed;right:14px;bottom:calc(18px + var(--safe-b));width:42px;height:42px;border-radius:50%;border:1px solid #111;background:rgba(255,255,255,.96);box-shadow:0 6px 18px rgba(0,0,0,.12);z-index:60;display:grid;place-items:center;font-size:18px;font-weight:700}.scroll-top-btn.with-select-bar{bottom:calc(88px + var(--safe-b))}
@@ -1269,7 +1271,7 @@ body.folder-lightbox-open{overflow:hidden}
  .clipboard-folder-tools{padding:9px 11px}
 }
 
-/* v1.9.25: Style Atlas PDF layout polish — artist tags are compacted into comma-separated paragraphs and image boxes stay uniform within the chosen column mode. Long tag blocks still fall back to roomier layouts without clipping. */
+/* v1.9.26: Style Atlas PDF layout polish — artist tags are compacted into comma-separated paragraphs and image boxes stay uniform within the chosen column mode. Long tag blocks still fall back to roomier layouts without clipping. */
 /* v1.9.22: keep model info off artwork; compact labels live beside card titles. */
 .card-title-row,.atlas-image-title-row{display:flex;align-items:center;gap:7px;min-width:0}
 .card-title-row .card-title,.atlas-image-title-row .atlas-image-title{flex:1;min-width:0}
@@ -1475,6 +1477,25 @@ body.folder-lightbox-open{overflow:hidden}
 <input id="atlasPhotoInput" type="file" accept="image/png,image/jpeg,image/webp" multiple hidden>
 <input id="atlasBulkInput" type="file" multiple hidden>
 
+<dialog id="bulkEditDialog" class="modal">
+  <div class="modal-shell bulk-edit-shell">
+    <div class="modal-head">
+      <div><span class="eyebrow">BULK EDIT</span><h2 style="margin:2px 0 0">선택 항목 일괄 수정</h2></div>
+      <button class="icon-btn" id="bulkEditClose" type="button">×</button>
+    </div>
+    <div class="bulk-edit-body">
+      <div class="bulk-edit-note">체크한 정보만 선택한 이미지 전체에 똑같이 덮어씁니다. 체크한 칸을 비워 저장하면 그 정보는 삭제됩니다.</div>
+      <div class="bulk-edit-field"><label><input id="bulkEditArtistsOn" type="checkbox"> 작가태그</label><textarea id="bulkEditArtists" disabled placeholder="작가태그 입력"></textarea></div>
+      <div class="bulk-edit-field"><label><input id="bulkEditPromptOn" type="checkbox"> Prompt</label><textarea id="bulkEditPrompt" disabled placeholder="Prompt 입력"></textarea></div>
+      <div class="bulk-edit-field"><label><input id="bulkEditCharactersOn" type="checkbox"> Character Prompt</label><textarea id="bulkEditCharacters" disabled placeholder="여러 Character Prompt는 줄 하나에 --- 를 넣어 구분"></textarea></div>
+      <div class="bulk-edit-field"><label><input id="bulkEditUcOn" type="checkbox"> UC</label><textarea id="bulkEditUc" disabled placeholder="UC 입력"></textarea></div>
+      <div class="bulk-edit-field"><label><input id="bulkEditMemoOn" type="checkbox"> 메모</label><textarea id="bulkEditMemo" disabled placeholder="메모 입력"></textarea></div>
+      <div class="bulk-edit-field"><label><input id="bulkEditModelOn" type="checkbox"> 모델</label><select id="bulkEditModel" disabled><option value="auto">자동 판별</option><option value="v4.5-full">V4.5 FULL</option><option value="v4.5-curated">V4.5 CURATED</option><option value="v5-full">V5 FULL</option><option value="v5-curated">V5 CURATED</option><option value="unknown">UNKNOWN</option></select></div>
+    </div>
+    <div class="bulk-edit-foot"><span id="bulkEditCount" class="bulk-edit-count">0개 선택</span><button id="bulkEditCancel" class="btn small" type="button">취소</button><button id="bulkEditSave" class="btn primary small" type="button">일괄 적용</button></div>
+  </div>
+</dialog>
+
 <dialog id="comparePickerDialog" class="modal compare-picker-dialog">
     <div class="modal-shell">
       <div class="modal-head">
@@ -1590,6 +1611,7 @@ body.folder-lightbox-open{overflow:hidden}
             <button id="cancelSelectBtn" class="btn small">취소</button>
           </div>
           <div id="bulkMoreMenu" class="bulk-more-menu hidden">
+            <button id="bulkEditBtn" class="btn small">일괄 수정</button>
             <button id="saveSelectedCleanBtn" class="btn small">메타데이터 제거 저장</button>
             <button id="selectedPdfBtn" class="btn small">PDF로 저장</button>
             <button id="selectedAtlasPdfBtn" class="btn small">도감 PDF</button>
@@ -1951,6 +1973,25 @@ body.folder-lightbox-open{overflow:hidden}
     </div>
   </dialog>
 
+  <dialog id="modelEditDialog" class="modal small-modal">
+    <div class="modal-shell" style="width:min(520px,94vw)">
+      <div class="modal-head"><div><span class="eyebrow">MODEL OVERRIDE</span><h2 style="margin:2px 0 0">모델 직접 지정</h2></div><button id="modelEditClose" class="icon-btn" type="button">×</button></div>
+      <div style="padding:14px">
+        <p class="artist-classify-help">자동 판별이 UNKNOWN이거나 잘못된 경우 직접 지정할 수 있습니다. 원본 Source/Hash는 그대로 보존됩니다.</p>
+        <label class="field-label">MODEL
+          <select id="modelEditSelect">
+            <option value="v4.5-full">V4.5 FULL</option>
+            <option value="v4.5-curated">V4.5 CURATED</option>
+            <option value="v5-full">V5 FULL</option>
+            <option value="v5-curated">V5 CURATED</option>
+            <option value="unknown">UNKNOWN</option>
+          </select>
+        </label>
+        <div class="artist-classify-actions"><button id="modelEditAuto" class="btn" type="button">자동 판별로 되돌리기</button><button id="modelEditCancel" class="btn" type="button">취소</button><button id="modelEditSave" class="btn primary" type="button">저장</button></div>
+      </div>
+    </div>
+  </dialog>
+
   <dialog id="artistClassifyDialog" class="modal">
     <div class="modal-shell" style="width:min(720px,94vw)">
       <div class="modal-head"><div><span class="eyebrow">MANUAL CLASSIFICATION</span><h2 style="margin:2px 0 0">작가태그 분류 수정</h2></div><button id="artistClassifyClose" class="icon-btn" type="button">×</button></div>
@@ -2107,7 +2148,8 @@ body.folder-lightbox-open{overflow:hidden}
   let atlasArtistMemoTimer=null;
   let folderObjectUrls=[];
 
-  // v1.9.25 performance pass: large local libraries should not rebuild every hidden view
+  // v1.9.27 adds non-destructive field-selective bulk metadata editing.
+  // v1.9.26 performance pass: large local libraries should not rebuild every hidden view
   // or regenerate hundreds of blob URLs after each click.
   const thumbUrlCache=new Map();
   const gallerySearchCache=new WeakMap();
@@ -2199,7 +2241,7 @@ body.folder-lightbox-open{overflow:hidden}
   }
 
   function mapEls(){
-    ['compareCount','fileInput','atlasPhotoInput','atlasBulkInput','atlasView','atlasAddBtn','atlasFromGalleryBtn','atlasGroupSelectBtn','atlasSearch','atlasSearchClear','atlasFilterTabs','atlasSortTabs','atlasSortDir','atlasModelFilter','atlasMinPosts','atlasViewMode','atlasRepCount','atlasColumnCount','atlasPageSize','atlasCount','atlasGrid','atlasLoadSentinel','atlasGroupSelectionBar','atlasGroupSelectedCount','atlasGroupSelectAllBtn','atlasGroupRepPdfBtn','atlasGroupAllPdfBtn','atlasGroupDeleteBtn','atlasGroupCancelBtn','atlasImportDialog','atlasImportClose','atlasPhotoBtn','atlasBulkBtn','atlasImportGalleryBtn','atlasGalleryPickerDialog','atlasGalleryPickerClose','atlasGalleryPickerSearch','atlasGalleryPickerAll','atlasGalleryPickerClear','atlasGalleryPickerGrid','atlasGalleryPickerCount','atlasGalleryPickerConfirm','atlasArtistDialog','atlasArtistClose','atlasArtistType','atlasArtistTitle','atlasArtistStats','atlasArtistDelete','atlasArtistFavorite','atlasArtistMemo','atlasArtistSearch','atlasArtistSearchClear','atlasArtistSelectBtn','atlasArtistGrid','atlasSelectionBar','atlasSelectedCount','atlasSelectAllBtn','atlasSelectedFolderBtn','atlasSelectedCompareBtn','atlasSelectedOriginalBtn','atlasSelectedGalleryBtn','atlasSelectedMoreBtn','atlasSelectedMoreMenu','atlasSelectedFavBtn','atlasSelectedCleanBtn','atlasSelectedPdfBtn','atlasSelectedAtlasPdfBtn','atlasSelectedAtlasImageBtn','atlasSelectedBackupBtn','atlasSelectedDeleteBtn','atlasSelectCancelBtn','atlasImageDetailDialog','atlasImageDetailClose','atlasImageDetailTitle','atlasImageDetailImg','atlasImageDetailMeta','atlasImageDetailArtists','editAtlasArtistsBtn','atlasImageDetailPrompt','atlasImageDetailCharacters','atlasImageDetailUc','atlasImageDetailMemo','atlasImageFavBtn','atlasImageRepBtn','atlasImageFolderBtn','atlasImageCompareBtn','atlasImageOriginalBtn','atlasImageCleanBtn','atlasImageToGalleryBtn','atlasImageDeleteBtn','folderImportInput','backupBtn','restoreBtn','restoreInput','pdfBtn','sidebar','menuBtn','homeView','libraryView','addView','bookmarksView','foldersView','compareView','dropzone','addChooseBtn','addBulkChooseBtn','addStatus','searchInput','clearSearch','sortSelect','galleryModelFilter','logicToggle','activeArtistFilters','clearArtistFilters','favOnly','memoOnly','displayTabs','galleryColumnCount','galleryAddMenuBtn','galleryAddDialog','closeGalleryAddDialogBtn','galleryPhotoPickBtn','galleryZipPickBtn','galleryZipInput','fieldBtn','fieldPanel','gallery','listWrap','listHead','listBody','emptyState','emptyImportBtn','resultCount','importProgress','importProgressText','importProgressCount','importProgressBar','artistBookmarks','presetBookmarks','newPresetBtn','selectModeBtn','bulkBar','selectedCount','selectAllBtn','selectedToCompareBtn','saveSelectedOriginalBtn','saveSelectedCleanBtn','selectedPdfBtn','selectedAtlasPdfBtn','selectedAtlasImageBtn','selectedBackupBtn','deleteSelectedBtn','cancelSelectBtn','compareHint','compareGrid','compareDiff','openComparePickerBtn','compareImageExportBtn','comparePdfExportBtn','clearCompareBtn','backupDialog','closeBackupBtn','runBackupBtn','backupFolderChoices','exportDialog','closeExportBtn','runExportBtn','exportScopeSummary','exportScopeChoices','exportPresetGrid','exportOutputChoices','exportAtlasOptions','exportColumnChoices','exportCustomFields','exportPreviewCanvas','exportPreviewEmpty','exportPreviewMeta','exportItemCount','comparePickerDialog','closeComparePickerBtn','comparePickerSearch','comparePickerSelectAll','comparePickerClearAll','comparePickerGrid','comparePickerCount','confirmComparePickerBtn','detailDialog','detailBackBtn','detailTopFav','detailTitle','detailImage','detailMeta','detailFav','addCompare','deleteEntry','detailArtists','artistTokens','editGalleryArtistsBtn','detailPrompt','characterPrompts','detailUc','detailMemo','bookmarkArtistsBtn','copyStylePrompt','copyAll','folderGrid','newFolderBtn','libraryTypeTabs','archiveFolderSearch','archiveFolderSearchCount','folderBookmarks','folderCreateDialog','folderNameInput','folderTypeChoices','createFolderBtn','imageFolderDialog','imageFolderBackBtn','imageFolderTitleInput','imageFolderBookmarkBtn','imageFolderMoreBtn','imageFolderMoreMenu','deleteImageFolderBtn','imageFolderCount','imageFolderImportBtn','imageFolderSelectBtn','imageFolderExportBtn','imageFolderGrid','imageFolderBulkBar','imageFolderSelectedCount','imageFolderSelectAllBtn','imageFolderCompareBtn','imageFolderExportSelectedBtn','imageFolderRemoveBtn','imageFolderCancelBtn','folderDialog','folderTitleInput','folderBookmarkBtn','deleteFolderBtn','closeFolderBtn','folderItems','folderBlankEditor','clipboardFolderCount','clipboardImportBtn','clipboardSelectBtn','clipboardExportBtn','clipboardBulkBar','clipboardSelectedCount','clipboardSelectAllBtn','clipboardExportSelectedBtn','clipboardOpenGalleryBtn','clipboardRemoveSelectedBtn','clipboardCancelBtn','folderAttachInput','attachFolderImageBtn','openSavedHubBtn','folderMoreBtn','folderMoreMenu','folderImageModeDialog','closeFolderImageModeBtn','folderImageModePreview','folderImageModeCount','folderImagesSeparateBtn','folderImagesGroupBtn','folderImageLightbox','folderImageLightboxClose','folderImageLightboxImg','folderImageLightboxDetails','savedHubDialog','closeSavedHubBtn','savedHubTabs','savedHubFolderPath','savedHubFolderBackBtn','savedHubFolderPathTitle','savedHubFolderPathMeta','savedHubSearch','savedHubGrid','savedHubCount','savedHubClearBtn','savedHubImportBtn','savedImageImportDialog','closeSavedImageImportBtn','savedImageGroupRow','savedImageGroup','savedImageIncludeDetails','savedImageDetailFields','confirmSavedImageImportBtn','folderPickDialog','folderPickSelect','folderPickNewName','folderPickTypeRow','folderPickSummary','confirmFolderPickBtn','selectedToFolderBtn','detailToFolder','detailToAtlas','saveCleanImage','presetDialog','presetName','presetText','savePreset','bulkMoreBtn','bulkMoreMenu','artistClassifyDialog','artistClassifyClose','artistClassifyArtists','artistClassifyPrompt','artistClassifyCancel','artistClassifySave','scrollTopBtn','selectionPreview','selectionPreviewClose','selectionPreviewCount','selectionPreviewStage','selectionPreviewPrev','selectionPreviewImg','selectionPreviewNext','selectionPreviewTitle','selectionPreviewPick','toast'].forEach(id=>els[id]=$(`#${id}`));
+    ['compareCount','fileInput','atlasPhotoInput','atlasBulkInput','atlasView','atlasAddBtn','atlasFromGalleryBtn','atlasGroupSelectBtn','atlasSearch','atlasSearchClear','atlasFilterTabs','atlasSortTabs','atlasSortDir','atlasModelFilter','atlasMinPosts','atlasViewMode','atlasRepCount','atlasColumnCount','atlasPageSize','atlasCount','atlasGrid','atlasLoadSentinel','atlasGroupSelectionBar','atlasGroupSelectedCount','atlasGroupSelectAllBtn','atlasGroupRepPdfBtn','atlasGroupAllPdfBtn','atlasGroupDeleteBtn','atlasGroupCancelBtn','atlasImportDialog','atlasImportClose','atlasPhotoBtn','atlasBulkBtn','atlasImportGalleryBtn','atlasGalleryPickerDialog','atlasGalleryPickerClose','atlasGalleryPickerSearch','atlasGalleryPickerAll','atlasGalleryPickerClear','atlasGalleryPickerGrid','atlasGalleryPickerCount','atlasGalleryPickerConfirm','atlasArtistDialog','atlasArtistClose','atlasArtistType','atlasArtistTitle','atlasArtistStats','atlasArtistDelete','atlasArtistFavorite','atlasArtistMemo','atlasArtistSearch','atlasArtistSearchClear','atlasArtistSelectBtn','atlasArtistGrid','atlasSelectionBar','atlasSelectedCount','atlasSelectAllBtn','atlasSelectedFolderBtn','atlasSelectedCompareBtn','atlasSelectedOriginalBtn','atlasSelectedGalleryBtn','atlasSelectedMoreBtn','atlasSelectedMoreMenu','atlasSelectedFavBtn','atlasSelectedCleanBtn','atlasSelectedPdfBtn','atlasSelectedAtlasPdfBtn','atlasSelectedAtlasImageBtn','atlasSelectedBackupBtn','atlasSelectedDeleteBtn','atlasSelectCancelBtn','atlasImageDetailDialog','atlasImageDetailClose','atlasImageDetailTitle','atlasImageDetailImg','atlasImageDetailMeta','atlasImageDetailArtists','editAtlasArtistsBtn','atlasImageDetailPrompt','atlasImageDetailCharacters','atlasImageDetailUc','atlasImageDetailMemo','atlasImageFavBtn','atlasImageRepBtn','atlasImageFolderBtn','atlasImageCompareBtn','atlasImageOriginalBtn','atlasImageCleanBtn','atlasImageToGalleryBtn','atlasImageDeleteBtn','folderImportInput','backupBtn','restoreBtn','restoreInput','pdfBtn','sidebar','menuBtn','homeView','libraryView','addView','bookmarksView','foldersView','compareView','dropzone','addChooseBtn','addBulkChooseBtn','addStatus','searchInput','clearSearch','sortSelect','galleryModelFilter','logicToggle','activeArtistFilters','clearArtistFilters','favOnly','memoOnly','displayTabs','galleryColumnCount','galleryAddMenuBtn','galleryAddDialog','closeGalleryAddDialogBtn','galleryPhotoPickBtn','galleryZipPickBtn','galleryZipInput','fieldBtn','fieldPanel','gallery','listWrap','listHead','listBody','emptyState','emptyImportBtn','resultCount','importProgress','importProgressText','importProgressCount','importProgressBar','artistBookmarks','presetBookmarks','newPresetBtn','selectModeBtn','bulkBar','selectedCount','selectAllBtn','selectedToCompareBtn','saveSelectedOriginalBtn','saveSelectedCleanBtn','selectedPdfBtn','selectedAtlasPdfBtn','selectedAtlasImageBtn','selectedBackupBtn','deleteSelectedBtn','cancelSelectBtn','compareHint','compareGrid','compareDiff','openComparePickerBtn','compareImageExportBtn','comparePdfExportBtn','clearCompareBtn','backupDialog','closeBackupBtn','runBackupBtn','backupFolderChoices','exportDialog','closeExportBtn','runExportBtn','exportScopeSummary','exportScopeChoices','exportPresetGrid','exportOutputChoices','exportAtlasOptions','exportColumnChoices','exportCustomFields','exportPreviewCanvas','exportPreviewEmpty','exportPreviewMeta','exportItemCount','comparePickerDialog','closeComparePickerBtn','comparePickerSearch','comparePickerSelectAll','comparePickerClearAll','comparePickerGrid','comparePickerCount','confirmComparePickerBtn','detailDialog','detailBackBtn','detailTopFav','detailTitle','detailImage','detailMeta','detailFav','addCompare','deleteEntry','detailArtists','artistTokens','editGalleryArtistsBtn','detailPrompt','characterPrompts','detailUc','detailMemo','bookmarkArtistsBtn','copyStylePrompt','copyAll','folderGrid','newFolderBtn','libraryTypeTabs','archiveFolderSearch','archiveFolderSearchCount','folderBookmarks','folderCreateDialog','folderNameInput','folderTypeChoices','createFolderBtn','imageFolderDialog','imageFolderBackBtn','imageFolderTitleInput','imageFolderBookmarkBtn','imageFolderMoreBtn','imageFolderMoreMenu','deleteImageFolderBtn','imageFolderCount','imageFolderImportBtn','imageFolderSelectBtn','imageFolderExportBtn','imageFolderGrid','imageFolderBulkBar','imageFolderSelectedCount','imageFolderSelectAllBtn','imageFolderCompareBtn','imageFolderExportSelectedBtn','imageFolderRemoveBtn','imageFolderCancelBtn','folderDialog','folderTitleInput','folderBookmarkBtn','deleteFolderBtn','closeFolderBtn','folderItems','folderBlankEditor','clipboardFolderCount','clipboardImportBtn','clipboardSelectBtn','clipboardExportBtn','clipboardBulkBar','clipboardSelectedCount','clipboardSelectAllBtn','clipboardExportSelectedBtn','clipboardOpenGalleryBtn','clipboardRemoveSelectedBtn','clipboardCancelBtn','folderAttachInput','attachFolderImageBtn','openSavedHubBtn','folderMoreBtn','folderMoreMenu','folderImageModeDialog','closeFolderImageModeBtn','folderImageModePreview','folderImageModeCount','folderImagesSeparateBtn','folderImagesGroupBtn','folderImageLightbox','folderImageLightboxClose','folderImageLightboxImg','folderImageLightboxDetails','savedHubDialog','closeSavedHubBtn','savedHubTabs','savedHubFolderPath','savedHubFolderBackBtn','savedHubFolderPathTitle','savedHubFolderPathMeta','savedHubSearch','savedHubGrid','savedHubCount','savedHubClearBtn','savedHubImportBtn','savedImageImportDialog','closeSavedImageImportBtn','savedImageGroupRow','savedImageGroup','savedImageIncludeDetails','savedImageDetailFields','confirmSavedImageImportBtn','folderPickDialog','folderPickSelect','folderPickNewName','folderPickTypeRow','folderPickSummary','confirmFolderPickBtn','selectedToFolderBtn','detailToFolder','detailToAtlas','saveCleanImage','presetDialog','presetName','presetText','savePreset','bulkMoreBtn','bulkMoreMenu','bulkEditBtn','bulkEditDialog','bulkEditClose','bulkEditCancel','bulkEditSave','bulkEditCount','bulkEditArtistsOn','bulkEditArtists','bulkEditPromptOn','bulkEditPrompt','bulkEditCharactersOn','bulkEditCharacters','bulkEditUcOn','bulkEditUc','bulkEditMemoOn','bulkEditMemo','bulkEditModelOn','bulkEditModel','modelEditDialog','modelEditClose','modelEditSelect','modelEditAuto','modelEditCancel','modelEditSave','artistClassifyDialog','artistClassifyClose','artistClassifyArtists','artistClassifyPrompt','artistClassifyCancel','artistClassifySave','scrollTopBtn','selectionPreview','selectionPreviewClose','selectionPreviewCount','selectionPreviewStage','selectionPreviewPrev','selectionPreviewImg','selectionPreviewNext','selectionPreviewTitle','selectionPreviewPick','toast'].forEach(id=>els[id]=$(`#${id}`));
   }
 
   function bind(){
@@ -2274,6 +2316,10 @@ body.folder-lightbox-open{overflow:hidden}
     els.atlasImageDeleteBtn.onclick=()=>deleteAtlasImage(state.atlasCurrentImageId);
     els.atlasImageDetailMemo.oninput=()=>{clearTimeout(atlasMemoTimer);atlasMemoTimer=setTimeout(saveAtlasImageMemo,350)};
     els.editAtlasArtistsBtn.onclick=()=>openArtistClassificationEditor('atlas');
+    els.modelEditClose.onclick=closeModelEditor;
+    els.modelEditCancel.onclick=closeModelEditor;
+    els.modelEditSave.onclick=()=>updateModelOverride(false);
+    els.modelEditAuto.onclick=()=>updateModelOverride(true);
     els.artistClassifyClose.onclick=closeArtistClassificationEditor;
     els.artistClassifyCancel.onclick=closeArtistClassificationEditor;
     els.artistClassifySave.onclick=saveArtistClassificationEditor;
@@ -2439,6 +2485,11 @@ body.folder-lightbox-open{overflow:hidden}
       syncSelectionDom();
     };
     els.bulkMoreBtn.onclick = ev => {ev.stopPropagation();els.bulkMoreMenu.classList.toggle('hidden');};
+    els.bulkEditBtn.onclick = openBulkEditor;
+    els.bulkEditClose.onclick = closeBulkEditor;
+    els.bulkEditCancel.onclick = closeBulkEditor;
+    els.bulkEditSave.onclick = applyBulkEdit;
+    [['bulkEditArtistsOn','bulkEditArtists'],['bulkEditPromptOn','bulkEditPrompt'],['bulkEditCharactersOn','bulkEditCharacters'],['bulkEditUcOn','bulkEditUc'],['bulkEditMemoOn','bulkEditMemo'],['bulkEditModelOn','bulkEditModel']].forEach(([c,f])=>els[c].onchange=()=>{els[f].disabled=!els[c].checked});
     document.addEventListener('click',ev=>{if(!els.bulkMoreMenu?.classList.contains('hidden')&&!els.bulkMoreMenu.contains(ev.target)&&ev.target!==els.bulkMoreBtn)els.bulkMoreMenu.classList.add('hidden');});
     els.scrollTopBtn.onclick=()=>window.scrollTo({top:0,behavior:'smooth'});
     window.addEventListener('scroll',updateScrollTopButton,{passive:true});
@@ -2998,7 +3049,7 @@ function openDB(){
     await saveMeta('atlasRepresentatives',state.atlasRepresentatives);state.atlasSelectedIds=[];state.atlasSelectMode=false;renderAtlas();renderAtlasArtistDialog();toast(`${ids.length}개를 삭제했습니다.`);
   }
   function openAtlasImageDetail(id){
-    const e=state.atlasEntries.find(x=>x.id===id);if(!e)return;state.atlasCurrentImageId=id;const g=atlasGroupInfo(e);state.atlasCurrentGroupKey=g.key;if(atlasDetailUrl)URL.revokeObjectURL(atlasDetailUrl);atlasDetailUrl=URL.createObjectURL(e.imageBlob);els.atlasImageDetailImg.src=atlasDetailUrl;els.atlasImageDetailTitle.textContent=g.label;els.atlasImageDetailArtists.textContent=e.artistsText||'';els.atlasImageDetailPrompt.textContent=e.prompt||'';els.atlasImageDetailCharacters.textContent=(e.characterPrompts||[]).join('\n\n');els.atlasImageDetailUc.textContent=e.uc||'';els.atlasImageDetailMemo.value=e.memo||'';els.atlasImageDetailMeta.innerHTML=detailMetaHtml(e);bindSeedCopy(els.atlasImageDetailMeta);els.atlasImageFavBtn.textContent=`${e.favorite?'★':'☆'} 이미지 즐겨찾기`;els.atlasImageRepBtn.textContent=state.atlasRepresentatives[g.key]===id?'대표 이미지 해제':'대표 이미지 지정';els.atlasImageCompareBtn.textContent=state.compareIds.includes(atlasCompareRef(id))?'− 비교':'＋ 비교';if(!els.atlasImageDetailDialog.open){pushAppHistory({atlasImage:true,atlasImageId:id});atlasImageHistoryActive=true;els.atlasImageDetailDialog.showModal();}
+    const e=state.atlasEntries.find(x=>x.id===id);if(!e)return;state.atlasCurrentImageId=id;const g=atlasGroupInfo(e);state.atlasCurrentGroupKey=g.key;if(atlasDetailUrl)URL.revokeObjectURL(atlasDetailUrl);atlasDetailUrl=URL.createObjectURL(e.imageBlob);els.atlasImageDetailImg.src=atlasDetailUrl;els.atlasImageDetailTitle.textContent=g.label;els.atlasImageDetailArtists.textContent=e.artistsText||'';els.atlasImageDetailPrompt.textContent=e.prompt||'';els.atlasImageDetailCharacters.textContent=(e.characterPrompts||[]).join('\n\n');els.atlasImageDetailUc.textContent=e.uc||'';els.atlasImageDetailMemo.value=e.memo||'';els.atlasImageDetailMeta.innerHTML=detailMetaHtml(e);bindSeedCopy(els.atlasImageDetailMeta);bindModelEdit(els.atlasImageDetailMeta,'atlas');els.atlasImageFavBtn.textContent=`${e.favorite?'★':'☆'} 이미지 즐겨찾기`;els.atlasImageRepBtn.textContent=state.atlasRepresentatives[g.key]===id?'대표 이미지 해제':'대표 이미지 지정';els.atlasImageCompareBtn.textContent=state.compareIds.includes(atlasCompareRef(id))?'− 비교':'＋ 비교';if(!els.atlasImageDetailDialog.open){pushAppHistory({atlasImage:true,atlasImageId:id});atlasImageHistoryActive=true;els.atlasImageDetailDialog.showModal();}
   }
   async function saveAtlasArtistMemo(){
     const key=state.atlasCurrentGroupKey;if(!key)return;
@@ -3306,17 +3357,28 @@ async function confirmAtlasGalleryPicker(){let added=0,skipped=0;const known=new
     const version=/NovelAI\s+Diffusion\s+V4\.5\b/i.test(raw)?'V4.5':/NovelAI\s+Diffusion\s+V5\b/i.test(raw)?'V5':'';
     return {modelSource:raw,modelHash:hash,modelVersion:version||'UNKNOWN',modelVariant:'UNKNOWN',modelKey:'unknown',modelLabel:version?`${version} UNKNOWN`:'UNKNOWN'};
   }
+  const MANUAL_MODEL_INFO={
+    'v4.5-full':{version:'V4.5',variant:'FULL',label:'V4.5 FULL'},
+    'v4.5-curated':{version:'V4.5',variant:'CURATED',label:'V4.5 CURATED'},
+    'v5-full':{version:'V5',variant:'FULL',label:'V5 FULL'},
+    'v5-curated':{version:'V5',variant:'CURATED',label:'V5 CURATED'},
+    'unknown':{version:'UNKNOWN',variant:'UNKNOWN',label:'UNKNOWN'}
+  };
+  function manualModelInfo(e){const k=e?.modelManualKey;const m=MANUAL_MODEL_INFO[k];return m?{modelKey:k,modelVersion:m.version,modelVariant:m.variant,modelLabel:m.label}:null}
   function ensureModelInfo(e){
     if(!e)return false;
-    const info=novelAIModelInfo(e.modelSource||e.model||e.rawMetadata?.Source||e.rawMetadata?.source||'');
+    const auto=novelAIModelInfo(e.modelSource||e.model||e.rawMetadata?.Source||e.rawMetadata?.source||'');
+    const info=manualModelInfo(e)||auto;
     let changed=false;
-    for(const [k,v] of Object.entries(info)){if(e[k]!==v){e[k]=v;changed=true}}
-    if(!e.model&&info.modelSource){e.model=info.modelSource;changed=true}
+    if(!e.modelSource&&auto.modelSource){e.modelSource=auto.modelSource;changed=true}
+    if(!e.modelHash&&auto.modelHash){e.modelHash=auto.modelHash;changed=true}
+    for(const k of ['modelVersion','modelVariant','modelKey','modelLabel']){const v=info[k];if(e[k]!==v){e[k]=v;changed=true}}
+    if(!e.model&&auto.modelSource){e.model=auto.modelSource;changed=true}
     return changed;
   }
-  function modelLabel(e){return e?.modelLabel||novelAIModelInfo(e?.modelSource||e?.model||e?.rawMetadata?.Source||'').modelLabel}
+  function modelLabel(e){const m=manualModelInfo(e);return m?.modelLabel||e?.modelLabel||novelAIModelInfo(e?.modelSource||e?.model||e?.rawMetadata?.Source||'').modelLabel}
   function modelShortLabel(e){const k=modelKey(e);return k==='v4.5-full'?'4.5 F':k==='v4.5-curated'?'4.5 C':k==='v5-full'?'5 F':k==='v5-curated'?'5 C':'UNKNOWN'}
-  function modelKey(e){return e?.modelKey||novelAIModelInfo(e?.modelSource||e?.model||e?.rawMetadata?.Source||'').modelKey}
+  function modelKey(e){const m=manualModelInfo(e);return m?.modelKey||e?.modelKey||novelAIModelInfo(e?.modelSource||e?.model||e?.rawMetadata?.Source||'').modelKey}
   function modelMatches(e,key){return key==='all'||(key==='unknown'?modelKey(e)==='unknown':modelKey(e)===key)}
   function modelBadgeHtml(e,cls='model-badge'){const label=modelLabel(e);return label?`<span class="${cls}">${esc(label)}</span>`:''}
   async function backfillModelInfoStore(store,entries){
@@ -4026,7 +4088,7 @@ async function confirmAtlasGalleryPicker(){let added=0,skipped=0;const known=new
   function detailMetaHtml(e){
     const parts=[];
     const source=e.modelSource||e.model||'';
-    if(source||e.modelLabel)parts.push(`<span class="meta-pill"${source?` title="${escAttr(source)}"`:''}>MODEL ${esc(modelLabel(e))}</span>`);
+    if(source||e.modelLabel)parts.push(`<button type="button" class="meta-pill model-edit-pill" data-model-edit="1"${source?` title="${escAttr(source)} · 눌러서 모델 수정"`:' title="눌러서 모델 수정"'}>MODEL ${esc(modelLabel(e))}${e.modelManualKey?' ✎':''}</button>`);
     if(e.seed!=null)parts.push(`<button type="button" class="meta-pill copy-seed" data-copy-seed="${escAttr(String(e.seed))}" title="눌러서 Seed 복사">Seed ${esc(String(e.seed))}</button>`);
     if(e.steps!=null)parts.push(`<span class="meta-pill">${esc(String(e.steps))} steps</span>`);
     if(e.width&&e.height)parts.push(`<span class="meta-pill">${esc(String(e.width))}×${esc(String(e.height))}</span>`);
@@ -4037,6 +4099,29 @@ async function confirmAtlasGalleryPicker(){let added=0,skipped=0;const known=new
       ev.stopPropagation();
       toast(await copyTextSafe(btn.dataset.copySeed||'')?'Seed를 복사했습니다.':'복사하지 못했습니다.');
     });
+  }
+
+  let modelEditTarget=null;
+  function bindModelEdit(root,kind){root?.querySelectorAll('[data-model-edit]').forEach(btn=>btn.onclick=ev=>{ev.stopPropagation();openModelEditor(kind)})}
+  function openModelEditor(kind){
+    const e=kind==='atlas'?state.atlasEntries.find(x=>x.id===state.atlasCurrentImageId):state.entries.find(x=>x.id===state.currentId);if(!e)return;
+    modelEditTarget={kind,id:e.id};els.modelEditSelect.value=modelKey(e)||'unknown';
+    if(!els.modelEditDialog.open)els.modelEditDialog.showModal();
+  }
+  function closeModelEditor(){modelEditTarget=null;if(els.modelEditDialog?.open)els.modelEditDialog.close()}
+  function setManualModelFields(e,key){
+    const m=MANUAL_MODEL_INFO[key]||MANUAL_MODEL_INFO.unknown;e.modelManualKey=key;e.modelKey=key;e.modelVersion=m.version;e.modelVariant=m.variant;e.modelLabel=m.label;e.updatedAt=Date.now();
+  }
+  function clearManualModelFields(e){delete e.modelManualKey;const auto=novelAIModelInfo(e.modelSource||e.model||e.rawMetadata?.Source||e.rawMetadata?.source||'');e.modelKey=auto.modelKey;e.modelVersion=auto.modelVersion;e.modelVariant=auto.modelVariant;e.modelLabel=auto.modelLabel;e.updatedAt=Date.now()}
+  async function updateModelOverride(clear=false){
+    const target=modelEditTarget;if(!target)return;const primary=(target.kind==='atlas'?state.atlasEntries:state.entries).find(x=>x.id===target.id);if(!primary)return;
+    const peers=[];for(const [store,list] of [[STORE_ENTRIES,state.entries],[STORE_ATLAS,state.atlasEntries]])for(const e of list){if(e.id===primary.id&&store!==(target.kind==='atlas'?STORE_ATLAS:STORE_ENTRIES))continue;if(e===primary||(primary.hash&&e.hash===primary.hash))peers.push([store,e])}
+    if(!peers.some(([,e])=>e===primary))peers.push([target.kind==='atlas'?STORE_ATLAS:STORE_ENTRIES,primary]);
+    const seen=new Set();for(const [store,e] of peers){const sig=store+':'+e.id;if(seen.has(sig))continue;seen.add(sig);if(clear)clearManualModelFields(e);else setManualModelFields(e,els.modelEditSelect.value);await txPut(store,e)}
+    atlasGroupsMemo={stamp:null,groups:[]};closeModelEditor();
+    if(els.detailDialog?.open&&state.currentId){const e=state.entries.find(x=>x.id===state.currentId);if(e){els.detailMeta.innerHTML=detailMetaHtml(e);bindSeedCopy(els.detailMeta);bindModelEdit(els.detailMeta,'gallery');bindModelEdit(els.detailMeta,'gallery')}}
+    if(els.atlasImageDetailDialog?.open&&state.atlasCurrentImageId){const e=state.atlasEntries.find(x=>x.id===state.atlasCurrentImageId);if(e){els.atlasImageDetailMeta.innerHTML=detailMetaHtml(e);bindSeedCopy(els.atlasImageDetailMeta);bindModelEdit(els.atlasImageDetailMeta,'atlas')}}
+    render();toast(clear?'자동 모델 판별로 되돌렸습니다.':'모델을 직접 지정했습니다.');
   }
 
   async function openDetail(id){
@@ -4143,6 +4228,42 @@ async function confirmAtlasGalleryPicker(){let added=0,skipped=0;const known=new
     if(next&&!has)state.selectedIds.push(id); else if(!next&&has)state.selectedIds=state.selectedIds.filter(x=>x!==id);
     syncSelectionDom(id);
   }
+  function openBulkEditor(){
+    const entries=state.selectedIds.map(id=>state.entries.find(e=>e.id===id)).filter(Boolean);if(!entries.length){toast('수정할 이미지를 먼저 선택해주세요.');return}
+    els.bulkMoreMenu?.classList.add('hidden');els.bulkEditCount.textContent=`${entries.length}개 선택`;
+    for(const [c,f] of [['bulkEditArtistsOn','bulkEditArtists'],['bulkEditPromptOn','bulkEditPrompt'],['bulkEditCharactersOn','bulkEditCharacters'],['bulkEditUcOn','bulkEditUc'],['bulkEditMemoOn','bulkEditMemo'],['bulkEditModelOn','bulkEditModel']]){els[c].checked=false;els[f].disabled=true}
+    els.bulkEditArtists.value='';els.bulkEditPrompt.value='';els.bulkEditCharacters.value='';els.bulkEditUc.value='';els.bulkEditMemo.value='';els.bulkEditModel.value='auto';
+    if(!els.bulkEditDialog.open)els.bulkEditDialog.showModal();
+  }
+  function closeBulkEditor(){if(els.bulkEditDialog?.open)els.bulkEditDialog.close()}
+  function parseBulkCharacterPrompts(text){
+    const raw=String(text||'');if(!raw.trim())return [];
+    return raw.split(/\n\s*---\s*\n/g).map(x=>x.trim()).filter(Boolean);
+  }
+  function txPutMany(store,items){return new Promise((res,rej)=>{if(!items.length){res();return}const tx=db.transaction(store,'readwrite'),os=tx.objectStore(store);for(const item of items)os.put(item);tx.oncomplete=()=>res();tx.onerror=()=>rej(tx.error);tx.onabort=()=>rej(tx.error||new Error('transaction aborted'))})}
+  async function applyBulkEdit(){
+    const entries=state.selectedIds.map(id=>state.entries.find(e=>e.id===id)).filter(Boolean);if(!entries.length)return;
+    const enabled={artists:els.bulkEditArtistsOn.checked,prompt:els.bulkEditPromptOn.checked,characters:els.bulkEditCharactersOn.checked,uc:els.bulkEditUcOn.checked,memo:els.bulkEditMemoOn.checked,model:els.bulkEditModelOn.checked};
+    if(!Object.values(enabled).some(Boolean)){toast('수정할 정보를 하나 이상 체크해주세요.');return}
+    const vals={artistsText:els.bulkEditArtists.value,prompt:els.bulkEditPrompt.value,characterPrompts:parseBulkCharacterPrompts(els.bulkEditCharacters.value),uc:els.bulkEditUc.value,memo:els.bulkEditMemo.value,model:els.bulkEditModel.value};
+    const fields=[];if(enabled.artists)fields.push('artistsText');if(enabled.prompt)fields.push('prompt');if(enabled.characters)fields.push('characterPrompts');if(enabled.uc)fields.push('uc');if(enabled.memo)fields.push('memo');
+    const now=Date.now();
+    for(const e of entries){
+      const next={};if(enabled.artists)next.artistsText=vals.artistsText;if(enabled.prompt)next.prompt=vals.prompt;if(enabled.characters)next.characterPrompts=vals.characterPrompts;if(enabled.uc)next.uc=vals.uc;if(enabled.memo)next.memo=vals.memo;
+      stampChangedFields(e,next,fields,now);Object.assign(e,next);if(enabled.artists)e.artists=splitArtistTags(e.artistsText).artists;if(enabled.model){if(vals.model==='auto')clearManualModelFields(e);else setManualModelFields(e,vals.model)}e.updatedAt=now;
+    }
+    try{
+      await txPutMany(STORE_ENTRIES,entries);
+      if(enabled.model){
+        const hashes=new Set(entries.map(e=>e.hash).filter(Boolean)),atlasPeers=state.atlasEntries.filter(e=>e.hash&&hashes.has(e.hash));
+        for(const e of atlasPeers){if(vals.model==='auto')clearManualModelFields(e);else setManualModelFields(e,vals.model);e.updatedAt=now}
+        if(atlasPeers.length)await txPutMany(STORE_ATLAS,atlasPeers);
+        atlasGroupsMemo={stamp:null,groups:[]};
+      }
+      closeBulkEditor();resetGalleryPaging();renderLibrary();toast(`${entries.length}개 항목을 일괄 수정했습니다.`);
+    }catch(err){console.error(err);toast('일괄 수정 저장에 실패했습니다.');}
+  }
+
   async function addSelectedToCompare(){
     const ids=state.selectedIds.filter(id=>state.entries.some(e=>e.id===id));
     if(!ids.length)return;
