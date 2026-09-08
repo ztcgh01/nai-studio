@@ -1377,6 +1377,40 @@ body.folder-lightbox-open{overflow:hidden}
 .atlas-image-thumb .selection-expand-btn{right:6px;top:34px}.image-folder-thumb .selection-expand-btn{right:6px;top:6px}
 @media(max-width:700px){.selection-preview-stage{padding-left:44px;padding-right:44px}.selection-preview-head{padding-left:10px;padding-right:10px}.selection-preview-pick{min-height:42px}.selection-preview-title{font-size:10px}}
 </style>
+
+<style>
+/* v1.9.29: Bulk Edit mobile scroll fix. Keep the Gallery locked; only the editor body scrolls. */
+#bulkEditDialog .bulk-edit-shell{
+  width:min(760px,96vw);
+  height:min(94dvh,900px);
+  max-height:94dvh;
+  display:flex;
+  flex-direction:column;
+  overflow:hidden !important;
+  overscroll-behavior:contain;
+}
+#bulkEditDialog .modal-head{flex:0 0 auto}
+#bulkEditDialog .bulk-edit-body{
+  flex:1 1 auto;
+  min-height:0;
+  overflow-y:auto;
+  overflow-x:hidden;
+  overscroll-behavior:contain;
+  -webkit-overflow-scrolling:touch;
+  touch-action:pan-y;
+}
+#bulkEditDialog .bulk-edit-foot{
+  position:static;
+  flex:0 0 auto;
+  z-index:2;
+  padding-bottom:max(10px,env(safe-area-inset-bottom));
+}
+@media(max-width:560px){
+  #bulkEditDialog{margin:auto;max-width:none;max-height:none}
+  #bulkEditDialog .bulk-edit-shell{width:96vw;height:94dvh;max-height:94dvh}
+}
+</style>
+
 </head>
 <body>
   <button id="menuBtn" class="menu-btn" aria-label="메뉴"><span></span></button>
@@ -1491,7 +1525,7 @@ body.folder-lightbox-open{overflow:hidden}
       <div class="bulk-edit-field"><label><input id="bulkEditCharactersOn" type="checkbox"> Character Prompt</label><textarea id="bulkEditCharacters" disabled placeholder="여러 Character Prompt는 줄 하나에 --- 를 넣어 구분"></textarea></div>
       <div class="bulk-edit-field"><label><input id="bulkEditUcOn" type="checkbox"> UC</label><textarea id="bulkEditUc" disabled placeholder="UC 입력"></textarea></div>
       <div class="bulk-edit-field"><label><input id="bulkEditMemoOn" type="checkbox"> 메모</label><textarea id="bulkEditMemo" disabled placeholder="메모 입력"></textarea></div>
-      <div class="bulk-edit-field"><label><input id="bulkEditModelOn" type="checkbox"> 모델</label><select id="bulkEditModel" disabled><option value="auto">자동 판별</option><option value="v4.5-full">V4.5 FULL</option><option value="v4.5-curated">V4.5 CURATED</option><option value="v5-full">V5 FULL</option><option value="v5-curated">V5 CURATED</option><option value="unknown">UNKNOWN</option></select></div>
+      <div class="bulk-edit-field"><label><input id="bulkEditModelOn" type="checkbox"> NAI 버전 / 모델</label><select id="bulkEditModel" disabled><option value="auto">자동 판별</option><option value="v4.5-full">V4.5 FULL</option><option value="v4.5-curated">V4.5 CURATED</option><option value="v5-full">V5 FULL</option><option value="v5-curated">V5 CURATED</option><option value="unknown">UNKNOWN</option></select></div>
     </div>
     <div class="bulk-edit-foot"><span id="bulkEditCount" class="bulk-edit-count">0개 선택</span><button id="bulkEditCancel" class="btn small" type="button">취소</button><button id="bulkEditSave" class="btn primary small" type="button">일괄 적용</button></div>
   </div>
