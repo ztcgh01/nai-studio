@@ -1269,7 +1269,7 @@ body.folder-lightbox-open{overflow:hidden}
  .clipboard-folder-tools{padding:9px 11px}
 }
 
-/* v1.9.24: Style Atlas PDF layout polish — artist tags are compacted into comma-separated paragraphs and image boxes stay uniform within the chosen column mode. Long tag blocks still fall back to roomier layouts without clipping. */
+/* v1.9.25: Style Atlas PDF layout polish — artist tags are compacted into comma-separated paragraphs and image boxes stay uniform within the chosen column mode. Long tag blocks still fall back to roomier layouts without clipping. */
 /* v1.9.22: keep model info off artwork; compact labels live beside card titles. */
 .card-title-row,.atlas-image-title-row{display:flex;align-items:center;gap:7px;min-width:0}
 .card-title-row .card-title,.atlas-image-title-row .atlas-image-title{flex:1;min-width:0}
@@ -2063,6 +2063,8 @@ body.folder-lightbox-open{overflow:hidden}
     imageFolderSelectMode: false,
     imageFolderSelected: [],
     imageFolderRenderLimit: 45,
+    galleryRenderLimit: 60,
+    atlasArtistRenderLimit: 60,
     clipboardSelectMode: false,
     clipboardSelected: [],
     pendingFolderItems: [],
@@ -2104,6 +2106,27 @@ body.folder-lightbox-open{overflow:hidden}
   let atlasMemoTimer=null;
   let atlasArtistMemoTimer=null;
   let folderObjectUrls=[];
+
+  // v1.9.25 performance pass: large local libraries should not rebuild every hidden view
+  // or regenerate hundreds of blob URLs after each click.
+  const thumbUrlCache=new Map();
+  const gallerySearchCache=new WeakMap();
+  const atlasSearchCache=new WeakMap();
+  let displayTitleIndex=new Map(),displayTitleStamp='';
+  let atlasGroupsMemo={stamp:null,groups:[]};
+  function cachedThumbUrl(scope,e){
+    if(!e?.imageBlob)return '';const key=`${scope}:${e.id}`,old=thumbUrlCache.get(key);
+    if(old&&old.blob===e.imageBlob){old.last=Date.now();return old.url}
+    if(old){try{URL.revokeObjectURL(old.url)}catch{}thumbUrlCache.delete(key)}
+    const url=URL.createObjectURL(e.imageBlob);thumbUrlCache.set(key,{url,blob:e.imageBlob,last:Date.now()});return url;
+  }
+  function pruneThumbCache(scope,keepIds=[],limit=180){
+    const keep=new Set(keepIds.map(id=>`${scope}:${id}`));
+    const rows=[...thumbUrlCache.entries()].filter(([k])=>k.startsWith(scope+':')).sort((a,b)=>(a[1].last||0)-(b[1].last||0));let n=rows.length;
+    for(const [k,v] of rows){if(n<=limit)break;if(keep.has(k))continue;try{URL.revokeObjectURL(v.url)}catch{}thumbUrlCache.delete(k);n--}
+  }
+  function releaseThumbCache(){for(const v of thumbUrlCache.values())try{URL.revokeObjectURL(v.url)}catch{}thumbUrlCache.clear()}
+  function rebuildDisplayTitleIndex(){let tick=0;for(const e of state.entries)tick=(tick+(Number(e.createdAt||0)%1000000007))%1000000007;const stamp=`${state.entries.length}:${tick}`;if(stamp===displayTitleStamp)return;const ordered=[...state.entries].sort((a,b)=>(a.createdAt||0)-(b.createdAt||0)||String(a.id).localeCompare(String(b.id)));displayTitleIndex=new Map(ordered.map((e,i)=>[e.id,i+1]));displayTitleStamp=stamp}
 
   function pushAppHistory(extra={}){
     const s={naiApp:true,view:state.view||'home',...extra};history.pushState(s,'');appHistoryState=s;return s;
@@ -2277,15 +2300,15 @@ body.folder-lightbox-open{overflow:hidden}
     els.pdfBtn.onclick = openExportDialog;
     els.menuBtn.onclick = () => { const open=els.sidebar.classList.toggle('open'); els.menuBtn.classList.toggle('open',open); };
     $$('.nav-item').forEach(b => b.onclick = () => navigateView(b.dataset.view));
-    els.searchInput.oninput = e => { state.search = e.target.value.trim().toLowerCase(); renderLibrary(); };
-    els.clearSearch.onclick = () => { els.searchInput.value=''; state.search=''; renderLibrary(); };
-    els.sortSelect.onchange = e => { state.sort=e.target.value; saveViewPrefs(); renderLibrary(); };
-    els.galleryModelFilter.onchange=e=>{state.modelFilter=e.target.value;saveViewPrefs();renderLibrary();};
-    els.logicToggle.onclick = e => { if(!e.target.dataset.logic) return; state.logic=e.target.dataset.logic; [...els.logicToggle.children].forEach(x=>x.classList.toggle('active',x.dataset.logic===state.logic)); renderLibrary(); };
-    els.clearArtistFilters.onclick = () => {state.artistFilters=[]; render();};
-    els.favOnly.onchange = e => {state.favOnly=e.target.checked; renderLibrary();};
-    els.memoOnly.onchange = e => {state.memoOnly=e.target.checked; renderLibrary();};
-    els.displayTabs.onclick = e => { if(!e.target.dataset.tab) return; state.tab=e.target.dataset.tab; saveViewPrefs(); $$('.tab').forEach(x=>x.classList.toggle('active',x.dataset.tab===state.tab)); renderLibrary(); };
+    els.searchInput.oninput = e => { state.search = e.target.value.trim().toLowerCase();resetGalleryPaging();renderLibrary(); };
+    els.clearSearch.onclick = () => { els.searchInput.value='';state.search='';resetGalleryPaging();renderLibrary(); };
+    els.sortSelect.onchange = e => { state.sort=e.target.value;saveViewPrefs();resetGalleryPaging();renderLibrary(); };
+    els.galleryModelFilter.onchange=e=>{state.modelFilter=e.target.value;saveViewPrefs();resetGalleryPaging();renderLibrary();};
+    els.logicToggle.onclick = e => { if(!e.target.dataset.logic) return;state.logic=e.target.dataset.logic;[...els.logicToggle.children].forEach(x=>x.classList.toggle('active',x.dataset.logic===state.logic));resetGalleryPaging();renderLibrary(); };
+    els.clearArtistFilters.onclick = () => {state.artistFilters=[];resetGalleryPaging();render();};
+    els.favOnly.onchange = e => {state.favOnly=e.target.checked;resetGalleryPaging();renderLibrary();};
+    els.memoOnly.onchange = e => {state.memoOnly=e.target.checked;resetGalleryPaging();renderLibrary();};
+    els.displayTabs.onclick = e => { if(!e.target.dataset.tab) return;state.tab=e.target.dataset.tab;saveViewPrefs();resetGalleryPaging();$$('.tab').forEach(x=>x.classList.toggle('active',x.dataset.tab===state.tab));renderLibrary(); };
     els.galleryColumnCount.onclick=e=>{
       const b=e.target.closest('[data-gallery-cols]'); if(!b)return;
       state.galleryColumns=Math.max(1,Math.min(4,Number(b.dataset.galleryCols)||2));
@@ -2461,7 +2484,7 @@ body.folder-lightbox-open{overflow:hidden}
     $$('.copy-btn').forEach(b => b.onclick = () => copyCurrent(b.dataset.copy));
     els.copyStylePrompt.onclick = () => copyCurrent('stylePrompt');
     els.copyAll.onclick = () => copyCurrent('all');
-    window.addEventListener('beforeunload',()=>{releaseUrlList(atlasGridUrls);releaseUrlList(atlasArtistUrls);releaseUrlList(atlasPickerUrls);if(atlasDetailUrl)URL.revokeObjectURL(atlasDetailUrl);revokeObjectUrls();});
+    window.addEventListener('beforeunload',()=>{releaseUrlList(atlasGridUrls);releaseUrlList(atlasArtistUrls);releaseUrlList(atlasPickerUrls);releaseThumbCache();if(atlasDetailUrl)URL.revokeObjectURL(atlasDetailUrl);revokeObjectUrls();});
   }
 
   
@@ -2659,7 +2682,11 @@ function openDB(){
 
   function render(){
     els.compareCount.textContent=state.compareIds.length;
-    renderArtistFilters(); renderLibrary(); renderFolders(); renderBookmarks(); renderCompare(); if(state.view==='atlas')renderAtlas();
+    if(state.view==='library'){renderArtistFilters();renderLibrary();return}
+    if(state.view==='folders'){renderFolders();return}
+    if(state.view==='bookmarks'){renderBookmarks();return}
+    if(state.view==='compare'){renderCompare();return}
+    if(state.view==='atlas'){renderAtlas();return}
   }
 
   function setView(view){
@@ -2678,6 +2705,7 @@ function openDB(){
     root?.querySelectorAll('button').forEach(b=>b.classList.toggle('active',String(b.dataset[dataKey])===String(value)));
   }
   function resetAtlasPaging(){state.atlasRenderLimit=state.atlasPageSize==='infinite'?50:Number(state.atlasPageSize)||50;}
+  function resetGalleryPaging(){state.galleryRenderLimit=60;}
   function releaseUrlList(list){for(const u of list.splice(0))try{URL.revokeObjectURL(u)}catch{}}
   function normalizeArtistName(name){return String(name||'').trim().toLowerCase().replace(/\s+/g,' ')}
   function atlasGroupInfo(entry){
@@ -2691,20 +2719,17 @@ function openDB(){
     return {key:'multi:'+artists.map(a=>a.norm).join('|'),label:artists.map(a=>a.name).join(' + '),type:'multiple',names:artists.map(a=>a.name)};
   }
   function atlasGroups(){
+    let tick=0;for(const e of state.atlasEntries)tick=(tick+(Number(e.updatedAt||e.createdAt||0)%1000000007))%1000000007;
+    const stamp=`${state.atlasEntries.length}:${tick}`;if(atlasGroupsMemo.stamp===stamp)return atlasGroupsMemo.groups;
     const map=new Map();
-    for(const e of state.atlasEntries){
-      const info=atlasGroupInfo(e);let g=map.get(info.key);
-      if(!g){g={...info,entries:[],latest:0};map.set(info.key,g)}
-      g.entries.push(e);g.latest=Math.max(g.latest,e.lastImportAt||e.createdAt||0);
-    }
+    for(const e of state.atlasEntries){const info=atlasGroupInfo(e);let g=map.get(info.key);if(!g){g={...info,entries:[],latest:0};map.set(info.key,g)}g.entries.push(e);g.latest=Math.max(g.latest,e.lastImportAt||e.createdAt||0)}
     for(const g of map.values())g.entries.sort((a,b)=>(b.lastImportAt||b.createdAt||0)-(a.lastImportAt||a.createdAt||0));
-    return [...map.values()];
+    const groups=[...map.values()];atlasGroupsMemo={stamp,groups};return groups;
   }
   function atlasEntrySearchText(e){
-    return [
-      e.title||'', e.artistsText||'', e.prompt||'', (e.characterPrompts||[]).join(' '),
-      e.uc||'', e.memo||'', e.model||'', modelLabel(e), e.seed!=null?String(e.seed):'', e.fileName||''
-    ].join(' ').toLowerCase();
+    const stamp=`${e.updatedAt||e.createdAt||0}:${e.modelLabel||''}`,cached=atlasSearchCache.get(e);if(cached?.stamp===stamp)return cached.text;
+    const text=[e.title||'',e.artistsText||'',e.prompt||'',(e.characterPrompts||[]).join(' '),e.uc||'',e.memo||'',e.model||'',modelLabel(e),e.seed!=null?String(e.seed):'',e.fileName||''].join(' ').toLowerCase();
+    atlasSearchCache.set(e,{stamp,text});return text;
   }
   function atlasSearchTokens(){return String(state.atlasSearch||'').toLowerCase().split(/\s+/).map(x=>x.trim()).filter(Boolean)}
   function atlasEntryMatchesSearch(e,tokens=atlasSearchTokens()){
@@ -2773,7 +2798,6 @@ function openDB(){
   }
   function renderAtlas(){
     if(!els.atlasGrid)return;
-    releaseUrlList(atlasGridUrls);
     const all=filteredAtlasGroups();
     const limit=state.atlasPageSize==='infinite'?state.atlasRenderLimit:Number(state.atlasPageSize)||50;
     const arr=all.slice(0,limit);
@@ -2785,7 +2809,7 @@ function openDB(){
     if(!arr.length){els.atlasGrid.innerHTML=`<div class="atlas-empty" style="grid-column:1/-1"><strong>${state.atlasEntries.length?'No artists found':'Build your Artist Atlas'}</strong><span>${state.atlasEntries.length?'검색/필터 조건을 바꿔보세요.':'이미지를 추가하면 작가태그를 읽어 자동으로 분류합니다.'}</span></div>`;updateAtlasGroupSelectionUi();return;}
     for(const g of arr){
       const reps=atlasRepresentativeEntries(g), card=document.createElement('button');card.type='button';card.className=`atlas-card ${state.atlasViewMode==='gallery'?'gallery-card':''} ${g.entries.length>1?'is-stack':''} ${state.atlasGroupSelectedKeys.includes(g.key)?'atlas-group-selected':''}`;card.dataset.groupKey=g.key;
-      const imgs=reps.map(e=>{const u=URL.createObjectURL(e.imageBlob);atlasGridUrls.push(u);return `<img src="${u}" alt="">`}).join('');
+      const imgs=reps.map(e=>`<img src="${cachedThumbUrl('atlas',e)}" alt="" loading="lazy" decoding="async">`).join('');
       const fav=state.atlasArtistFavorites.includes(g.key);const latest=g.entries[0];
       const multi=g.type==='multiple'?`<div class="atlas-multi-tags">${esc(atlasWeightsSummary(latest,3))}</div>`:'';
       const artistMemo=(state.atlasArtistMemos[g.key]||'').trim();
@@ -2795,6 +2819,7 @@ function openDB(){
       card.querySelector('.atlas-group-check').onchange=ev=>{ev.stopPropagation();state.atlasGroupSelectMode=true;setAtlasGroupSelected(g.key,ev.target.checked)};const copyEl=card.querySelector('[data-atlas-copy-tag]');if(copyEl){const run=ev=>{ev.stopPropagation();copyAtlasGroupTag(g)};copyEl.onclick=run;copyEl.onkeydown=ev=>{if(ev.key==='Enter'||ev.key===' '){ev.preventDefault();run(ev)}}}card.onclick=e=>{if(e.target.closest('[data-atlas-card-fav]')){e.stopPropagation();toggleAtlasArtistFavorite(g.key);return}if(e.target.closest('[data-atlas-copy-tag]'))return;if(state.atlasGroupSelectMode){setAtlasGroupSelected(g.key,!state.atlasGroupSelectedKeys.includes(g.key));return}openAtlasArtist(g.key)};
       els.atlasGrid.appendChild(card);
     }
+    pruneThumbCache('atlas',arr.flatMap(g=>atlasRepresentativeEntries(g).map(e=>e.id)),160);
     updateAtlasGroupSelectionUi();bindAtlasGroupSweep();
   }
   async function copyTextSafe(text){
@@ -2852,7 +2877,7 @@ function openDB(){
     if(!key)return;const before=[...state.atlasArtistFavorites],has=before.includes(key);state.atlasArtistFavorites=has?before.filter(x=>x!==key):[...before,key];syncAtlasArtistFavoriteDom(key);
     try{await saveMeta('atlasArtistFavorites',state.atlasArtistFavorites)}catch(err){console.error(err);state.atlasArtistFavorites=before;syncAtlasArtistFavoriteDom(key);toast('즐겨찾기 저장에 실패했습니다.');}
   }
-  function openAtlasArtist(key){state.atlasCurrentGroupKey=key;state.atlasArtistSearch='';state.atlasSelectedIds=[];state.atlasSelectMode=false;if(els.atlasArtistSearch)els.atlasArtistSearch.value='';renderAtlasArtistDialog();if(!els.atlasArtistDialog.open){pushAppHistory({atlasArtist:true,atlasGroupKey:key});atlasArtistHistoryActive=true;els.atlasArtistDialog.showModal();}}
+  function openAtlasArtist(key){state.atlasCurrentGroupKey=key;state.atlasArtistSearch='';state.atlasArtistRenderLimit=60;state.atlasSelectedIds=[];state.atlasSelectMode=false;if(els.atlasArtistSearch)els.atlasArtistSearch.value='';renderAtlasArtistDialog();if(!els.atlasArtistDialog.open){pushAppHistory({atlasArtist:true,atlasGroupKey:key});atlasArtistHistoryActive=true;els.atlasArtistDialog.showModal();}}
   function atlasArtistLocalTokens(){return String(state.atlasArtistSearch||'').toLowerCase().split(/\s+/).map(x=>x.trim()).filter(Boolean)}
   function atlasArtistEntryMatches(e){
     const tokens=atlasArtistLocalTokens(); if(!tokens.length)return true;
@@ -2878,15 +2903,15 @@ function openDB(){
   }
   function renderAtlasArtistDialog(){
     const g=atlasGroups().find(x=>x.key===state.atlasCurrentGroupKey);if(!g){els.atlasArtistDialog.close();return}
-    releaseUrlList(atlasArtistUrls);els.atlasArtistType.textContent=g.type==='multiple'?'MULTIPLE ARTISTS':g.type==='unsorted'?'UNSORTED':'ARTIST';els.atlasArtistTitle.textContent=g.label;els.atlasArtistFavorite.textContent=state.atlasArtistFavorites.includes(g.key)?'★':'☆';els.atlasArtistMemo.value=state.atlasArtistMemos[g.key]||'';els.atlasArtistGrid.innerHTML='';
+    els.atlasArtistType.textContent=g.type==='multiple'?'MULTIPLE ARTISTS':g.type==='unsorted'?'UNSORTED':'ARTIST';els.atlasArtistTitle.textContent=g.label;els.atlasArtistFavorite.textContent=state.atlasArtistFavorites.includes(g.key)?'★':'☆';els.atlasArtistMemo.value=state.atlasArtistMemos[g.key]||'';els.atlasArtistGrid.innerHTML='';
     const globalTokens=atlasSearchTokens(), localTokens=atlasArtistLocalTokens();
     let visible=g.entries.filter(e=>atlasArtistEntryMatches(e));
     if(globalTokens.length)visible=[...visible].sort((a,b)=>Number(atlasEntryMatchesSearch(b,globalTokens))-Number(atlasEntryMatchesSearch(a,globalTokens)));
     const globalMatches=globalTokens.length?g.entries.filter(e=>atlasEntryMatchesSearch(e,globalTokens)).length:0;
     els.atlasArtistStats.textContent=localTokens.length?`${visible.length} / ${g.entries.length} images`:globalTokens.length&&globalMatches?`${g.entries.length} images · 전체 검색 일치 ${globalMatches}`:`${g.entries.length} images`;
-    const repId=state.atlasRepresentatives[g.key]||null;
-    for(const e of visible){
-      const hit=globalTokens.length&&atlasEntryMatchesSearch(e,globalTokens), u=URL.createObjectURL(e.imageBlob);atlasArtistUrls.push(u);
+    const repId=state.atlasRepresentatives[g.key]||null,artistVisible=visible.slice(0,state.atlasArtistRenderLimit||60);
+    for(const e of artistVisible){
+      const hit=globalTokens.length&&atlasEntryMatchesSearch(e,globalTokens),u=cachedThumbUrl('atlasArtist',e);
       const card=document.createElement('article');card.dataset.id=e.id;card.className=`atlas-image-card ${hit?'atlas-search-hit':''} ${state.atlasSelectedIds.includes(e.id)?'atlas-selected':''}`;
       card.innerHTML=`<input class="atlas-image-check" type="checkbox" ${state.atlasSelectedIds.includes(e.id)?'checked':''}><div class="atlas-image-thumb"><img src="${u}" alt=""><button type="button" class="selection-expand-btn" aria-label="크게 보기">⛶</button>${repId===e.id?'<span class="atlas-rep-mark">REP</span>':''}</div><div class="atlas-image-title-row"><div class="atlas-image-title">${esc(displayTitle(e))}</div><span class="atlas-image-model-label">${esc(modelShortLabel(e))}</span></div><div class="atlas-image-actions"><button data-act="fav">${e.favorite?'★':'☆'} Image</button><button data-act="rep" class="${repId===e.id?'primary':''}">${repId===e.id?'대표 해제':'대표 지정'}</button><button data-act="memo">메모</button><button data-act="gallery">→ Gallery</button></div><textarea class="atlas-quick-memo" placeholder="빠른 메모 · 자동 저장">${esc(e.memo||'')}</textarea>`;
       card.querySelector('.atlas-image-check').onchange=ev=>setAtlasSelected(e.id,ev.target.checked);
@@ -2900,8 +2925,8 @@ function openDB(){
       let mt=null;memo.oninput=()=>{clearTimeout(mt);mt=setTimeout(async()=>{e.memo=memo.value;e.updatedAt=Date.now();await txPut(STORE_ATLAS,e)},300)};
       els.atlasArtistGrid.appendChild(card);
     }
-    updateAtlasSelectionUi();
-    bindAtlasArtistSweep();
+    if(artistVisible.length<visible.length){const more=document.createElement('button');more.type='button';more.className='gallery-load-more';more.textContent=`＋ ${Math.min(60,visible.length-artistVisible.length)}개 더 보기`;more.onclick=()=>{state.atlasArtistRenderLimit=Math.min(visible.length,(state.atlasArtistRenderLimit||60)+60);renderAtlasArtistDialog()};els.atlasArtistGrid.appendChild(more)}
+    pruneThumbCache('atlasArtist',artistVisible.map(e=>e.id),180);updateAtlasSelectionUi();bindAtlasArtistSweep();
   }
   function bindAtlasArtistSweep(){
     bindSweepSelectionGrid({
@@ -2924,8 +2949,8 @@ function openDB(){
   }
   function atlasCompareRef(id){return `atlas:${id}`}
   function resolveCompareRef(ref){return String(ref).startsWith('atlas:')?state.atlasEntries.find(e=>e.id===String(ref).slice(6))||null:state.entries.find(e=>e.id===ref)||null}
-  function toggleCompareRef(ref,force){const has=state.compareIds.includes(ref),next=force!==undefined?force:!has;if(next&&!has)state.compareIds.push(ref);else if(!next&&has)state.compareIds=state.compareIds.filter(x=>x!==ref);render()}
-  async function addAtlasSelectedToCompare(){const entries=atlasSelectedEntries();if(!entries.length)return;let added=0;for(const e of entries){const ref=atlasCompareRef(e.id);if(!state.compareIds.includes(ref)){state.compareIds.push(ref);added++}}render();toast(added?`${added}개 이미지를 Compare에 추가했습니다.`:'선택한 이미지는 이미 Compare에 있습니다.')}
+  function toggleCompareRef(ref,force){const has=state.compareIds.includes(ref),next=force!==undefined?force:!has;if(next&&!has)state.compareIds.push(ref);else if(!next&&has)state.compareIds=state.compareIds.filter(x=>x!==ref);els.compareCount.textContent=state.compareIds.length;if(state.view==='compare')renderCompare()}
+  async function addAtlasSelectedToCompare(){const entries=atlasSelectedEntries();if(!entries.length)return;let added=0;for(const e of entries){const ref=atlasCompareRef(e.id);if(!state.compareIds.includes(ref)){state.compareIds.push(ref);added++}}els.compareCount.textContent=state.compareIds.length;toast(added?`${added}개 이미지를 Compare에 추가했습니다.`:'선택한 이미지는 이미 Compare에 있습니다.')}
   function atlasGroupEntriesForSelection(representativesOnly=false){const groups=atlasGroups().filter(g=>state.atlasGroupSelectedKeys.includes(g.key));return representativesOnly?groups.map(g=>atlasRepresentativeEntries(g)[0]).filter(Boolean):groups.flatMap(g=>g.entries)}
   async function deleteSelectedAtlasGroups(){
     const keys=[...state.atlasGroupSelectedKeys];
@@ -3508,19 +3533,16 @@ async function confirmAtlasGalleryPicker(){let added=0,skipped=0;const known=new
     return {name,weight:m[1]!==undefined?Number(m[1]):1,raw:String(tag).trim()};
   }
 
+  function galleryEntrySearchText(e){
+    const stamp=`${e.updatedAt||e.createdAt||0}:${e.modelLabel||''}`,cached=gallerySearchCache.get(e);if(cached?.stamp===stamp)return cached.text;
+    const text=[e.title,e.artistsText,e.prompt,(e.characterPrompts||[]).join('\n'),e.uc,e.memo,e.model,modelLabel(e),e.seed!=null?String(e.seed):'',e.fileName||''].join('\n').toLowerCase();gallerySearchCache.set(e,{stamp,text});return text;
+  }
   function filteredEntries(){
+    const tokens=state.search?String(state.search).toLowerCase().split(/\s+/).map(x=>x.trim()).filter(Boolean):[];const artistNeedles=state.artistFilters.map(norm);
     let arr=state.entries.filter(e=>{
-      if(state.favOnly&&!e.favorite)return false; if(state.memoOnly&&!e.memo?.trim())return false;
-      if(!modelMatches(e,state.modelFilter))return false;
-      if(state.artistFilters.length){
-        const names=(e.artists||[]).map(a=>norm(a.name)); const tests=state.artistFilters.map(f=>names.includes(norm(f)));
-        if(state.logic==='AND'?!tests.every(Boolean):!tests.some(Boolean))return false;
-      }
-      if(state.search){
-        const hay=[e.title,e.artistsText,e.prompt,(e.characterPrompts||[]).join('\n'),e.uc,e.memo,e.model,modelLabel(e),e.seed!=null?String(e.seed):''].join('\n').toLowerCase();
-        const tokens=String(state.search).toLowerCase().split(/\s+/).map(x=>x.trim()).filter(Boolean);
-        if(!tokens.every(t=>hay.includes(t)))return false;
-      }
+      if(state.favOnly&&!e.favorite)return false;if(state.memoOnly&&!e.memo?.trim())return false;if(!modelMatches(e,state.modelFilter))return false;
+      if(artistNeedles.length){const names=(e.artists||[]).map(a=>norm(a.name));const tests=artistNeedles.map(f=>names.includes(f));if(state.logic==='AND'?!tests.every(Boolean):!tests.some(Boolean))return false}
+      if(tokens.length&&!tokens.every(t=>galleryEntrySearchText(e).includes(t)))return false;
       return true;
     });
     arr.sort((a,b)=>state.sort==='oldest'?a.createdAt-b.createdAt:state.sort==='artist'?(a.artistsText||'').localeCompare(b.artistsText||''):state.sort==='favorite'?(Number(b.favorite)-Number(a.favorite)||b.createdAt-a.createdAt):(b.lastImportAt||b.createdAt)-(a.lastImportAt||a.createdAt));
@@ -3898,6 +3920,7 @@ async function confirmAtlasGalleryPicker(){let added=0,skipped=0;const known=new
   function toggleSelectionPreviewCurrent(){const c=selectionPreviewCtx;if(!c)return;const item=c.items[c.index],on=!isSelectionPreviewSelected(c.source,item.key);setSelectionPreviewSelected(c.source,item.key,on);renderSelectionPreview()}
 
   function renderLibrary(){
+    rebuildDisplayTitleIndex();
     const arr=filteredEntries(); els.resultCount.textContent=`${arr.length}개`;
     const isListView=state.tab==='list';
     els.galleryColumnCount.classList.toggle('hidden',isListView);
@@ -3910,22 +3933,15 @@ async function confirmAtlasGalleryPicker(){let added=0,skipped=0;const known=new
     els.emptyState.classList.toggle('hidden',state.entries.length!==0 || state.search || state.artistFilters.length);
     if(state.tab==='gallery') renderGallery(arr); else renderList(arr);
   }
+  function renderGalleryCard(e){
+    const card=document.createElement('article');card.className='card';card.dataset.id=e.id;const url=cachedThumbUrl('gallery',e),checked=state.selectedIds.includes(e.id);card.classList.toggle('selection-mode',state.selectMode);
+    card.innerHTML=`<div class="thumb"><img src="${url}" alt="" loading="lazy" decoding="async"><label class="check-badge"><input class="card-check" type="checkbox" ${checked?'checked':''}><span>선택</span></label><button type="button" class="selection-expand-btn" aria-label="크게 보기">⛶</button><div class="card-controls"><button class="round fav">${e.favorite?'★':'☆'}</button></div></div><div class="card-body"><div class="card-title-row"><div class="card-title">${esc(displayTitle(e))}</div><span class="card-model-label">${esc(modelShortLabel(e))}</span></div><div class="card-sub">${esc(artistSummary(e))}</div></div>`;
+    card.querySelector('img').onclick=()=>state.selectMode?toggleSelected(e.id):openDetail(e.id);card.querySelector('.card-body').onclick=()=>state.selectMode?toggleSelected(e.id):openDetail(e.id);card.querySelector('.selection-expand-btn').onclick=ev=>{ev.stopPropagation();openSelectionPreview('gallery',e.id)};card.querySelector('.fav').onclick=ev=>{ev.stopPropagation();toggleFavorite(e.id)};const cb=card.querySelector('.card-check');if(cb)cb.onchange=ev=>{ev.stopPropagation();toggleSelected(e.id,ev.target.checked)};return card;
+  }
   function renderGallery(arr){
-    revokeObjectUrls(els.gallery); els.gallery.innerHTML='';
-    arr.forEach(e=>{
-      const card=document.createElement('article'); card.className='card'; card.dataset.id=e.id;
-      const url=URL.createObjectURL(e.imageBlob); card.dataset.url=url;
-      const checked=state.selectedIds.includes(e.id);
-      card.classList.toggle('selection-mode',state.selectMode);
-      card.innerHTML=`<div class="thumb"><img src="${url}" alt=""><label class="check-badge"><input class="card-check" type="checkbox" ${checked?'checked':''}><span>선택</span></label><button type="button" class="selection-expand-btn" aria-label="크게 보기">⛶</button><div class="card-controls"><button class="round fav">${e.favorite?'★':'☆'}</button></div></div><div class="card-body"><div class="card-title-row"><div class="card-title">${esc(displayTitle(e))}</div><span class="card-model-label">${esc(modelShortLabel(e))}</span></div><div class="card-sub">${esc(artistSummary(e))}</div></div>`;
-      card.querySelector('img').onclick=()=>state.selectMode?toggleSelected(e.id):openDetail(e.id); card.querySelector('.card-body').onclick=()=>state.selectMode?toggleSelected(e.id):openDetail(e.id);
-      card.querySelector('.selection-expand-btn').onclick=ev=>{ev.stopPropagation();openSelectionPreview('gallery',e.id)};
-      card.querySelector('.fav').onclick=ev=>{ev.stopPropagation(); toggleFavorite(e.id)};
-      const cardCheck=card.querySelector('.card-check');if(cardCheck)cardCheck.onchange=ev=>{ev.stopPropagation();toggleSelected(e.id,ev.target.checked)};
-      els.gallery.appendChild(card);
-    });
-    bindGallerySweepSelection();
-    bindLongPressSelectionEntry(els.gallery,'.card');
+    els.gallery.innerHTML='';const limit=Math.min(arr.length,state.galleryRenderLimit||60),frag=document.createDocumentFragment();for(const e of arr.slice(0,limit))frag.appendChild(renderGalleryCard(e));els.gallery.appendChild(frag);
+    if(limit<arr.length){const more=document.createElement('button');more.type='button';more.className='gallery-load-more';more.textContent=`＋ ${Math.min(60,arr.length-limit)}개 더 보기`;more.onclick=()=>{state.galleryRenderLimit=Math.min(arr.length,(state.galleryRenderLimit||60)+60);renderGallery(arr)};els.gallery.appendChild(more)}
+    pruneThumbCache('gallery',arr.slice(0,limit).map(e=>e.id),180);bindGallerySweepSelection();bindLongPressSelectionEntry(els.gallery,'.card');
   }
 
   function renderList(arr){
@@ -3988,11 +4004,14 @@ async function confirmAtlasGalleryPicker(){let added=0,skipped=0;const known=new
       });
     }
 
-    revokeObjectUrls(els.listBody); els.listBody.innerHTML='';
-    listArr.forEach(e=>{const tr=document.createElement('tr');tr.dataset.id=e.id;const checked=state.selectedIds.includes(e.id);tr.classList.toggle('row-selected',checked);let html=`<td class="field-select"><input type="checkbox" class="row-check" ${checked?'checked':''}></td>`;
-      for(const f of fields){ if(f==='image'){const url=URL.createObjectURL(e.imageBlob);tr.dataset.url=(tr.dataset.url||'')+' '+url;html+=`<td class="field-image"><img class="table-thumb open" src="${url}"></td>`;} else if(f==='artists')html+=`<td class="field-artists"><div class="clamp open">${esc(e.artistsText)}</div></td>`; else if(f==='memo')html+=`<td class="field-memo"><div class="clamp open">${esc(e.memo||'')}</div></td>`; else if(f==='prompt')html+=`<td class="field-prompt"><div class="clamp open">${esc(e.prompt||'')}</div></td>`; else if(f==='characters')html+=`<td class="field-characters"><div class="clamp open">${esc((e.characterPrompts||[]).join('\n---\n'))}</div></td>`; else if(f==='uc')html+=`<td class="field-uc"><div class="clamp open">${esc(e.uc||'')}</div></td>`; else if(f==='model')html+=`<td class="field-model">${esc(modelLabel(e)||e.model||'')}</td>`; else if(f==='seed')html+=`<td class="field-seed"><div class="clamp open">${e.seed!=null?esc(String(e.seed)):''}</div></td>`; else if(f==='created')html+=`<td class="field-created">${new Date(e.createdAt).toLocaleString()}</td>`; }
+    els.listBody.innerHTML='';
+    const visibleList=listArr.slice(0,Math.max(120,state.galleryRenderLimit||60));
+    visibleList.forEach(e=>{const tr=document.createElement('tr');tr.dataset.id=e.id;const checked=state.selectedIds.includes(e.id);tr.classList.toggle('row-selected',checked);let html=`<td class="field-select"><input type="checkbox" class="row-check" ${checked?'checked':''}></td>`;
+      for(const f of fields){ if(f==='image'){const url=cachedThumbUrl('gallery',e);html+=`<td class="field-image"><img class="table-thumb open" src="${url}" loading="lazy" decoding="async"></td>`;} else if(f==='artists')html+=`<td class="field-artists"><div class="clamp open">${esc(e.artistsText)}</div></td>`; else if(f==='memo')html+=`<td class="field-memo"><div class="clamp open">${esc(e.memo||'')}</div></td>`; else if(f==='prompt')html+=`<td class="field-prompt"><div class="clamp open">${esc(e.prompt||'')}</div></td>`; else if(f==='characters')html+=`<td class="field-characters"><div class="clamp open">${esc((e.characterPrompts||[]).join('\n---\n'))}</div></td>`; else if(f==='uc')html+=`<td class="field-uc"><div class="clamp open">${esc(e.uc||'')}</div></td>`; else if(f==='model')html+=`<td class="field-model">${esc(modelLabel(e)||e.model||'')}</td>`; else if(f==='seed')html+=`<td class="field-seed"><div class="clamp open">${e.seed!=null?esc(String(e.seed)):''}</div></td>`; else if(f==='created')html+=`<td class="field-created">${new Date(e.createdAt).toLocaleString()}</td>`; }
       tr.innerHTML=html; tr.querySelectorAll('.open').forEach(x=>x.onclick=()=>state.selectMode?toggleSelected(e.id):openDetail(e.id)); const cb=tr.querySelector('.row-check');if(cb)cb.onchange=ev=>toggleSelected(e.id,ev.target.checked); els.listBody.appendChild(tr);
     });
+    if(visibleList.length<listArr.length){const tr=document.createElement('tr');tr.innerHTML=`<td colspan="${fields.length+1}"><button type="button" class="gallery-load-more">＋ ${Math.min(60,listArr.length-visibleList.length)}개 더 보기</button></td>`;tr.querySelector('button').onclick=()=>{state.galleryRenderLimit=Math.min(listArr.length,(state.galleryRenderLimit||60)+60);renderList(arr)};els.listBody.appendChild(tr)}
+    pruneThumbCache('gallery',visibleList.map(e=>e.id),180);
     els.listWrap.classList.toggle('selection-mode',state.selectMode);
     bindListSweepSelection();
     bindLongPressSelectionEntry(els.listBody,'tr[data-id]');
@@ -4001,7 +4020,7 @@ async function confirmAtlasGalleryPicker(){let added=0,skipped=0;const known=new
   function renderArtistFilters(){
     if(!state.artistFilters.length){els.activeArtistFilters.innerHTML='<span class="muted-note">선택 없음</span>';return;}
     els.activeArtistFilters.innerHTML=state.artistFilters.map(a=>`<button class="chip active" data-name="${escAttr(a)}">${esc(a)} ×</button>`).join('');
-    els.activeArtistFilters.querySelectorAll('button').forEach(b=>b.onclick=()=>{state.artistFilters=state.artistFilters.filter(x=>x!==b.dataset.name);render();});
+    els.activeArtistFilters.querySelectorAll('button').forEach(b=>b.onclick=()=>{state.artistFilters=state.artistFilters.filter(x=>x!==b.dataset.name);resetGalleryPaging();render();});
   }
 
   function detailMetaHtml(e){
@@ -4101,8 +4120,10 @@ async function confirmAtlasGalleryPicker(){let added=0,skipped=0;const known=new
     const e=state.entries.find(x=>x.id===state.currentId); if(!e)return;
     const next={title:els.detailTitle.value.trim(),artistsText:els.detailArtists.value,prompt:els.detailPrompt.value,uc:els.detailUc.value,memo:els.detailMemo.value,characterPrompts:[...els.characterPrompts.querySelectorAll('textarea')].map(x=>x.value).filter((x,i,a)=>x.trim()||a.length===1)};
     const now=Date.now();stampChangedFields(e,next,['title','artistsText','prompt','uc','memo','characterPrompts'],now);
-    Object.assign(e,next);e.artists=splitArtistTags(e.artistsText).artists;e.updatedAt=now; await txPut(STORE_ENTRIES,e); renderDetailArtists(e); render();
+    Object.assign(e,next);e.artists=splitArtistTags(e.artistsText).artists;e.updatedAt=now;await txPut(STORE_ENTRIES,e);renderDetailArtists(e);
+    if(state.view==='library'&&(state.search||state.artistFilters.length||state.memoOnly||state.sort==='artist'))renderLibrary();else syncGalleryEntryDom(e);
   }
+  function syncGalleryEntryDom(e){if(!e)return;const card=els.gallery?.querySelector(`.card[data-id="${CSS.escape(e.id)}"]`);if(card){const t=card.querySelector('.card-title');if(t)t.textContent=displayTitle(e);const sub=card.querySelector('.card-sub');if(sub)sub.textContent=artistSummary(e);const m=card.querySelector('.card-model-label');if(m)m.textContent=modelShortLabel(e)}if(state.tab==='list'&&els.listBody?.querySelector(`tr[data-id="${CSS.escape(e.id)}"]`))renderLibrary()}
   function syncGalleryFavoriteDom(id){
     const e=state.entries.find(x=>x.id===id);if(!e)return;
     const card=els.gallery?.querySelector(`.card[data-id="${CSS.escape(id)}"]`);const star=card?.querySelector('.fav');if(star)star.textContent=e.favorite?'★':'☆';
@@ -4115,7 +4136,7 @@ async function confirmAtlasGalleryPicker(){let added=0,skipped=0;const known=new
     // Only rebuild when the current result set/order actually depends on favorite state.
     if(state.view==='library'&&(state.favOnly||state.sort==='favorite'))renderLibrary();
   }
-  function toggleCompare(id,force){const has=state.compareIds.includes(id);const next=force!==undefined?force:!has;if(next&&!has)state.compareIds.push(id);else if(!next&&has)state.compareIds=state.compareIds.filter(x=>x!==id);render();if(state.currentId===id)els.addCompare.textContent=state.compareIds.includes(id)?'− 비교':'＋ 비교';}
+  function toggleCompare(id,force){const has=state.compareIds.includes(id);const next=force!==undefined?force:!has;if(next&&!has)state.compareIds.push(id);else if(!next&&has)state.compareIds=state.compareIds.filter(x=>x!==id);els.compareCount.textContent=state.compareIds.length;if(state.view==='compare')renderCompare();if(state.currentId===id)els.addCompare.textContent=state.compareIds.includes(id)?'− 비교':'＋ 비교';}
 
   function toggleSelected(id,force){
     const has=state.selectedIds.includes(id); const next=force!==undefined?force:!has;
@@ -4127,7 +4148,7 @@ async function confirmAtlasGalleryPicker(){let added=0,skipped=0;const known=new
     if(!ids.length)return;
     let added=0;
     for(const id of ids)if(!state.compareIds.includes(id)){state.compareIds.push(id);added++;}
-    render();
+    els.compareCount.textContent=state.compareIds.length;
     toast(added?`${added}개 이미지를 Compare에 추가했습니다.`:'선택한 이미지는 이미 Compare에 있습니다.');
   }
 
@@ -5717,13 +5738,7 @@ async function confirmAtlasGalleryPicker(){let added=0,skipped=0;const known=new
   }
 
   const norm=s=>String(s||'').toLowerCase().replace(/\s+/g,' ').trim(); const normalizeText=s=>norm(s).replace(/\s*,\s*/g,',');
-  function displayTitle(e){
-    const custom=String(e?.title||'').trim();
-    if(custom)return custom;
-    const ordered=[...state.entries].sort((a,b)=>(a.createdAt||0)-(b.createdAt||0)||String(a.id).localeCompare(String(b.id)));
-    const idx=ordered.findIndex(x=>x.id===e.id);
-    return `IMG${String((idx<0?0:idx)+1).padStart(2,'0')}`;
-  }
+  function displayTitle(e){const custom=String(e?.title||'').trim();if(custom)return custom;const idx=displayTitleIndex.get(e?.id)||1;return `IMG${String(idx).padStart(2,'0')}`}
   const primaryArtist=e=>e.artists?.[0]?.name||''; const artistSummary=e=>(e.artists||[]).map(a=>`${a.name} ${a.weight}`).join(' · '); const esc=s=>String(s??'').replace(/[&<>"']/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m])); const escAttr=esc;
   function toast(msg){els.toast.textContent=msg;els.toast.classList.add('show');clearTimeout(toast.t);toast.t=setTimeout(()=>els.toast.classList.remove('show'),1800)}
   async function sha256(file){const b=await crypto.subtle.digest('SHA-256',await file.arrayBuffer());return [...new Uint8Array(b)].map(x=>x.toString(16).padStart(2,'0')).join('')}
@@ -5748,6 +5763,10 @@ async function confirmAtlasGalleryPicker(){let added=0,skipped=0;const known=new
 })();
 
 </script>
+
+<style id="v1925-performance-pass">
+.gallery-load-more{grid-column:1/-1;width:100%;min-height:42px;border:1px solid #dedede;background:#fff;border-radius:8px;font:600 11px Inter,sans-serif;letter-spacing:.02em;color:#444;cursor:pointer;margin:4px 0 10px}.gallery-load-more:active{background:#f4f4f4}
+</style>
 </body>
 </html>
 
