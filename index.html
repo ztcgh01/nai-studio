@@ -1418,6 +1418,12 @@ body.folder-lightbox-open{overflow:hidden}
 .gallery-rich-tools{display:grid;gap:8px;margin:-2px 0 14px;padding:10px 0 12px;border-bottom:1px solid var(--hair)}
 .gallery-tool-row{display:flex;align-items:center;gap:7px;flex-wrap:wrap}.gallery-tool-label{font-size:8px;letter-spacing:.12em;color:#999;text-transform:uppercase;white-space:nowrap}.gallery-filter-tabs{max-width:100%;overflow-x:auto;scrollbar-width:none}.gallery-filter-tabs::-webkit-scrollbar{display:none}.gallery-filter-tabs button{white-space:nowrap}.gallery-sort-select{min-width:125px}.gallery-page-note{grid-column:1/-1;text-align:center;padding:18px 8px 4px;color:#888;font-size:9px}.gallery-list-page-note{text-align:center;padding:12px;color:#888;font-size:9px}.gallery-search-toolbar{margin-bottom:8px}
 @media(max-width:640px){.gallery-rich-tools{gap:7px;padding-top:6px}.gallery-tool-row{gap:5px;row-gap:6px}.gallery-filter-tabs{width:100%}.gallery-filter-tabs button{flex:0 0 auto;padding:0 9px}.gallery-tool-row-wrap .atlas-select{max-width:46vw}.gallery-tool-row-wrap #galleryPageSize{max-width:48vw}}
+/* v1.9.32: numeric PER PAGE modes can continue loading in matching-size batches. */
+.load-more-wrap{grid-column:1/-1;display:flex;flex-direction:column;align-items:center;gap:8px;padding:20px 8px 8px;color:#888;font-size:9px}
+.load-more-btn{min-width:180px;border:1px solid #111;background:#fff;border-radius:999px;padding:10px 18px;font-size:10px;font-weight:750;color:#111}
+.load-more-btn:hover{background:#f6f6f6}.load-more-btn:active{background:#111;color:#fff}
+.gallery-list-page-note .load-more-btn{margin-top:10px}
+@media(max-width:640px){.load-more-wrap{padding-top:16px}.load-more-btn{min-width:160px}}
 </style>
 </head>
 <body>
@@ -2842,8 +2848,8 @@ function openDB(){
   function setAtlasSegActive(root,dataKey,value){
     root?.querySelectorAll('button').forEach(b=>b.classList.toggle('active',String(b.dataset[dataKey])===String(value)));
   }
-  function resetAtlasPaging(){state.atlasRenderLimit=state.atlasPageSize==='infinite'?50:Number(state.atlasPageSize)||50;}
-  function resetGalleryPaging(){state.galleryRenderLimit=state.galleryPageSize==='infinite'?50:Number(state.galleryPageSize)||50;}
+  function resetAtlasPaging(){state.atlasRenderLimit=state.atlasPageSize==='infinite'?50:(Number(state.atlasPageSize)||50);}
+  function resetGalleryPaging(){state.galleryRenderLimit=state.galleryPageSize==='infinite'?50:(Number(state.galleryPageSize)||50);}
   function releaseUrlList(list){for(const u of list.splice(0))try{URL.revokeObjectURL(u)}catch{}}
   function normalizeArtistName(name){return String(name||'').trim().toLowerCase().replace(/\s+/g,' ')}
   function atlasGroupInfo(entry){
@@ -2937,7 +2943,7 @@ function openDB(){
   function renderAtlas(){
     if(!els.atlasGrid)return;
     const all=filteredAtlasGroups();
-    const limit=state.atlasPageSize==='infinite'?state.atlasRenderLimit:Number(state.atlasPageSize)||50;
+    const limit=Math.min(all.length,state.atlasRenderLimit||50);
     const arr=all.slice(0,limit);
     const matchingImages=atlasMatchingImageCount(all);
     els.atlasCount.textContent=atlasSearchTokens().length?`${all.length} artists · ${matchingImages} matching images`:`${all.length} artists · ${state.atlasEntries.length} images`;
@@ -2956,6 +2962,11 @@ function openDB(){
       card.innerHTML=`<input class="atlas-group-check" type="checkbox" ${state.atlasGroupSelectedKeys.includes(g.key)?'checked':''}><div class="atlas-card-visual"><div class="atlas-samples ${reps.length>1?'two':''}">${imgs}</div></div><div class="atlas-card-topline"><div class="atlas-card-name">${esc(g.label)}</div><span class="atlas-card-tools"><span class="atlas-card-fav" data-atlas-card-fav>${fav?'★':'☆'}</span></span></div><div class="atlas-card-meta"><span class="atlas-badge">${g.type==='multiple'?'MULTI':g.type==='unsorted'?'UNSORTED':'SINGLE'}</span><span class="atlas-count-label">${g.entries.length} IMG</span><span class="atlas-model-badge">${esc((()=>{const labels=[...new Set(g.entries.map(modelShortLabel))];return labels.length===1?labels[0]:'MIXED'})())}</span>${quickCopy}</div>${multi}${memoPreview}${matchPreview}`;
       card.querySelector('.atlas-group-check').onchange=ev=>{ev.stopPropagation();state.atlasGroupSelectMode=true;setAtlasGroupSelected(g.key,ev.target.checked)};const copyEl=card.querySelector('[data-atlas-copy-tag]');if(copyEl){const run=ev=>{ev.stopPropagation();copyAtlasGroupTag(g)};copyEl.onclick=run;copyEl.onkeydown=ev=>{if(ev.key==='Enter'||ev.key===' '){ev.preventDefault();run(ev)}}}card.onclick=e=>{if(e.target.closest('[data-atlas-card-fav]')){e.stopPropagation();toggleAtlasArtistFavorite(g.key);return}if(e.target.closest('[data-atlas-copy-tag]'))return;if(state.atlasGroupSelectMode){setAtlasGroupSelected(g.key,!state.atlasGroupSelectedKeys.includes(g.key));return}openAtlasArtist(g.key)};
       els.atlasGrid.appendChild(card);
+    }
+    if(state.atlasPageSize!=='infinite'&&arr.length<all.length){
+      const step=Number(state.atlasPageSize)||50,left=all.length-arr.length,more=Math.min(step,left),wrap=document.createElement('div');
+      wrap.className='load-more-wrap';wrap.innerHTML=`<span>${arr.length} / ${all.length} 표시</span><button type="button" class="load-more-btn">+ ${more}개 더 불러오기</button>`;
+      wrap.querySelector('button').onclick=()=>{state.atlasRenderLimit=Math.min(all.length,(state.atlasRenderLimit||step)+step);renderAtlas();};els.atlasGrid.appendChild(wrap);
     }
     pruneThumbCache('atlas',arr.flatMap(g=>atlasRepresentativeEntries(g).map(e=>e.id)),160);
     updateAtlasGroupSelectionUi();bindAtlasGroupSweep();
@@ -4113,8 +4124,8 @@ async function confirmAtlasGalleryPicker(){let added=0,skipped=0;const known=new
     card.querySelector('img').onclick=()=>state.selectMode?toggleSelected(e.id):openDetail(e.id);card.querySelector('.card-body').onclick=()=>state.selectMode?toggleSelected(e.id):openDetail(e.id);card.querySelector('.selection-expand-btn').onclick=ev=>{ev.stopPropagation();openSelectionPreview('gallery',e.id)};card.querySelector('.fav').onclick=ev=>{ev.stopPropagation();toggleFavorite(e.id)};const cb=card.querySelector('.card-check');if(cb)cb.onchange=ev=>{ev.stopPropagation();toggleSelected(e.id,ev.target.checked)};return card;
   }
   function renderGallery(arr){
-    els.gallery.innerHTML='';const limit=Math.min(arr.length,state.galleryPageSize==='infinite'?(state.galleryRenderLimit||50):(Number(state.galleryPageSize)||50)),frag=document.createDocumentFragment();for(const e of arr.slice(0,limit))frag.appendChild(renderGalleryCard(e));els.gallery.appendChild(frag);
-    if(state.galleryPageSize!=='infinite'&&limit<arr.length){const note=document.createElement('div');note.className='gallery-page-note';note.textContent=`${limit} / ${arr.length} 표시 · PER PAGE에서 표시 개수를 바꿀 수 있습니다.`;els.gallery.appendChild(note)}
+    els.gallery.innerHTML='';const limit=Math.min(arr.length,state.galleryRenderLimit||50),frag=document.createDocumentFragment();for(const e of arr.slice(0,limit))frag.appendChild(renderGalleryCard(e));els.gallery.appendChild(frag);
+    if(state.galleryPageSize!=='infinite'&&limit<arr.length){const step=Number(state.galleryPageSize)||50,left=arr.length-limit,more=Math.min(step,left),wrap=document.createElement('div');wrap.className='load-more-wrap';wrap.innerHTML=`<span>${limit} / ${arr.length} 표시</span><button type="button" class="load-more-btn">+ ${more}개 더 불러오기</button>`;wrap.querySelector('button').onclick=()=>{state.galleryRenderLimit=Math.min(arr.length,(state.galleryRenderLimit||step)+step);renderLibrary();};els.gallery.appendChild(wrap)}
     pruneThumbCache('gallery',arr.slice(0,limit).map(e=>e.id),Math.max(180,limit+40));bindGallerySweepSelection();bindLongPressSelectionEntry(els.gallery,'.card');
   }
 
@@ -4180,13 +4191,13 @@ async function confirmAtlasGalleryPicker(){let added=0,skipped=0;const known=new
     }
 
     els.listBody.innerHTML='';
-    const listLimit=state.galleryPageSize==='infinite'?(state.galleryRenderLimit||50):(Number(state.galleryPageSize)||50);
+    const listLimit=state.galleryRenderLimit||50;
     const visibleList=listArr.slice(0,listLimit);
     visibleList.forEach(e=>{const tr=document.createElement('tr');tr.dataset.id=e.id;const checked=state.selectedIds.includes(e.id);tr.classList.toggle('row-selected',checked);let html=`<td class="field-select"><input type="checkbox" class="row-check" ${checked?'checked':''}></td>`;
       for(const f of fields){ if(f==='image'){const url=cachedThumbUrl('gallery',e);html+=`<td class="field-image"><img class="table-thumb open" src="${url}" loading="lazy" decoding="async"></td>`;} else if(f==='artists')html+=`<td class="field-artists"><div class="clamp open">${esc(e.artistsText)}</div></td>`; else if(f==='memo')html+=`<td class="field-memo"><div class="clamp open">${esc(e.memo||'')}</div></td>`; else if(f==='prompt')html+=`<td class="field-prompt"><div class="clamp open">${esc(e.prompt||'')}</div></td>`; else if(f==='characters')html+=`<td class="field-characters"><div class="clamp open">${esc((e.characterPrompts||[]).join('\n---\n'))}</div></td>`; else if(f==='charuc')html+=`<td class="field-charuc"><div class="clamp open">${esc((e.characterUc||[]).join('\n---\n'))}</div></td>`; else if(f==='uc')html+=`<td class="field-uc"><div class="clamp open">${esc(e.uc||'')}</div></td>`; else if(f==='model')html+=`<td class="field-model">${esc(modelLabel(e)||e.model||'')}</td>`; else if(f==='seed')html+=`<td class="field-seed"><div class="clamp open">${e.seed!=null?esc(String(e.seed)):''}</div></td>`; else if(f==='created')html+=`<td class="field-created">${new Date(e.createdAt).toLocaleString()}</td>`; }
       tr.innerHTML=html; tr.querySelectorAll('.open').forEach(x=>x.onclick=()=>state.selectMode?toggleSelected(e.id):openDetail(e.id)); const cb=tr.querySelector('.row-check');if(cb)cb.onchange=ev=>toggleSelected(e.id,ev.target.checked); els.listBody.appendChild(tr);
     });
-    if(state.galleryPageSize!=='infinite'&&visibleList.length<listArr.length){const tr=document.createElement('tr');tr.innerHTML=`<td colspan="${fields.length+1}"><div class="gallery-list-page-note">${visibleList.length} / ${listArr.length} 표시 · PER PAGE에서 표시 개수를 바꿀 수 있습니다.</div></td>`;els.listBody.appendChild(tr)}
+    if(state.galleryPageSize!=='infinite'&&visibleList.length<listArr.length){const step=Number(state.galleryPageSize)||50,left=listArr.length-visibleList.length,more=Math.min(step,left),tr=document.createElement('tr');tr.innerHTML=`<td colspan="${fields.length+1}"><div class="gallery-list-page-note"><div>${visibleList.length} / ${listArr.length} 표시</div><button type="button" class="load-more-btn">+ ${more}개 더 불러오기</button></div></td>`;tr.querySelector('button').onclick=()=>{state.galleryRenderLimit=Math.min(listArr.length,(state.galleryRenderLimit||step)+step);renderList(filteredEntries());};els.listBody.appendChild(tr)}
     pruneThumbCache('gallery',visibleList.map(e=>e.id),180);
     els.listWrap.classList.toggle('selection-mode',state.selectMode);
     bindListSweepSelection();
