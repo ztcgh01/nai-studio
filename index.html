@@ -4,7 +4,7 @@
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
   <meta name="color-scheme" content="light" />
-  <title>NAI Studio v1.9.36</title>
+  <title>NAI Studio v1.9.37</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Young+Serif&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
@@ -195,7 +195,7 @@ body:not(.is-home) .menu-btn{display:grid}
 
 #detailImage,#atlasImageDetailImg,#folderImageLightboxImg,#selectionPreviewImg{touch-action:pan-y;-webkit-user-drag:none;user-select:none}
 
-/* v1.9.36: HQ PDF metadata controls; Artist + Seed compact line, optional details on following pages. */
+/* v1.9.37: HQ PDF artist metadata preserves original weighted artist tags. */
 /* v1.9.34: selectable PDF text layer repair.
    v1.9.33: searchable PDF text layer + complete artist-list export */
 .artist-list-dialog .modal-shell{width:min(680px,94vw);max-height:90dvh;display:flex;flex-direction:column}.artist-list-body{padding:16px 18px;display:grid;gap:14px;overflow:auto}.artist-list-section{display:grid;gap:7px}.artist-list-section>span{font-size:9px;font-weight:850;letter-spacing:.12em;color:#777;text-transform:uppercase}.artist-list-options{display:flex;gap:6px;flex-wrap:wrap}.artist-list-options button{border:1px solid #ddd;background:#fff;border-radius:7px;padding:8px 10px;font-size:10px}.artist-list-options button.active{background:#111;color:#fff;border-color:#111}.artist-list-note{font-size:10px;line-height:1.55;color:#666;background:#fafafa;border:1px solid #e8e8e8;border-radius:8px;padding:10px 11px}.artist-list-count{font-size:11px;font-weight:750}.artist-list-download{display:flex;justify-content:flex-end;gap:7px}.artist-list-download .btn{min-width:110px}@media(max-width:560px){.artist-list-dialog{margin:0;padding:0;width:100vw;height:100dvh}.artist-list-dialog .modal-shell{width:100vw;height:100dvh;max-height:none;border-radius:0}.artist-list-body{padding:14px}.artist-list-download{position:sticky;bottom:0;background:#fff;padding-top:8px}}
@@ -5958,7 +5958,10 @@ async function confirmAtlasGalleryPicker(){let added=0,skipped=0;const known=new
   }
   function hqCompactMeta(e,fields){
     const parts=[];
-    if(fields.artists)parts.push(hqArtistLabel(e));
+    if(fields.artists){
+      const tag=String(artistTagLine(e)||'').trim().replace(/[,\s]+$/,'');
+      parts.push(tag||hqArtistLabel(e));
+    }
     if(fields.seed&&e.seed!=null&&String(e.seed).trim())parts.push(`Seed: ${e.seed}`);
     return parts.join(', ');
   }
