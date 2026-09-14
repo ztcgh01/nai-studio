@@ -195,7 +195,8 @@ body:not(.is-home) .menu-btn{display:grid}
 
 #detailImage,#atlasImageDetailImg,#folderImageLightboxImg,#selectionPreviewImg{touch-action:pan-y;-webkit-user-drag:none;user-select:none}
 
-/* v1.9.33: searchable PDF text layer + complete artist-list export */
+/* v1.9.34: selectable PDF text layer repair.
+   v1.9.33: searchable PDF text layer + complete artist-list export */
 .artist-list-dialog .modal-shell{width:min(680px,94vw);max-height:90dvh;display:flex;flex-direction:column}.artist-list-body{padding:16px 18px;display:grid;gap:14px;overflow:auto}.artist-list-section{display:grid;gap:7px}.artist-list-section>span{font-size:9px;font-weight:850;letter-spacing:.12em;color:#777;text-transform:uppercase}.artist-list-options{display:flex;gap:6px;flex-wrap:wrap}.artist-list-options button{border:1px solid #ddd;background:#fff;border-radius:7px;padding:8px 10px;font-size:10px}.artist-list-options button.active{background:#111;color:#fff;border-color:#111}.artist-list-note{font-size:10px;line-height:1.55;color:#666;background:#fafafa;border:1px solid #e8e8e8;border-radius:8px;padding:10px 11px}.artist-list-count{font-size:11px;font-weight:750}.artist-list-download{display:flex;justify-content:flex-end;gap:7px}.artist-list-download .btn{min-width:110px}@media(max-width:560px){.artist-list-dialog{margin:0;padding:0;width:100vw;height:100dvh}.artist-list-dialog .modal-shell{width:100vw;height:100dvh;max-height:none;border-radius:0}.artist-list-body{padding:14px}.artist-list-download{position:sticky;bottom:0;background:#fff;padding-top:8px}}
 </style>
 
@@ -5732,15 +5733,29 @@ async function confirmAtlasGalleryPicker(){let added=0,skipped=0;const known=new
     }catch(err){console.error(err);els.restoreInput.value='';toast('백업 병합에 실패했습니다. ZIP 파일을 확인해주세요.');}
   }
 
-  function attachPdfTextLayer(canvas,lines){
+  function attachPdfTextLayer(canvas,items){
     if(!canvas)return canvas;
-    const arr=(Array.isArray(lines)?lines:[lines]).flatMap(x=>String(x??'').replace(/\r/g,'').split('\n')).map(x=>x.trimEnd()).filter(x=>x.length);
-    canvas.__naiTextLayer=arr;return canvas;
+    const src=Array.isArray(items)?items:[items],out=[];
+    for(const item of src){
+      if(item&&typeof item==='object'&&'text' in item){
+        const text=String(item.text??'').replace(/\r/g,'');
+        if(text)out.push({text,x:Number(item.x)||0,y:Number(item.y)||0,size:Math.max(1,Number(item.size)||16)});
+      }else{
+        for(const line of String(item??'').replace(/\r/g,'').split('\n'))if(line)out.push({text:line,x:36,y:36+out.length*18,size:12});
+      }
+    }
+    canvas.__naiTextLayer=out;return canvas;
   }
+  function pdfLayerItem(text,x,y,size=16){return {text:String(text??''),x,y,size}}
   function pdfUtf16Hex(text){const s=String(text??'');let hex='';for(let i=0;i<s.length;i++)hex+=s.charCodeAt(i).toString(16).padStart(4,'0').toUpperCase();return hex}
-  function pdfTextLayerStream(lines,pageW=595.28,pageH=841.89){
-    const arr=(lines||[]).flatMap(x=>String(x??'').replace(/\r/g,'').split('\n')).filter(Boolean);if(!arr.length)return '';
-    let y=pageH-18,out='';for(const raw of arr){const chunks=[];let s=raw;while(s.length>180){chunks.push(s.slice(0,180));s=s.slice(180)}chunks.push(s);for(const line of chunks){out+=`BT /Ftxt 8 Tf 3 Tr 18 ${Math.max(12,y).toFixed(2)} Td <${pdfUtf16Hex(line)}> Tj ET\n`;y-=10;if(y<14)y=pageH-18}}return out;
+  function pdfTextLayerStream(items,pageW=595.28,pageH=841.89,canvasW=1240,canvasH=1754){
+    const arr=(items||[]).filter(x=>x&&String(x.text??'').length);if(!arr.length)return '';
+    const sx=pageW/Math.max(1,canvasW),sy=pageH/Math.max(1,canvasH);let out='';
+    for(const item of arr){
+      const text=String(item.text??''),x=(Number(item.x)||0)*sx,size=Math.max(4,(Number(item.size)||16)*sy),baseline=pageH-((Number(item.y)||0)+(Number(item.size)||16)*.82)*sy;
+      out+=`BT /Ftxt ${size.toFixed(2)} Tf 3 Tr 1 0 0 1 ${x.toFixed(2)} ${Math.max(2,baseline).toFixed(2)} Tm <${pdfUtf16Hex(text)}> Tj ET\n`;
+    }
+    return out;
   }
 
   let artistListState={source:'gallery',scope:'all',sort:'name',format:'txt'};
@@ -5766,8 +5781,8 @@ async function confirmAtlasGalleryPicker(){let added=0,skipped=0;const known=new
   async function buildArtistListPdf(rows,label){
     const W=1240,H=1754,margin=68,lineH=30,headerY=58,startY=150,maxLines=Math.floor((H-startY-margin)/lineH),pages=[];let i=0,pageNo=1;
     while(i<rows.length||(!rows.length&&pageNo===1)){
-      const c=document.createElement('canvas');c.width=W;c.height=H;const ctx=c.getContext('2d');ctx.fillStyle='#fff';ctx.fillRect(0,0,W,H);ctx.textBaseline='top';ctx.fillStyle='#111';ctx.font='700 34px Inter, Arial, sans-serif';ctx.fillText('NAI STUDIO  /  ARTIST LIST',margin,headerY);ctx.fillStyle='#777';ctx.font='16px Inter, Arial, sans-serif';ctx.fillText(`${label} · ${rows.length} artists · page ${pageNo}`,margin,105);ctx.font='20px Inter, Arial, sans-serif';ctx.fillStyle='#111';const layer=['NAI STUDIO / ARTIST LIST',`${label} · ${rows.length} artists · page ${pageNo}`],slice=rows.slice(i,i+maxLines);let y=startY;
-      for(const r of slice){const line=artistListState.source==='combined'?`${r.name}    Gallery ${r.gallery}    Atlas ${r.atlas}    Total ${r.total}`:`${r.name}    ${r.total}`;ctx.fillText(line,margin,y);layer.push(line);y+=lineH}attachPdfTextLayer(c,layer);pages.push(c);i+=slice.length;pageNo++;if(!rows.length)break;
+      const c=document.createElement('canvas');c.width=W;c.height=H;const ctx=c.getContext('2d');ctx.fillStyle='#fff';ctx.fillRect(0,0,W,H);ctx.textBaseline='top';ctx.fillStyle='#111';ctx.font='700 34px Inter, Arial, sans-serif';ctx.fillText('NAI STUDIO  /  ARTIST LIST',margin,headerY);ctx.fillStyle='#777';ctx.font='16px Inter, Arial, sans-serif';ctx.fillText(`${label} · ${rows.length} artists · page ${pageNo}`,margin,105);ctx.font='20px Inter, Arial, sans-serif';ctx.fillStyle='#111';const layer=[pdfLayerItem('NAI STUDIO  /  ARTIST LIST',margin,headerY,34),pdfLayerItem(`${label} · ${rows.length} artists · page ${pageNo}`,margin,105,16)],slice=rows.slice(i,i+maxLines);let y=startY;
+      for(const r of slice){const line=artistListState.source==='combined'?`${r.name}    Gallery ${r.gallery}    Atlas ${r.atlas}    Total ${r.total}`:`${r.name}    ${r.total}`;ctx.fillText(line,margin,y);layer.push(pdfLayerItem(line,margin,y,20));y+=lineH}attachPdfTextLayer(c,layer);pages.push(c);i+=slice.length;pageNo++;if(!rows.length)break;
     }return pages;
   }
   async function downloadArtistList(){
@@ -5863,6 +5878,7 @@ async function confirmAtlasGalleryPicker(){let added=0,skipped=0;const known=new
       ctx.fillStyle='#fff';ctx.fillRect(0,0,W,H);ctx.textBaseline='top';
       ctx.fillStyle='#111';ctx.font='700 19px Inter, Arial, sans-serif';ctx.fillText('NAI STUDIO  /  STYLE ATLAS',margin,29);
       ctx.fillStyle='#888';ctx.font='14px Inter, Arial, sans-serif';ctx.textAlign='right';ctx.fillText(`${pageNo}`,W-margin,32);ctx.textAlign='left';
+      const pdfLayer=[pdfLayerItem('NAI STUDIO  /  STYLE ATLAS',margin,29,19),pdfLayerItem(String(pageNo),W-margin-18,32,14)];
 
       for(let i=0;i<layout.cards.length;i++){
         const card=layout.cards[i],col=i%layout.tryCols,row=Math.floor(i/layout.tryCols);
@@ -5875,9 +5891,11 @@ async function confirmAtlasGalleryPicker(){let added=0,skipped=0;const known=new
         ctx.fillStyle='#f7f7f7';ctx.fillRect(x+pad,y+pad,boxW,boxH);
         ctx.drawImage(img,x+pad+(boxW-iw)/2,y+pad+(boxH-ih)/2,iw,ih);
         ctx.fillStyle='#111';ctx.font=`600 ${layout.fontSize}px Inter, Arial, sans-serif`;
-        drawExportLines(ctx,card.lines.length?card.lines:[''],x+12,y+imageBoxH+12,layout.lineH);
+        const shownLines=card.lines.length?card.lines:[''],textY=y+imageBoxH+12;
+        drawExportLines(ctx,shownLines,x+12,textY,layout.lineH);
+        shownLines.forEach((line,li)=>pdfLayer.push(pdfLayerItem(line,x+12,textY+li*layout.lineH,layout.fontSize)));
       }
-      attachPdfTextLayer(c,['NAI STUDIO / STYLE ATLAS',...layout.cards.map(card=>card.tag)]);
+      attachPdfTextLayer(c,pdfLayer);
       pages.push(c);
       cursor+=layout.cards.length;
       pageNo++;
@@ -5898,7 +5916,7 @@ async function confirmAtlasGalleryPicker(){let added=0,skipped=0;const known=new
       const lines=exportTextLines(ctx,e.prompt||'',maxW,ctx.font);
       const firstCan=Math.max(0,Math.floor((H-margin-ty)/lineH));
       const firstLines=lines.slice(0,firstCan);drawExportLines(ctx,firstLines,tx,ty,lineH);
-      attachPdfTextLayer(c,[displayTitle(e),'PROMPT',...firstLines]);pages.push(c);
+      attachPdfTextLayer(c,[pdfLayerItem(displayTitle(e),margin,52,34),pdfLayerItem('PROMPT',tx,132,18),...firstLines.map((line,i)=>pdfLayerItem(line,tx,ty+i*lineH,22))]);pages.push(c);
 
       let rest=lines.slice(firstCan);
       while(rest.length&&pages.length<limitPages){
@@ -5908,7 +5926,7 @@ async function confirmAtlasGalleryPicker(){let added=0,skipped=0;const known=new
         ctx.fillStyle='#111';ctx.font='22px Inter, Arial, sans-serif';
         const y=100,can=Math.max(1,Math.floor((H-margin-y)/lineH));
         const shown=rest.slice(0,can);drawExportLines(ctx,shown,margin,y,lineH);
-        attachPdfTextLayer(p,[`${displayTitle(e)} / PROMPT CONTINUED`,...shown]);rest=rest.slice(can);pages.push(p);
+        attachPdfTextLayer(p,[pdfLayerItem(`${displayTitle(e)}  /  PROMPT CONTINUED`,margin,48,18),...shown.map((line,i)=>pdfLayerItem(line,margin,y+i*lineH,22))]);rest=rest.slice(can);pages.push(p);
       }
     }
     return pages;
@@ -5921,10 +5939,10 @@ async function confirmAtlasGalleryPicker(){let added=0,skipped=0;const known=new
     for(const e of entries){
       if(pages.length>=limitPages)break;const blocks=exportDetailBlocks(e,fields),c=document.createElement('canvas');c.width=W;c.height=H;let ctx=c.getContext('2d');ctx.fillStyle='#fff';ctx.fillRect(0,0,W,H);ctx.textBaseline='top';ctx.fillStyle='#111';ctx.font='700 36px Inter, Arial, sans-serif';ctx.fillText(displayTitle(e),margin,50);
       const img=await loadBlobImage(e.imageBlob),imgX=margin,imgY=120,imgW=460,imgH=650,s=Math.min(imgW/img.width,imgH/img.height),iw=img.width*s,ih=img.height*s;ctx.fillStyle='#f5f5f5';ctx.fillRect(imgX,imgY,imgW,imgH);ctx.drawImage(img,imgX+(imgW-iw)/2,imgY+(imgH-ih)/2,iw,ih);
-      let x=565,y=132,maxW=W-x-margin;const overflow=[],layer=[displayTitle(e)];
-      for(let bi=0;bi<blocks.length;bi++){const [lab,val]=blocks[bi];ctx.fillStyle='#666';ctx.font='700 17px Inter, Arial, sans-serif';ctx.fillText(lab,x,y);y+=28;ctx.fillStyle='#111';ctx.font='20px Inter, Arial, sans-serif';const lines=exportTextLines(ctx,val,maxW,ctx.font),can=Math.max(0,Math.floor((H-margin-y)/28));if(lines.length<=can){drawExportLines(ctx,lines,x,y,28);layer.push(lab,...lines);y+=lines.length*28+22}else{const shown=lines.slice(0,can);drawExportLines(ctx,shown,x,y,28);layer.push(lab,...shown);overflow.push([lab,lines.slice(can)]);for(let j=bi+1;j<blocks.length;j++)overflow.push([blocks[j][0],exportTextLines(ctx,blocks[j][1],W-margin*2,ctx.font)]);break}}
+      let x=565,y=132,maxW=W-x-margin;const overflow=[],layer=[pdfLayerItem(displayTitle(e),margin,50,36)];
+      for(let bi=0;bi<blocks.length;bi++){const [lab,val]=blocks[bi],labelY=y;ctx.fillStyle='#666';ctx.font='700 17px Inter, Arial, sans-serif';ctx.fillText(lab,x,y);layer.push(pdfLayerItem(lab,x,labelY,17));y+=28;ctx.fillStyle='#111';ctx.font='20px Inter, Arial, sans-serif';const lines=exportTextLines(ctx,val,maxW,ctx.font),can=Math.max(0,Math.floor((H-margin-y)/28));if(lines.length<=can){drawExportLines(ctx,lines,x,y,28);lines.forEach((line,i)=>layer.push(pdfLayerItem(line,x,y+i*28,20)));y+=lines.length*28+22}else{const shown=lines.slice(0,can);drawExportLines(ctx,shown,x,y,28);shown.forEach((line,i)=>layer.push(pdfLayerItem(line,x,y+i*28,20)));overflow.push([lab,lines.slice(can)]);for(let j=bi+1;j<blocks.length;j++)overflow.push([blocks[j][0],exportTextLines(ctx,blocks[j][1],W-margin*2,ctx.font)]);break}}
       attachPdfTextLayer(c,layer);pages.push(c);let queue=overflow;
-      while(queue.length&&pages.length<limitPages){const p=document.createElement('canvas');p.width=W;p.height=H;ctx=p.getContext('2d');ctx.fillStyle='#fff';ctx.fillRect(0,0,W,H);ctx.textBaseline='top';ctx.fillStyle='#777';ctx.font='700 18px Inter, Arial, sans-serif';ctx.fillText(`${displayTitle(e)}  /  CONTINUED`,margin,48);let yy=100,next=[],pageLayer=[`${displayTitle(e)} / CONTINUED`];for(let qi=0;qi<queue.length;qi++){const [lab,lines]=queue[qi];ctx.fillStyle='#666';ctx.font='700 17px Inter, Arial, sans-serif';ctx.fillText(lab,margin,yy);yy+=28;ctx.fillStyle='#111';ctx.font='20px Inter, Arial, sans-serif';const can=Math.max(0,Math.floor((H-margin-yy)/28)),shown=lines.slice(0,can);drawExportLines(ctx,shown,margin,yy,28);pageLayer.push(lab,...shown);yy+=shown.length*28+24;if(lines.length>can){next.push([lab,lines.slice(can)],...queue.slice(qi+1));break}}attachPdfTextLayer(p,pageLayer);pages.push(p);queue=next}
+      while(queue.length&&pages.length<limitPages){const p=document.createElement('canvas');p.width=W;p.height=H;ctx=p.getContext('2d');ctx.fillStyle='#fff';ctx.fillRect(0,0,W,H);ctx.textBaseline='top';ctx.fillStyle='#777';ctx.font='700 18px Inter, Arial, sans-serif';ctx.fillText(`${displayTitle(e)}  /  CONTINUED`,margin,48);let yy=100,next=[],pageLayer=[pdfLayerItem(`${displayTitle(e)}  /  CONTINUED`,margin,48,18)];for(let qi=0;qi<queue.length;qi++){const [lab,lines]=queue[qi],labelY=yy;ctx.fillStyle='#666';ctx.font='700 17px Inter, Arial, sans-serif';ctx.fillText(lab,margin,yy);pageLayer.push(pdfLayerItem(lab,margin,labelY,17));yy+=28;ctx.fillStyle='#111';ctx.font='20px Inter, Arial, sans-serif';const can=Math.max(0,Math.floor((H-margin-yy)/28)),shown=lines.slice(0,can);drawExportLines(ctx,shown,margin,yy,28);shown.forEach((line,i)=>pageLayer.push(pdfLayerItem(line,margin,yy+i*28,20)));yy+=shown.length*28+24;if(lines.length>can){next.push([lab,lines.slice(can)],...queue.slice(qi+1));break}}attachPdfTextLayer(p,pageLayer);pages.push(p);queue=next}
     }return pages;
   }
   async function buildExportPages(entries,preset,cols,fields,limitPages=Infinity){if(preset==='atlas')return renderStyleAtlasPages(entries,cols,limitPages);if(preset==='prompt')return renderPromptPages(entries,limitPages);return renderDetailPages(entries,fields,limitPages)}
@@ -5957,27 +5975,27 @@ async function confirmAtlasGalleryPicker(){let added=0,skipped=0;const known=new
     const canvas=document.createElement('canvas');
     canvas.width=pad*2+cols*cardW+(cols-1)*gap;
     canvas.height=tableY+275+Math.max(1,names.length)*42;
-    const ctx=canvas.getContext('2d');
+    const ctx=canvas.getContext('2d'),pdfLayer=[];
     ctx.fillStyle='#fff';ctx.fillRect(0,0,canvas.width,canvas.height);ctx.fillStyle='#111';ctx.textBaseline='top';
     for(let i=0;i<entries.length;i++){
       const e=entries[i], x=pad+(i%cols)*(cardW+gap), y=pad+Math.floor(i/cols)*(cardH+gap);
       const img=await loadBlobImage(e.imageBlob), scale=Math.min(cardW/img.width,760/img.height), w=img.width*scale,h=img.height*scale;
       ctx.fillStyle='#f4f4f4';ctx.fillRect(x,y,cardW,760);ctx.drawImage(img,x+(cardW-w)/2,y+(760-h)/2,w,h);
-      ctx.fillStyle='#111';ctx.font='bold 30px Arial';ctx.fillText(displayTitle(e),x,y+785);ctx.font='20px Arial';drawCanvasText(ctx,artistSummary(e),x,y+830,cardW,26);
+      ctx.fillStyle='#111';ctx.font='bold 30px Arial';ctx.fillText(displayTitle(e),x,y+785);pdfLayer.push(pdfLayerItem(displayTitle(e),x,y+785,30));ctx.font='20px Arial';drawCanvasText(ctx,artistSummary(e),x,y+830,cardW,26);pdfLayer.push(pdfLayerItem(artistSummary(e),x,y+830,20));
     }
     let y=tableY+20;
     const samePrompt=entries.every(e=>normalizeText(e.prompt)===normalizeText(entries[0].prompt));
     const sameChars=entries.every(e=>normalizeText((e.characterPrompts||[]).join('\n'))===normalizeText((entries[0].characterPrompts||[]).join('\n')));
     const sameCharUc=entries.every(e=>normalizeText((e.characterUc||[]).join('\n'))===normalizeText((entries[0].characterUc||[]).join('\n')));
     const sameUc=entries.every(e=>normalizeText(e.uc)===normalizeText(entries[0].uc));
-    ctx.font='bold 30px Arial';ctx.fillText('Artist Weight Comparison',pad,y);y+=52;
-    ctx.font='20px Arial';ctx.fillText(samePrompt&&sameChars&&sameCharUc&&sameUc?'Prompt / Character Prompt / Character UC / UC : SAME':'Prompt / Character Prompt / Character UC / UC : DIFFERENT',pad,y);y+=48;
+    ctx.font='bold 30px Arial';ctx.fillText('Artist Weight Comparison',pad,y);pdfLayer.push(pdfLayerItem('Artist Weight Comparison',pad,y,30));y+=52;
+    ctx.font='20px Arial';const compareStatus=samePrompt&&sameChars&&sameCharUc&&sameUc?'Prompt / Character Prompt / Character UC / UC : SAME':'Prompt / Character Prompt / Character UC / UC : DIFFERENT';ctx.fillText(compareStatus,pad,y);pdfLayer.push(pdfLayerItem(compareStatus,pad,y,20));y+=48;
     ctx.font='22px Arial';
     for(const name of names){
       const vals=entries.map(e=>{const a=(e.artists||[]).find(x=>norm(x.name)===norm(name));return a?a.weight:'—'});
-      ctx.fillText(`${name}   ${vals.map((v,i)=>`#${i+1}: ${v}`).join('   ')}`,pad,y);y+=42;
+      const line=`${name}   ${vals.map((v,i)=>`#${i+1}: ${v}`).join('   ')}`;ctx.fillText(line,pad,y);pdfLayer.push(pdfLayerItem(line,pad,y,22));y+=42;
     }
-    return canvas;
+    attachPdfTextLayer(canvas,pdfLayer);return canvas;
   }
   async function exportCompareImage(){
     try{
@@ -5999,10 +6017,13 @@ async function confirmAtlasGalleryPicker(){let added=0,skipped=0;const known=new
   }
   function makePdfFromJpegs(pages,pageW=595.28,pageH=841.89){
     const enc=new TextEncoder(),chunks=[],offsets=[0];let length=0;const push=v=>{const b=typeof v==='string'?enc.encode(v):v;chunks.push(b);length+=b.length};const addObj=(n,parts)=>{offsets[n]=length;push(`${n} 0 obj\n`);for(const p of parts)push(p);push(`\nendobj\n`)};
-    const cmap=`/CIDInit /ProcSet findresource begin\n12 dict begin\nbegincmap\n/CIDSystemInfo << /Registry (Adobe) /Ordering (UCS) /Supplement 0 >> def\n/CMapName /Adobe-Identity-UCS def\n/CMapType 2 def\n1 begincodespacerange\n<0000> <FFFF>\nendcodespacerange\n1 beginbfrange\n<0000> <FFFF> <0000>\nendbfrange\nendcmap\nCMapName currentdict /CMap defineresource pop\nend\nend`;
-    push('%PDF-1.4\n%âãÏÓ\n');const base=5,cmapObj=5+pages.length*3,total=cmapObj;addObj(1,[`<< /Type /Catalog /Pages 2 0 R >>`]);const kids=pages.map((_,i)=>`${base+i*3} 0 R`).join(' ');addObj(2,[`<< /Type /Pages /Kids [${kids}] /Count ${pages.length} >>`]);addObj(3,[`<< /Type /Font /Subtype /Type0 /BaseFont /Identity-H /Encoding /Identity-H /DescendantFonts [4 0 R] /ToUnicode ${cmapObj} 0 R >>`]);addObj(4,[`<< /Type /Font /Subtype /CIDFontType2 /BaseFont /Identity-H /CIDSystemInfo << /Registry (Adobe) /Ordering (Identity) /Supplement 0 >> /DW 1000 >>`]);
-    pages.forEach((p,i)=>{const pageObj=base+i*3,imgObj=pageObj+1,contentObj=pageObj+2,name=`Im${i+1}`;addObj(pageObj,[`<< /Type /Page /Parent 2 0 R /MediaBox [0 0 ${pageW} ${pageH}] /Resources << /XObject << /${name} ${imgObj} 0 R >> /Font << /Ftxt 3 0 R >> >> /Contents ${contentObj} 0 R >>`]);addObj(imgObj,[`<< /Type /XObject /Subtype /Image /Width ${p.width} /Height ${p.height} /ColorSpace /DeviceRGB /BitsPerComponent 8 /Filter /DCTDecode /Length ${p.bytes.length} >>\nstream\n`,p.bytes,`\nendstream`]);const text=pdfTextLayerStream(p.textLayer||[],pageW,pageH),stream=`q\n${pageW} 0 0 ${pageH} 0 0 cm\n/${name} Do\nQ\n${text}`;addObj(contentObj,[`<< /Length ${enc.encode(stream).length} >>\nstream\n${stream}\nendstream`])});
-    addObj(cmapObj,[`<< /Length ${enc.encode(cmap).length} >>\nstream\n${cmap}\nendstream`]);const xref=length;push(`xref\n0 ${total+1}\n0000000000 65535 f \n`);for(let i=1;i<=total;i++)push(String(offsets[i]).padStart(10,'0')+' 00000 n \n');push(`trailer\n<< /Size ${total+1} /Root 1 0 R >>\nstartxref\n${xref}\n%%EOF`);return new Blob(chunks,{type:'application/pdf'});
+    const cmap=`/CIDInit /ProcSet findresource begin\n12 dict begin\nbegincmap\n/CIDSystemInfo << /Registry (Adobe) /Ordering (UCS) /Supplement 0 >> def\n/CMapName /NAI-UCS2 def\n/CMapType 2 def\n1 begincodespacerange\n<0000> <FFFF>\nendcodespacerange\n1 beginbfrange\n<0000> <FFFF> <0000>\nendbfrange\nendcmap\nCMapName currentdict /CMap defineresource pop\nend\nend`;
+    push('%PDF-1.4\n%âãÏÓ\n');const base=6,cmapObj=6+pages.length*3,total=cmapObj;addObj(1,[`<< /Type /Catalog /Pages 2 0 R >>`]);const kids=pages.map((_,i)=>`${base+i*3} 0 R`).join(' ');addObj(2,[`<< /Type /Pages /Kids [${kids}] /Count ${pages.length} >>`]);
+    addObj(3,[`<< /Type /Font /Subtype /Type0 /BaseFont /HYSMyeongJo-Medium /Encoding /UniKS-UCS2-H /DescendantFonts [4 0 R] /ToUnicode ${cmapObj} 0 R >>`]);
+    addObj(4,[`<< /Type /Font /Subtype /CIDFontType0 /BaseFont /HYSMyeongJo-Medium /CIDSystemInfo << /Registry (Adobe) /Ordering (Korea1) /Supplement 2 >> /DW 1000 >>`]);
+    addObj(5,[`<< /Producer (NAI Studio) /Creator (NAI Studio) >>`]);
+    pages.forEach((p,i)=>{const pageObj=base+i*3,imgObj=pageObj+1,contentObj=pageObj+2,name=`Im${i+1}`;addObj(pageObj,[`<< /Type /Page /Parent 2 0 R /MediaBox [0 0 ${pageW} ${pageH}] /Resources << /XObject << /${name} ${imgObj} 0 R >> /Font << /Ftxt 3 0 R >> >> /Contents ${contentObj} 0 R >>`]);addObj(imgObj,[`<< /Type /XObject /Subtype /Image /Width ${p.width} /Height ${p.height} /ColorSpace /DeviceRGB /BitsPerComponent 8 /Filter /DCTDecode /Length ${p.bytes.length} >>\nstream\n`,p.bytes,`\nendstream`]);const text=pdfTextLayerStream(p.textLayer||[],pageW,pageH,p.width,p.height),stream=`q\n${pageW} 0 0 ${pageH} 0 0 cm\n/${name} Do\nQ\n${text}`;addObj(contentObj,[`<< /Length ${enc.encode(stream).length} >>\nstream\n${stream}\nendstream`])});
+    addObj(cmapObj,[`<< /Length ${enc.encode(cmap).length} >>\nstream\n${cmap}\nendstream`]);const xref=length;push(`xref\n0 ${total+1}\n0000000000 65535 f \n`);for(let i=1;i<=total;i++)push(String(offsets[i]).padStart(10,'0')+' 00000 n \n');push(`trailer\n<< /Size ${total+1} /Root 1 0 R /Info 5 0 R >>\nstartxref\n${xref}\n%%EOF`);return new Blob(chunks,{type:'application/pdf'});
   }
   async function exportComparePdf(){
     try{
@@ -6014,7 +6035,7 @@ async function confirmAtlasGalleryPicker(){let added=0,skipped=0;const known=new
         const h=Math.min(sliceH,canvas.height-sy), page=document.createElement('canvas');
         page.width=canvas.width;page.height=sliceH;
         const pctx=page.getContext('2d');pctx.fillStyle='#fff';pctx.fillRect(0,0,page.width,page.height);pctx.drawImage(canvas,0,sy,canvas.width,h,0,0,canvas.width,h);
-        const compareEntries=state.compareIds.map(resolveCompareRef).filter(Boolean),compareText=['NAI STUDIO / COMPARE',...compareEntries.flatMap((e,i)=>[`#${i+1} ${displayTitle(e)}`,artistSummary(e),e.prompt||'',...(e.characterPrompts||[]),...(e.characterUc||[]),e.uc||''])];pages.push({bytes:await canvasToJpegBytes(page),width:page.width,height:page.height,textLayer:compareText});
+        const slicedLayer=(canvas.__naiTextLayer||[]).filter(it=>it.y>=sy&&it.y<sy+sliceH).map(it=>({...it,y:it.y-sy}));pages.push({bytes:await canvasToJpegBytes(page),width:page.width,height:page.height,textLayer:slicedLayer});
       }
       downloadBlob(makePdfFromJpegs(pages),`nai-studio-compare-${dateStamp()}.pdf`);
       toast('Compare 결과 PDF를 저장했습니다.');
