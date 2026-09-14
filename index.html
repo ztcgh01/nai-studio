@@ -4,7 +4,7 @@
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
   <meta name="color-scheme" content="light" />
-  <title>NAI Studio v1.9.35</title>
+  <title>NAI Studio v1.9.36</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Young+Serif&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
@@ -195,7 +195,7 @@ body:not(.is-home) .menu-btn{display:grid}
 
 #detailImage,#atlasImageDetailImg,#folderImageLightboxImg,#selectionPreviewImg{touch-action:pan-y;-webkit-user-drag:none;user-select:none}
 
-/* v1.9.35: HQ one-image-per-page PDF + Seed A/B paired export. */
+/* v1.9.36: HQ PDF metadata controls; Artist + Seed compact line, optional details on following pages. */
 /* v1.9.34: selectable PDF text layer repair.
    v1.9.33: searchable PDF text layer + complete artist-list export */
 .artist-list-dialog .modal-shell{width:min(680px,94vw);max-height:90dvh;display:flex;flex-direction:column}.artist-list-body{padding:16px 18px;display:grid;gap:14px;overflow:auto}.artist-list-section{display:grid;gap:7px}.artist-list-section>span{font-size:9px;font-weight:850;letter-spacing:.12em;color:#777;text-transform:uppercase}.artist-list-options{display:flex;gap:6px;flex-wrap:wrap}.artist-list-options button{border:1px solid #ddd;background:#fff;border-radius:7px;padding:8px 10px;font-size:10px}.artist-list-options button.active{background:#111;color:#fff;border-color:#111}.artist-list-note{font-size:10px;line-height:1.55;color:#666;background:#fafafa;border:1px solid #e8e8e8;border-radius:8px;padding:10px 11px}.artist-list-count{font-size:11px;font-weight:750}.artist-list-download{display:flex;justify-content:flex-end;gap:7px}.artist-list-download .btn{min-width:110px}@media(max-width:560px){.artist-list-dialog{margin:0;padding:0;width:100vw;height:100dvh}.artist-list-dialog .modal-shell{width:100vw;height:100dvh;max-height:none;border-radius:0}.artist-list-body{padding:14px}.artist-list-download{position:sticky;bottom:0;background:#fff;padding-top:8px}}
@@ -1471,7 +1471,7 @@ body.folder-lightbox-open{overflow:hidden}
               <button type="button" data-export-preset="prompt"><b>Prompt Book</b><small>이미지 + Prompt</small></button>
               <button type="button" data-export-preset="full"><b>Full Archive</b><small>이미지 + 전체 상세</small></button>
               <button type="button" data-export-preset="custom"><b>Custom</b><small>포함 정보 직접 선택</small></button>
-              <button type="button" data-export-preset="hqsingle"><b>HQ · 1 Image/Page</b><small>고화질 · 이미지 크게 · 작가명만</small></button>
+              <button type="button" data-export-preset="hqsingle"><b>HQ · 1 Image/Page</b><small>고화질 · 이미지 크게 · Artist + Seed</small></button>
             </div>
           </div>
           <div class="export-section">
@@ -1499,7 +1499,18 @@ body.folder-lightbox-open{overflow:hidden}
               <label>Seed A<input id="exportHqSeedA" type="text" inputmode="numeric" placeholder="예: 123456789"></label>
               <label>Seed B<input id="exportHqSeedB" type="text" inputmode="numeric" placeholder="예: 987654321"></label>
             </div>
-            <small id="exportHqHint" class="export-note">이미지를 페이지 최대 크기로 배치하고 하단에 작가명만 작게 표시합니다. PDF는 고품질 JPEG로 생성됩니다.</small>
+            <div class="export-section-head" style="margin-top:12px"><b>포함 정보</b><span>이미지 크기 우선</span></div>
+            <div id="exportHqFields" class="export-field-grid">
+              <label><input type="checkbox" data-hq-field="artists" checked> 작가태그</label>
+              <label><input type="checkbox" data-hq-field="seed" checked> Seed</label>
+              <label><input type="checkbox" data-hq-field="prompt"> Prompt</label>
+              <label><input type="checkbox" data-hq-field="characters"> Character Prompt</label>
+              <label><input type="checkbox" data-hq-field="charuc"> Character UC</label>
+              <label><input type="checkbox" data-hq-field="uc"> UC</label>
+              <label><input type="checkbox" data-hq-field="model"> 모델</label>
+              <label><input type="checkbox" data-hq-field="memo"> 메모</label>
+            </div>
+            <small id="exportHqHint" class="export-note">Artist + Seed는 이미지 아래 한 줄로 표시합니다. Prompt 등 긴 정보는 이미지 크기를 줄이지 않고 다음 페이지에 따로 출력합니다.</small>
           </div>
           <div id="exportCustomFields" class="export-section hidden">
             <div class="export-section-head"><b>포함 정보</b><span>Custom</span></div>
@@ -2363,7 +2374,7 @@ body.folder-lightbox-open{overflow:hidden}
   }
 
   function mapEls(){
-    ['compareCount','fileInput','atlasPhotoInput','atlasBulkInput','atlasView','atlasAddBtn','atlasFromGalleryBtn','atlasArtistListBtn','atlasGroupSelectBtn','atlasSearch','atlasSearchClear','atlasFilterTabs','atlasSortTabs','atlasSortDir','atlasModelFilter','atlasMinPosts','atlasViewMode','atlasRepCount','atlasColumnCount','atlasPageSize','atlasCount','atlasGrid','atlasLoadSentinel','atlasGroupSelectionBar','atlasGroupSelectedCount','atlasGroupSelectAllBtn','atlasGroupRepPdfBtn','atlasGroupAllPdfBtn','atlasGroupDeleteBtn','atlasGroupCancelBtn','atlasImportDialog','atlasImportClose','atlasPhotoBtn','atlasBulkBtn','atlasImportGalleryBtn','atlasGalleryPickerDialog','atlasGalleryPickerClose','atlasGalleryPickerSearch','atlasGalleryPickerAll','atlasGalleryPickerClear','atlasGalleryPickerGrid','atlasGalleryPickerCount','atlasGalleryPickerConfirm','atlasArtistDialog','atlasArtistClose','atlasArtistType','atlasArtistTitle','atlasArtistStats','atlasArtistDelete','atlasArtistFavorite','atlasArtistMemo','atlasArtistSearch','atlasArtistSearchClear','atlasArtistSelectBtn','atlasArtistGrid','atlasSelectionBar','atlasSelectedCount','atlasSelectAllBtn','atlasSelectedFolderBtn','atlasSelectedCompareBtn','atlasSelectedOriginalBtn','atlasSelectedGalleryBtn','atlasSelectedMoreBtn','atlasSelectedMoreMenu','atlasSelectedFavBtn','atlasSelectedCleanBtn','atlasSelectedPdfBtn','atlasSelectedAtlasPdfBtn','atlasSelectedAtlasImageBtn','atlasSelectedBackupBtn','atlasSelectedDeleteBtn','atlasSelectCancelBtn','atlasImageDetailDialog','atlasImageDetailClose','atlasImageDetailTitle','atlasImageDetailImg','atlasImageDetailMeta','atlasImageDetailArtists','editAtlasArtistsBtn','atlasImageDetailPrompt','atlasImageDetailCharacters','atlasImageDetailCharacterUc','atlasImageDetailUc','atlasImageDetailMemo','atlasImageFavBtn','atlasImageRepBtn','atlasImageFolderBtn','atlasImageCompareBtn','atlasImageOriginalBtn','atlasImageCleanBtn','atlasImageToGalleryBtn','atlasImageDeleteBtn','folderImportInput','backupBtn','restoreBtn','restoreInput','pdfBtn','sidebar','menuBtn','homeView','libraryView','addView','bookmarksView','foldersView','compareView','dropzone','addChooseBtn','addBulkChooseBtn','addStatus','searchInput','clearSearch','sortSelect','galleryModelFilter','galleryFilterTabs','galleryPageSize','logicToggle','activeArtistFilters','clearArtistFilters','favOnly','memoOnly','displayTabs','galleryColumnCount','galleryAddMenuBtn','galleryArtistListBtn','galleryAddDialog','closeGalleryAddDialogBtn','galleryPhotoPickBtn','galleryZipPickBtn','galleryZipInput','fieldBtn','fieldPanel','gallery','listWrap','listHead','listBody','emptyState','emptyImportBtn','resultCount','importProgress','importProgressText','importProgressCount','importProgressBar','artistBookmarks','presetBookmarks','newPresetBtn','selectModeBtn','bulkBar','selectedCount','selectAllBtn','selectedToCompareBtn','saveSelectedOriginalBtn','saveSelectedCleanBtn','selectedPdfBtn','selectedAtlasPdfBtn','selectedAtlasImageBtn','selectedBackupBtn','deleteSelectedBtn','cancelSelectBtn','compareHint','compareGrid','compareDiff','openComparePickerBtn','compareImageExportBtn','comparePdfExportBtn','clearCompareBtn','backupDialog','closeBackupBtn','runBackupBtn','backupFolderChoices','exportDialog','closeExportBtn','runExportBtn','exportScopeSummary','exportScopeChoices','exportPresetGrid','exportOutputChoices','exportAtlasOptions','exportColumnChoices','exportHqOptions','exportHqModeChoices','exportHqSeedFields','exportHqSeedA','exportHqSeedB','exportHqHint','exportCustomFields','exportPreviewCanvas','exportPreviewEmpty','exportPreviewMeta','exportItemCount','comparePickerDialog','closeComparePickerBtn','comparePickerSearch','comparePickerSelectAll','comparePickerClearAll','comparePickerGrid','comparePickerCount','confirmComparePickerBtn','detailDialog','detailBackBtn','detailTopFav','detailTitle','detailImage','detailMeta','detailFav','addCompare','deleteEntry','detailArtists','artistTokens','editGalleryArtistsBtn','detailPrompt','characterPrompts','characterUcPrompts','detailUc','detailMemo','bookmarkArtistsBtn','copyStylePrompt','copyAll','folderGrid','newFolderBtn','libraryTypeTabs','archiveFolderSearch','archiveFolderSearchCount','folderBookmarks','folderCreateDialog','folderNameInput','folderTypeChoices','createFolderBtn','imageFolderDialog','imageFolderBackBtn','imageFolderTitleInput','imageFolderBookmarkBtn','imageFolderMoreBtn','imageFolderMoreMenu','deleteImageFolderBtn','imageFolderCount','imageFolderImportBtn','imageFolderSelectBtn','imageFolderExportBtn','imageFolderGrid','imageFolderBulkBar','imageFolderSelectedCount','imageFolderSelectAllBtn','imageFolderCompareBtn','imageFolderExportSelectedBtn','imageFolderRemoveBtn','imageFolderCancelBtn','folderDialog','folderTitleInput','folderBookmarkBtn','deleteFolderBtn','closeFolderBtn','folderItems','folderBlankEditor','clipboardFolderCount','clipboardImportBtn','clipboardSelectBtn','clipboardExportBtn','clipboardBulkBar','clipboardSelectedCount','clipboardSelectAllBtn','clipboardExportSelectedBtn','clipboardOpenGalleryBtn','clipboardRemoveSelectedBtn','clipboardCancelBtn','folderAttachInput','attachFolderImageBtn','openSavedHubBtn','folderMoreBtn','folderMoreMenu','folderImageModeDialog','closeFolderImageModeBtn','folderImageModePreview','folderImageModeCount','folderImagesSeparateBtn','folderImagesGroupBtn','folderImageLightbox','folderImageLightboxClose','folderImageLightboxImg','folderImageLightboxDetails','savedHubDialog','closeSavedHubBtn','savedHubTabs','savedHubFolderPath','savedHubFolderBackBtn','savedHubFolderPathTitle','savedHubFolderPathMeta','savedHubSearch','savedHubGrid','savedHubCount','savedHubClearBtn','savedHubImportBtn','savedImageImportDialog','closeSavedImageImportBtn','savedImageGroupRow','savedImageGroup','savedImageIncludeDetails','savedImageDetailFields','confirmSavedImageImportBtn','folderPickDialog','folderPickSelect','folderPickNewName','folderPickTypeRow','folderPickSummary','confirmFolderPickBtn','selectedToFolderBtn','detailToFolder','detailToAtlas','saveCleanImage','presetDialog','presetName','presetText','savePreset','bulkMoreBtn','bulkMoreMenu','bulkEditBtn','bulkEditDialog','bulkEditClose','bulkEditCancel','bulkEditSave','bulkEditCount','bulkEditArtistsOn','bulkEditArtists','bulkEditPromptOn','bulkEditPrompt','bulkEditCharactersOn','bulkEditCharacters','bulkEditCharacterUcOn','bulkEditCharacterUc','bulkEditUcOn','bulkEditUc','bulkEditMemoOn','bulkEditMemo','bulkEditModelOn','bulkEditModel','modelEditDialog','modelEditClose','modelEditSelect','modelEditAuto','modelEditCancel','modelEditSave','artistClassifyDialog','artistClassifyClose','artistClassifyArtists','artistClassifyPrompt','artistClassifyCancel','artistClassifySave','scrollTopBtn','selectionPreview','selectionPreviewClose','selectionPreviewCount','selectionPreviewStage','selectionPreviewPrev','selectionPreviewImg','selectionPreviewNext','selectionPreviewTitle','selectionPreviewPick','artistListDialog','artistListClose','artistListSource','artistListScope','artistListSort','artistListFormat','artistListCount','artistListCancel','artistListDownload','toast'].forEach(id=>els[id]=$(`#${id}`));
+    ['compareCount','fileInput','atlasPhotoInput','atlasBulkInput','atlasView','atlasAddBtn','atlasFromGalleryBtn','atlasArtistListBtn','atlasGroupSelectBtn','atlasSearch','atlasSearchClear','atlasFilterTabs','atlasSortTabs','atlasSortDir','atlasModelFilter','atlasMinPosts','atlasViewMode','atlasRepCount','atlasColumnCount','atlasPageSize','atlasCount','atlasGrid','atlasLoadSentinel','atlasGroupSelectionBar','atlasGroupSelectedCount','atlasGroupSelectAllBtn','atlasGroupRepPdfBtn','atlasGroupAllPdfBtn','atlasGroupDeleteBtn','atlasGroupCancelBtn','atlasImportDialog','atlasImportClose','atlasPhotoBtn','atlasBulkBtn','atlasImportGalleryBtn','atlasGalleryPickerDialog','atlasGalleryPickerClose','atlasGalleryPickerSearch','atlasGalleryPickerAll','atlasGalleryPickerClear','atlasGalleryPickerGrid','atlasGalleryPickerCount','atlasGalleryPickerConfirm','atlasArtistDialog','atlasArtistClose','atlasArtistType','atlasArtistTitle','atlasArtistStats','atlasArtistDelete','atlasArtistFavorite','atlasArtistMemo','atlasArtistSearch','atlasArtistSearchClear','atlasArtistSelectBtn','atlasArtistGrid','atlasSelectionBar','atlasSelectedCount','atlasSelectAllBtn','atlasSelectedFolderBtn','atlasSelectedCompareBtn','atlasSelectedOriginalBtn','atlasSelectedGalleryBtn','atlasSelectedMoreBtn','atlasSelectedMoreMenu','atlasSelectedFavBtn','atlasSelectedCleanBtn','atlasSelectedPdfBtn','atlasSelectedAtlasPdfBtn','atlasSelectedAtlasImageBtn','atlasSelectedBackupBtn','atlasSelectedDeleteBtn','atlasSelectCancelBtn','atlasImageDetailDialog','atlasImageDetailClose','atlasImageDetailTitle','atlasImageDetailImg','atlasImageDetailMeta','atlasImageDetailArtists','editAtlasArtistsBtn','atlasImageDetailPrompt','atlasImageDetailCharacters','atlasImageDetailCharacterUc','atlasImageDetailUc','atlasImageDetailMemo','atlasImageFavBtn','atlasImageRepBtn','atlasImageFolderBtn','atlasImageCompareBtn','atlasImageOriginalBtn','atlasImageCleanBtn','atlasImageToGalleryBtn','atlasImageDeleteBtn','folderImportInput','backupBtn','restoreBtn','restoreInput','pdfBtn','sidebar','menuBtn','homeView','libraryView','addView','bookmarksView','foldersView','compareView','dropzone','addChooseBtn','addBulkChooseBtn','addStatus','searchInput','clearSearch','sortSelect','galleryModelFilter','galleryFilterTabs','galleryPageSize','logicToggle','activeArtistFilters','clearArtistFilters','favOnly','memoOnly','displayTabs','galleryColumnCount','galleryAddMenuBtn','galleryArtistListBtn','galleryAddDialog','closeGalleryAddDialogBtn','galleryPhotoPickBtn','galleryZipPickBtn','galleryZipInput','fieldBtn','fieldPanel','gallery','listWrap','listHead','listBody','emptyState','emptyImportBtn','resultCount','importProgress','importProgressText','importProgressCount','importProgressBar','artistBookmarks','presetBookmarks','newPresetBtn','selectModeBtn','bulkBar','selectedCount','selectAllBtn','selectedToCompareBtn','saveSelectedOriginalBtn','saveSelectedCleanBtn','selectedPdfBtn','selectedAtlasPdfBtn','selectedAtlasImageBtn','selectedBackupBtn','deleteSelectedBtn','cancelSelectBtn','compareHint','compareGrid','compareDiff','openComparePickerBtn','compareImageExportBtn','comparePdfExportBtn','clearCompareBtn','backupDialog','closeBackupBtn','runBackupBtn','backupFolderChoices','exportDialog','closeExportBtn','runExportBtn','exportScopeSummary','exportScopeChoices','exportPresetGrid','exportOutputChoices','exportAtlasOptions','exportColumnChoices','exportHqOptions','exportHqModeChoices','exportHqSeedFields','exportHqSeedA','exportHqSeedB','exportHqFields','exportHqHint','exportCustomFields','exportPreviewCanvas','exportPreviewEmpty','exportPreviewMeta','exportItemCount','comparePickerDialog','closeComparePickerBtn','comparePickerSearch','comparePickerSelectAll','comparePickerClearAll','comparePickerGrid','comparePickerCount','confirmComparePickerBtn','detailDialog','detailBackBtn','detailTopFav','detailTitle','detailImage','detailMeta','detailFav','addCompare','deleteEntry','detailArtists','artistTokens','editGalleryArtistsBtn','detailPrompt','characterPrompts','characterUcPrompts','detailUc','detailMemo','bookmarkArtistsBtn','copyStylePrompt','copyAll','folderGrid','newFolderBtn','libraryTypeTabs','archiveFolderSearch','archiveFolderSearchCount','folderBookmarks','folderCreateDialog','folderNameInput','folderTypeChoices','createFolderBtn','imageFolderDialog','imageFolderBackBtn','imageFolderTitleInput','imageFolderBookmarkBtn','imageFolderMoreBtn','imageFolderMoreMenu','deleteImageFolderBtn','imageFolderCount','imageFolderImportBtn','imageFolderSelectBtn','imageFolderExportBtn','imageFolderGrid','imageFolderBulkBar','imageFolderSelectedCount','imageFolderSelectAllBtn','imageFolderCompareBtn','imageFolderExportSelectedBtn','imageFolderRemoveBtn','imageFolderCancelBtn','folderDialog','folderTitleInput','folderBookmarkBtn','deleteFolderBtn','closeFolderBtn','folderItems','folderBlankEditor','clipboardFolderCount','clipboardImportBtn','clipboardSelectBtn','clipboardExportBtn','clipboardBulkBar','clipboardSelectedCount','clipboardSelectAllBtn','clipboardExportSelectedBtn','clipboardOpenGalleryBtn','clipboardRemoveSelectedBtn','clipboardCancelBtn','folderAttachInput','attachFolderImageBtn','openSavedHubBtn','folderMoreBtn','folderMoreMenu','folderImageModeDialog','closeFolderImageModeBtn','folderImageModePreview','folderImageModeCount','folderImagesSeparateBtn','folderImagesGroupBtn','folderImageLightbox','folderImageLightboxClose','folderImageLightboxImg','folderImageLightboxDetails','savedHubDialog','closeSavedHubBtn','savedHubTabs','savedHubFolderPath','savedHubFolderBackBtn','savedHubFolderPathTitle','savedHubFolderPathMeta','savedHubSearch','savedHubGrid','savedHubCount','savedHubClearBtn','savedHubImportBtn','savedImageImportDialog','closeSavedImageImportBtn','savedImageGroupRow','savedImageGroup','savedImageIncludeDetails','savedImageDetailFields','confirmSavedImageImportBtn','folderPickDialog','folderPickSelect','folderPickNewName','folderPickTypeRow','folderPickSummary','confirmFolderPickBtn','selectedToFolderBtn','detailToFolder','detailToAtlas','saveCleanImage','presetDialog','presetName','presetText','savePreset','bulkMoreBtn','bulkMoreMenu','bulkEditBtn','bulkEditDialog','bulkEditClose','bulkEditCancel','bulkEditSave','bulkEditCount','bulkEditArtistsOn','bulkEditArtists','bulkEditPromptOn','bulkEditPrompt','bulkEditCharactersOn','bulkEditCharacters','bulkEditCharacterUcOn','bulkEditCharacterUc','bulkEditUcOn','bulkEditUc','bulkEditMemoOn','bulkEditMemo','bulkEditModelOn','bulkEditModel','modelEditDialog','modelEditClose','modelEditSelect','modelEditAuto','modelEditCancel','modelEditSave','artistClassifyDialog','artistClassifyClose','artistClassifyArtists','artistClassifyPrompt','artistClassifyCancel','artistClassifySave','scrollTopBtn','selectionPreview','selectionPreviewClose','selectionPreviewCount','selectionPreviewStage','selectionPreviewPrev','selectionPreviewImg','selectionPreviewNext','selectionPreviewTitle','selectionPreviewPick','artistListDialog','artistListClose','artistListSource','artistListScope','artistListSort','artistListFormat','artistListCount','artistListCancel','artistListDownload','toast'].forEach(id=>els[id]=$(`#${id}`));
   }
 
   function bind(){
@@ -2662,6 +2673,7 @@ body.folder-lightbox-open{overflow:hidden}
     els.exportHqModeChoices.onclick=e=>{const b=e.target.closest('[data-hq-mode]');if(!b)return;exportStudioState.hqMode=b.dataset.hqMode==='pair'?'pair':'single';syncExportStudio();renderExportPreview()};
     els.exportHqSeedA.oninput=()=>{if(exportStudioState.preset==='hqsingle'&&exportStudioState.hqMode==='pair')renderExportPreview()};
     els.exportHqSeedB.oninput=()=>{if(exportStudioState.preset==='hqsingle'&&exportStudioState.hqMode==='pair')renderExportPreview()};
+    els.exportHqFields.onchange=()=>{if(exportStudioState.preset==='hqsingle')renderExportPreview()};
     els.exportCustomFields.onchange=()=>renderExportPreview();
 
     els.detailTitle.oninput = debounceSaveDetail;
@@ -5829,11 +5841,16 @@ async function confirmAtlasGalleryPicker(){let added=0,skipped=0;const known=new
     document.querySelectorAll('[data-export-field]').forEach(x=>fields[x.dataset.exportField]=x.checked);
     return fields;
   }
+  function getHqExportFields(){
+    const fields={artists:true,seed:true,prompt:false,characters:false,charuc:false,uc:false,memo:false,model:false};
+    document.querySelectorAll('[data-hq-field]').forEach(x=>fields[x.dataset.hqField]=x.checked);
+    return fields;
+  }
   function exportPresetFields(preset){
     if(preset==='atlas')return Object.freeze({artists:true,prompt:false,characters:false,charuc:false,uc:false,memo:false,seed:false,model:false});
     if(preset==='prompt')return {artists:false,prompt:true,characters:false,charuc:false,uc:false,memo:false,seed:false,model:false};
     if(preset==='full')return {artists:true,prompt:true,characters:true,charuc:true,uc:true,memo:true,seed:true,model:true};
-    if(preset==='hqsingle')return {artists:true,prompt:false,characters:false,charuc:false,uc:false,memo:false,seed:false,model:false};
+    if(preset==='hqsingle')return getHqExportFields();
     return getExportFields();
   }
   function syncExportStudio(){
@@ -5939,18 +5956,65 @@ async function confirmAtlasGalleryPicker(){let added=0,skipped=0;const known=new
     const paired=rows.filter(r=>r.a&&r.b),missingA=rows.filter(r=>!r.a&&r.b).length,missingB=rows.filter(r=>r.a&&!r.b).length;
     return {a:paired.map(r=>r.a),b:paired.map(r=>r.b),missingA,missingB,duplicates:dupes.size};
   }
-  async function renderHqSinglePages(entries,limitPages=Infinity){
+  function hqCompactMeta(e,fields){
+    const parts=[];
+    if(fields.artists)parts.push(hqArtistLabel(e));
+    if(fields.seed&&e.seed!=null&&String(e.seed).trim())parts.push(`Seed: ${e.seed}`);
+    return parts.join(', ');
+  }
+  function hqLongBlocks(e,fields){
+    const b=[];
+    if(fields.prompt&&e.prompt)b.push(['PROMPT',e.prompt]);
+    if(fields.characters&&(e.characterPrompts||[]).length)b.push(['CHARACTER PROMPT',(e.characterPrompts||[]).join('\n\n')]);
+    if(fields.charuc&&(e.characterUc||[]).length)b.push(['CHARACTER UC',(e.characterUc||[]).join('\n\n')]);
+    if(fields.uc&&e.uc)b.push(['UC',e.uc]);
+    if(fields.model&&e.model)b.push(['MODEL',e.model]);
+    if(fields.memo&&e.memo)b.push(['MEMO',e.memo]);
+    return b;
+  }
+  async function renderHqEntryPages(e,fields,limitPages=Infinity){
     const W=1664,H=2352,side=20,top=20,bottom=76,pages=[];
-    for(const e of hqSortEntries(entries)){
-      if(pages.length>=limitPages)break;
-      const c=document.createElement('canvas');c.width=W;c.height=H;const ctx=c.getContext('2d');ctx.fillStyle='#fff';ctx.fillRect(0,0,W,H);ctx.textBaseline='top';
-      const img=await loadBlobImage(e.imageBlob),boxW=W-side*2,boxH=H-top-bottom;
-      const scale=Math.min(boxW/img.width,boxH/img.height),iw=Math.round(img.width*scale),ih=Math.round(img.height*scale),x=Math.round((W-iw)/2),y=top+Math.round((boxH-ih)/2);
-      ctx.drawImage(img,x,y,iw,ih);
-      const label=hqArtistLabel(e),fontSize=22,textY=H-50;ctx.fillStyle='#222';ctx.font=`500 ${fontSize}px Inter, Arial, sans-serif`;ctx.textAlign='center';ctx.fillText(label,W/2,textY);ctx.textAlign='left';
-      attachPdfTextLayer(c,[pdfLayerItem(label,Math.max(12,W/2-ctx.measureText(label).width/2),textY,fontSize)]);pages.push(c);
+    if(limitPages<=0)return pages;
+    const c=document.createElement('canvas');c.width=W;c.height=H;let ctx=c.getContext('2d');ctx.fillStyle='#fff';ctx.fillRect(0,0,W,H);ctx.textBaseline='top';
+    const img=await loadBlobImage(e.imageBlob),boxW=W-side*2,boxH=H-top-bottom;
+    const scale=Math.min(boxW/img.width,boxH/img.height),iw=Math.round(img.width*scale),ih=Math.round(img.height*scale),x=Math.round((W-iw)/2),y=top+Math.round((boxH-ih)/2);
+    ctx.drawImage(img,x,y,iw,ih);
+    const label=hqCompactMeta(e,fields),fontSize=22,textY=H-50,layer=[];
+    if(label){ctx.fillStyle='#222';ctx.font=`500 ${fontSize}px Inter, Arial, sans-serif`;ctx.textAlign='center';ctx.fillText(label,W/2,textY);const tw=ctx.measureText(label).width;ctx.textAlign='left';layer.push(pdfLayerItem(label,Math.max(12,W/2-tw/2),textY,fontSize));}
+    attachPdfTextLayer(c,layer);pages.push(c);
+    if(pages.length>=limitPages)return pages;
+    const blocks=hqLongBlocks(e,fields);if(!blocks.length)return pages;
+    const margin=76,titleY=58,startY=126,lineH=30,maxW=W-margin*2,font='22px Inter, Arial, sans-serif';
+    let queue=blocks.map(([lab,val])=>[lab,String(val||'')]);
+    while(queue.length&&pages.length<limitPages){
+      const p=document.createElement('canvas');p.width=W;p.height=H;ctx=p.getContext('2d');ctx.fillStyle='#fff';ctx.fillRect(0,0,W,H);ctx.textBaseline='top';
+      ctx.fillStyle='#777';ctx.font='700 18px Inter, Arial, sans-serif';const head=`${hqArtistLabel(e)}${e.seed!=null?` · Seed ${e.seed}`:''}`;ctx.fillText(head,margin,titleY);
+      let yy=startY,next=[],pdfLayer=[pdfLayerItem(head,margin,titleY,18)];
+      for(let qi=0;qi<queue.length;qi++){
+        const [lab,val]=queue[qi];ctx.fillStyle='#555';ctx.font='700 18px Inter, Arial, sans-serif';ctx.fillText(lab,margin,yy);pdfLayer.push(pdfLayerItem(lab,margin,yy,18));yy+=34;
+        ctx.fillStyle='#111';ctx.font=font;const lines=Array.isArray(val)?val:exportTextLines(ctx,val,maxW,font);const can=Math.max(1,Math.floor((H-margin-yy)/lineH)),shown=lines.slice(0,can);drawExportLines(ctx,shown,margin,yy,lineH);shown.forEach((line,i)=>pdfLayer.push(pdfLayerItem(line,margin,yy+i*lineH,22)));yy+=shown.length*lineH+28;
+        if(lines.length>can){next.push([lab,lines.slice(can)],...queue.slice(qi+1));break;}
+      }
+      attachPdfTextLayer(p,pdfLayer);pages.push(p);queue=next;
     }
     return pages;
+  }
+  async function renderHqSinglePages(entries,limitPages=Infinity,fields=getHqExportFields()){
+    const pages=[];
+    for(const e of hqSortEntries(entries)){
+      if(pages.length>=limitPages)break;
+      const ep=await renderHqEntryPages(e,fields,limitPages-pages.length);pages.push(...ep);
+    }
+    return pages;
+  }
+  async function renderHqPairedPages(entriesA,entriesB,fields){
+    const outA=[],outB=[];
+    for(let i=0;i<Math.min(entriesA.length,entriesB.length);i++){
+      const [pa,pb]=await Promise.all([renderHqEntryPages(entriesA[i],fields),renderHqEntryPages(entriesB[i],fields)]),n=Math.max(pa.length,pb.length);
+      const blankFor=(e,j)=>{const c=document.createElement('canvas');c.width=1664;c.height=2352;const ctx=c.getContext('2d');ctx.fillStyle='#fff';ctx.fillRect(0,0,c.width,c.height);const t=`${hqArtistLabel(e)} · metadata continuation reserved`;ctx.fillStyle='#aaa';ctx.font='18px Inter, Arial, sans-serif';ctx.fillText(t,76,58);attachPdfTextLayer(c,[pdfLayerItem(t,76,58,18)]);return c};
+      while(pa.length<n)pa.push(blankFor(entriesA[i],pa.length));while(pb.length<n)pb.push(blankFor(entriesB[i],pb.length));outA.push(...pa);outB.push(...pb);
+    }
+    return {a:outA,b:outB};
   }
   async function renderPromptPages(entries,limitPages=Infinity){
     const W=1240,H=1754,margin=62,pages=[];
@@ -5995,7 +6059,7 @@ async function confirmAtlasGalleryPicker(){let added=0,skipped=0;const known=new
       while(queue.length&&pages.length<limitPages){const p=document.createElement('canvas');p.width=W;p.height=H;ctx=p.getContext('2d');ctx.fillStyle='#fff';ctx.fillRect(0,0,W,H);ctx.textBaseline='top';ctx.fillStyle='#777';ctx.font='700 18px Inter, Arial, sans-serif';ctx.fillText(`${displayTitle(e)}  /  CONTINUED`,margin,48);let yy=100,next=[],pageLayer=[pdfLayerItem(`${displayTitle(e)}  /  CONTINUED`,margin,48,18)];for(let qi=0;qi<queue.length;qi++){const [lab,lines]=queue[qi],labelY=yy;ctx.fillStyle='#666';ctx.font='700 17px Inter, Arial, sans-serif';ctx.fillText(lab,margin,yy);pageLayer.push(pdfLayerItem(lab,margin,labelY,17));yy+=28;ctx.fillStyle='#111';ctx.font='20px Inter, Arial, sans-serif';const can=Math.max(0,Math.floor((H-margin-yy)/28)),shown=lines.slice(0,can);drawExportLines(ctx,shown,margin,yy,28);shown.forEach((line,i)=>pageLayer.push(pdfLayerItem(line,margin,yy+i*28,20)));yy+=shown.length*28+24;if(lines.length>can){next.push([lab,lines.slice(can)],...queue.slice(qi+1));break}}attachPdfTextLayer(p,pageLayer);pages.push(p);queue=next}
     }return pages;
   }
-  async function buildExportPages(entries,preset,cols,fields,limitPages=Infinity){if(preset==='atlas')return renderStyleAtlasPages(entries,cols,limitPages);if(preset==='prompt')return renderPromptPages(entries,limitPages);if(preset==='hqsingle')return renderHqSinglePages(entries,limitPages);return renderDetailPages(entries,fields,limitPages)}
+  async function buildExportPages(entries,preset,cols,fields,limitPages=Infinity){if(preset==='atlas')return renderStyleAtlasPages(entries,cols,limitPages);if(preset==='prompt')return renderPromptPages(entries,limitPages);if(preset==='hqsingle')return renderHqSinglePages(entries,limitPages,fields);return renderDetailPages(entries,fields,limitPages)}
   async function renderExportPreview(){
     const token=++exportStudioState.previewToken,arr=exportStudioEntries();syncExportStudio();
     if(!arr.length){els.exportPreviewCanvas.classList.add('hidden');els.exportPreviewEmpty.classList.remove('hidden');return}
@@ -6007,7 +6071,7 @@ async function confirmAtlasGalleryPicker(){let added=0,skipped=0;const known=new
   async function runExportFromDialog(){
     const arr=exportStudioEntries();if(!arr.length){toast('내보낼 항목이 없습니다.');return}
     els.runExportBtn.disabled=true;els.runExportBtn.textContent='만드는 중…';
-    try{const fields=exportPresetFields(exportStudioState.preset);if(exportStudioState.preset==='hqsingle'&&exportStudioState.hqMode==='pair'){const seedA=els.exportHqSeedA.value.trim(),seedB=els.exportHqSeedB.value.trim();if(!seedA||!seedB){toast('Seed A와 Seed B를 모두 입력해주세요.');return}if(seedA===seedB){toast('서로 다른 Seed를 입력해주세요.');return}const pair=hqPairedEntries(arr,seedA,seedB);if(!pair.a.length){toast('두 Seed에 공통으로 존재하는 작가가 없습니다.');return}const pagesA=await renderHqSinglePages(pair.a),pagesB=await renderHqSinglePages(pair.b);await exportPagesAsPdf(pagesA,`hq-seed-${seedA}`,.985);await exportPagesAsPdf(pagesB,`hq-seed-${seedB}`,.985);const notes=[];if(pair.missingA)notes.push(`A 누락 ${pair.missingA}`);if(pair.missingB)notes.push(`B 누락 ${pair.missingB}`);if(pair.duplicates)notes.push(`중복 작가/Seed ${pair.duplicates}`);toast(`A/B PDF 2개 · 공통 ${pair.a.length}명${notes.length?' · '+notes.join(' · '):''}`);els.exportDialog.close();return}const pages=await buildExportPages(arr,exportStudioState.preset,exportStudioState.cols,fields),label=exportStudioState.preset==='atlas'?'style-atlas':exportStudioState.preset==='prompt'?'prompt-book':exportStudioState.preset==='full'?'full-archive':exportStudioState.preset==='hqsingle'?'hq-one-image-per-page':'custom';if(exportStudioState.output==='pdf')await exportPagesAsPdf(pages,label,exportStudioState.preset==='hqsingle'?.985:.91);else await exportPagesAsPng(pages,label);toast(`${arr.length}개 이미지를 ${exportStudioState.output.toUpperCase()}로 저장했습니다.`);els.exportDialog.close()}catch(err){console.error(err);toast('내보내기에 실패했습니다.')}finally{els.runExportBtn.disabled=false;syncExportStudio()}
+    try{const fields=exportPresetFields(exportStudioState.preset);if(exportStudioState.preset==='hqsingle'&&exportStudioState.hqMode==='pair'){const seedA=els.exportHqSeedA.value.trim(),seedB=els.exportHqSeedB.value.trim();if(!seedA||!seedB){toast('Seed A와 Seed B를 모두 입력해주세요.');return}if(seedA===seedB){toast('서로 다른 Seed를 입력해주세요.');return}const pair=hqPairedEntries(arr,seedA,seedB);if(!pair.a.length){toast('두 Seed에 공통으로 존재하는 작가가 없습니다.');return}const pairedPages=await renderHqPairedPages(pair.a,pair.b,fields);await exportPagesAsPdf(pairedPages.a,`hq-seed-${seedA}`,.985);await exportPagesAsPdf(pairedPages.b,`hq-seed-${seedB}`,.985);const notes=[];if(pair.missingA)notes.push(`A 누락 ${pair.missingA}`);if(pair.missingB)notes.push(`B 누락 ${pair.missingB}`);if(pair.duplicates)notes.push(`중복 작가/Seed ${pair.duplicates}`);toast(`A/B PDF 2개 · 공통 ${pair.a.length}명${notes.length?' · '+notes.join(' · '):''}`);els.exportDialog.close();return}const pages=await buildExportPages(arr,exportStudioState.preset,exportStudioState.cols,fields),label=exportStudioState.preset==='atlas'?'style-atlas':exportStudioState.preset==='prompt'?'prompt-book':exportStudioState.preset==='full'?'full-archive':exportStudioState.preset==='hqsingle'?'hq-one-image-per-page':'custom';if(exportStudioState.output==='pdf')await exportPagesAsPdf(pages,label,exportStudioState.preset==='hqsingle'?.985:.91);else await exportPagesAsPng(pages,label);toast(`${arr.length}개 이미지를 ${exportStudioState.output.toUpperCase()}로 저장했습니다.`);els.exportDialog.close()}catch(err){console.error(err);toast('내보내기에 실패했습니다.')}finally{els.runExportBtn.disabled=false;syncExportStudio()}
   }
   function htmlText(s){return esc(String(s||'')).replace(/\n/g,'<br>');}
   async function exportEntriesPdf(arr,fields={artists:true,prompt:true,characters:true,charuc:true,uc:true,memo:true,seed:true,model:true},label='gallery'){
