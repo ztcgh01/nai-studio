@@ -4,7 +4,7 @@
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
   <meta name="color-scheme" content="light" />
-  <title>NAI Studio v1.9.37</title>
+  <title>NAI Studio v1.9.38</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Young+Serif&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
@@ -195,7 +195,7 @@ body:not(.is-home) .menu-btn{display:grid}
 
 #detailImage,#atlasImageDetailImg,#folderImageLightboxImg,#selectionPreviewImg{touch-action:pan-y;-webkit-user-drag:none;user-select:none}
 
-/* v1.9.37: HQ PDF artist metadata preserves original weighted artist tags. */
+/* v1.9.38: PNG metadata clean removes NovelAI alpha-LSB stealth payload as well. */
 /* v1.9.34: selectable PDF text layer repair.
    v1.9.33: searchable PDF text layer + complete artist-list export */
 .artist-list-dialog .modal-shell{width:min(680px,94vw);max-height:90dvh;display:flex;flex-direction:column}.artist-list-body{padding:16px 18px;display:grid;gap:14px;overflow:auto}.artist-list-section{display:grid;gap:7px}.artist-list-section>span{font-size:9px;font-weight:850;letter-spacing:.12em;color:#777;text-transform:uppercase}.artist-list-options{display:flex;gap:6px;flex-wrap:wrap}.artist-list-options button{border:1px solid #ddd;background:#fff;border-radius:7px;padding:8px 10px;font-size:10px}.artist-list-options button.active{background:#111;color:#fff;border-color:#111}.artist-list-note{font-size:10px;line-height:1.55;color:#666;background:#fafafa;border:1px solid #e8e8e8;border-radius:8px;padding:10px 11px}.artist-list-count{font-size:11px;font-weight:750}.artist-list-download{display:flex;justify-content:flex-end;gap:7px}.artist-list-download .btn{min-width:110px}@media(max-width:560px){.artist-list-dialog{margin:0;padding:0;width:100vw;height:100dvh}.artist-list-dialog .modal-shell{width:100vw;height:100dvh;max-height:none;border-radius:0}.artist-list-body{padding:14px}.artist-list-download{position:sticky;bottom:0;background:#fff;padding-top:8px}}
@@ -6185,21 +6185,103 @@ async function confirmAtlasGalleryPicker(){let added=0,skipped=0;const known=new
     }
   }
 
+  // v1.9.38: remove both PNG ancillary metadata and NovelAI alpha-LSB stealth data.
+  // For 8-bit non-interlaced RGBA PNGs, edit decoded alpha bytes directly: RGB is byte-identical.
+  function naiPngCrc(bytes){
+    let c=0xffffffff;
+    for(const b of bytes){c^=b;for(let j=0;j<8;j++)c=(c>>>1)^((c&1)?0xedb88320:0)}
+    return (c^0xffffffff)>>>0;
+  }
+  function naiPngChunk(type,data){
+    const out=new Uint8Array(12+data.length),v=new DataView(out.buffer);
+    v.setUint32(0,data.length);for(let j=0;j<4;j++)out[4+j]=type.charCodeAt(j);
+    out.set(data,8);v.setUint32(out.length-4,naiPngCrc(out.subarray(4,out.length-4)));
+    return out;
+  }
+  async function naiPngStream(bytes,operation){
+    const stream=new Blob([bytes]).stream();
+    const transformed=operation==='inflate'?stream.pipeThrough(new DecompressionStream('deflate')):stream.pipeThrough(new CompressionStream('deflate'));
+    return new Uint8Array(await new Response(transformed).arrayBuffer());
+  }
+  function naiStealthMagicInAlpha(rgba,w,h){
+    const magic='stealth_pngcomp',need=magic.length*8;
+    if(w*h<need)return false;
+    for(let bit=0;bit<need;bit++){
+      const x=Math.floor(bit/h),y=bit%h,alpha=rgba[(y*w+x)*4+3];
+      if((alpha&1)!==((magic.charCodeAt(bit>>3)>>(7-(bit&7)))&1))return false;
+    }
+    return true;
+  }
+  async function naiPngCanvasClean(blob){
+    const bmp=await createImageBitmap(blob);
+    try{
+      const canvas=document.createElement('canvas');canvas.width=bmp.width;canvas.height=bmp.height;
+      const ctx=canvas.getContext('2d',{willReadFrequently:true,alpha:true});ctx.drawImage(bmp,0,0);
+      const img=ctx.getImageData(0,0,canvas.width,canvas.height);
+      if(naiStealthMagicInAlpha(img.data,canvas.width,canvas.height)){
+        for(let i=3;i<img.data.length;i+=4)if(img.data[i]===254)img.data[i]=255;
+        ctx.putImageData(img,0,0);
+      }
+      return await new Promise((res,rej)=>canvas.toBlob(v=>v?res(v):rej(new Error('PNG encode failed')),'image/png'));
+    }finally{bmp.close?.()}
+  }
   async function stripPngMetadata(blob){
     const bytes=new Uint8Array(await blob.arrayBuffer());
     const sig=[137,80,78,71,13,10,26,10];
-    if(bytes.length<8||!sig.every((v,i)=>bytes[i]===v)) throw new Error('Invalid PNG');
-    const removed=new Set(['tEXt','zTXt','iTXt','eXIf','tIME']);
-    const parts=[bytes.slice(0,8)];
-    let p=8;
+    if(bytes.length<8||!sig.every((v,i)=>bytes[i]===v))throw new Error('Invalid PNG');
+    const chunks=[];let p=8,ended=false;
     while(p+12<=bytes.length){
-      const len=((bytes[p]<<24)|(bytes[p+1]<<16)|(bytes[p+2]<<8)|bytes[p+3])>>>0;
-      const end=p+12+len;
-      if(end>bytes.length) throw new Error('Broken PNG chunk');
-      const type=String.fromCharCode(bytes[p+4],bytes[p+5],bytes[p+6],bytes[p+7]);
-      if(!removed.has(type)) parts.push(bytes.slice(p,end));
-      p=end;
-      if(type==='IEND') break;
+      const len=new DataView(bytes.buffer,bytes.byteOffset+p,4).getUint32(0),end=p+12+len;
+      if(end>bytes.length)throw new Error('Broken PNG chunk');
+      const type=String.fromCharCode(...bytes.subarray(p+4,p+8));
+      chunks.push({type,data:bytes.subarray(p+8,p+8+len),original:bytes.subarray(p,end)});
+      p=end;if(type==='IEND'){ended=true;break}
+    }
+    if(!ended)throw new Error('Missing PNG IEND');
+    const ihdr=chunks.find(c=>c.type==='IHDR');if(!ihdr||ihdr.data.length!==13)throw new Error('Invalid PNG IHDR');
+    const hv=new DataView(ihdr.data.buffer,ihdr.data.byteOffset,ihdr.data.byteLength);
+    const w=hv.getUint32(0),h=hv.getUint32(4),depth=ihdr.data[8],color=ihdr.data[9],interlace=ihdr.data[12];
+    const idats=chunks.filter(c=>c.type==='IDAT');if(!idats.length)throw new Error('Missing PNG IDAT');
+    // Keep only pixel/color-management chunks, never unknown ancillary metadata.
+    const keep=new Set(['IHDR','PLTE','tRNS','sRGB','gAMA','cHRM','iCCP','IDAT','IEND']);
+    let replacement=null;
+    if(depth===8&&color===6&&interlace===0){
+      const compressed=new Uint8Array(idats.reduce((n,c)=>n+c.data.length,0));let offset=0;
+      for(const c of idats){compressed.set(c.data,offset);offset+=c.data.length}
+      const raw=await naiPngStream(compressed,'inflate'),stride=w*4,rowSize=stride+1;
+      if(raw.length!==h*rowSize)throw new Error('Unexpected PNG scanline size');
+      const rgba=new Uint8Array(w*h*4),prior=new Uint8Array(stride);
+      for(let y=0;y<h;y++){
+        const start=y*rowSize,filter=raw[start],row=rgba.subarray(y*stride,(y+1)*stride);
+        if(filter>4)throw new Error('Invalid PNG filter');
+        for(let j=0;j<stride;j++){
+          const left=j>=4?row[j-4]:0,up=prior[j],ul=j>=4?prior[j-4]:0;
+          let predictor=0;
+          if(filter===1)predictor=left;
+          else if(filter===2)predictor=up;
+          else if(filter===3)predictor=(left+up)>>1;
+          else if(filter===4){const v=left+up-ul,da=Math.abs(v-left),db=Math.abs(v-up),dc=Math.abs(v-ul);predictor=da<=db&&da<=dc?left:db<=dc?up:ul}
+          row[j]=(raw[start+1+j]+predictor)&255;
+        }
+        prior.set(row);
+      }
+      if(naiStealthMagicInAlpha(rgba,w,h)){
+        // Erase ALL payload bits in nearly opaque alpha, not merely the header.
+        for(let i=3;i<rgba.length;i+=4)if(rgba[i]===254)rgba[i]=255;
+        const unfiltered=new Uint8Array(h*rowSize);
+        for(let y=0;y<h;y++)unfiltered.set(rgba.subarray(y*stride,(y+1)*stride),y*rowSize+1);
+        replacement=naiPngChunk('IDAT',await naiPngStream(unfiltered,'deflate'));
+        if(naiStealthMagicInAlpha(rgba,w,h))throw new Error('Stealth removal verification failed');
+      }
+    }else{
+      // Uncommon PNG layouts: browser decoder removes ancillary metadata on re-encode.
+      return naiPngCanvasClean(blob);
+    }
+    const parts=[bytes.subarray(0,8)];let wroteIdat=false;
+    for(const c of chunks){
+      if(!keep.has(c.type))continue;
+      if(c.type==='IDAT'&&replacement){if(!wroteIdat){parts.push(replacement);wroteIdat=true}continue}
+      parts.push(c.original);
     }
     return new Blob(parts,{type:'image/png'});
   }
