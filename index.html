@@ -4,7 +4,7 @@
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
   <meta name="color-scheme" content="light" />
-  <title>NAI Studio v1.9.42</title>
+  <title>NAI Studio v1.9.43</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Young+Serif&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
@@ -1443,10 +1443,15 @@ body.folder-lightbox-open{overflow:hidden}
     <div class="modal-shell">
       <div class="modal-head"><div><span class="eyebrow">BACKUP</span><h2 style="margin:2px 0 0">백업 범위</h2></div><button class="icon-btn" id="closeBackupBtn">×</button></div>
       <div style="padding:18px">
-        <label class="export-choice"><input type="radio" name="backupScope" value="all" checked><span><b>전체 백업</b><small>Gallery · Library · Bookmark · Preset 전체</small></span></label>
-        <label class="export-choice"><input type="radio" name="backupScope" value="gallery"><span><b>Gallery 선택 백업</b><small>현재 Gallery에서 선택한 이미지만</small></span></label>
-        <label class="export-choice"><input type="radio" name="backupScope" value="folders"><span><b>Library 폴더 선택 백업</b><small>선택한 폴더와 폴더가 참조하는 Gallery 이미지 포함</small></span></label>
+        <label class="export-choice"><input type="radio" name="backupScope" value="all" checked><span><b>전체 백업</b><small>갤러리 · 도감 · 폴더 · 즐겨찾기 · 프리셋 전체</small></span></label>
+        <label class="export-choice"><input type="radio" name="backupScope" value="gallery-all"><span><b>갤러리 전체</b><small>갤러리 이미지와 연결된 프롬프트·메타데이터</small></span></label>
+        <label class="export-choice"><input type="radio" name="backupScope" value="gallery"><span><b>갤러리 선택 항목</b><small>현재 갤러리에서 선택한 이미지만</small></span></label>
+        <label class="export-choice"><input type="radio" name="backupScope" value="atlas-all"><span><b>도감 전체</b><small>도감 이미지 · 아티스트 즐겨찾기 · 메모 · 대표 이미지 설정</small></span></label>
+        <label class="export-choice"><input type="radio" name="backupScope" value="atlas"><span><b>도감 선택 항목</b><small>현재 도감에서 선택한 이미지만</small></span></label>
+        <label class="export-choice"><input type="radio" name="backupScope" value="folders-all"><span><b>폴더 전체</b><small>모든 폴더 · 첨부 이미지 · 참조 갤러리 이미지</small></span></label>
+        <label class="export-choice"><input type="radio" name="backupScope" value="folders"><span><b>폴더 선택 항목</b><small>선택한 폴더와 연결된 갤러리 이미지</small></span></label>
         <div id="backupFolderChoices" class="backup-folder-choices hidden"></div>
+        <label class="export-choice"><input type="radio" name="backupScope" value="settings"><span><b>즐겨찾기 · 프리셋 · 도감 설정</b><small>이미지 파일 없이 텍스트 설정만 백업</small></span></label>
       </div>
       <div class="modal-foot"><button id="runBackupBtn" class="btn primary">백업 ZIP 만들기</button></div>
     </div>
@@ -5676,11 +5681,14 @@ async function confirmAtlasGalleryPicker(){const pickerTask=taskStart('Gallery �
     if(scope==='gallery'){
       if(!state.selectedIds.length){toast('Gallery에서 먼저 이미지를 선택해주세요.');return;}
       await backupZip({scope:'gallery',entryIds:[...state.selectedIds]});
+    }else if(scope==='atlas'){
+      if(!state.atlasSelectedIds.length){toast('도감에서 먼저 이미지를 선택해주세요.');return;}
+      await backupZip({scope:'atlas',atlasEntryIds:[...state.atlasSelectedIds]});
     }else if(scope==='folders'){
       const folderIds=[...document.querySelectorAll('.backup-folder-check:checked')].map(x=>x.value);
       if(!folderIds.length){toast('백업할 폴더를 선택해주세요.');return;}
       await backupZip({scope:'folders',folderIds});
-    }else await backupZip({scope:'all'});
+    }else await backupZip({scope});
     els.backupDialog.close();
   }
   async function backupZip(options={scope:'all'}){
@@ -5689,15 +5697,21 @@ async function confirmAtlasGalleryPicker(){const pickerTask=taskStart('Gallery �
     let entries=[], atlasEntries=[], folders=[], artistBookmarks=[], presets=[];
     if(scope==='all'){
       entries=[...state.entries]; atlasEntries=[...state.atlasEntries]; folders=[...state.folders]; artistBookmarks=[...state.artistBookmarks]; presets=[...state.presets];
+    }else if(scope==='gallery-all'){
+      entries=[...state.entries];
     }else if(scope==='gallery'){
       const ids=new Set(options.entryIds||[]);
       entries=state.entries.filter(e=>ids.has(e.id));
+    }else if(scope==='atlas-all'){
+      atlasEntries=[...state.atlasEntries];
     }else if(scope==='atlas'){
       const ids=new Set(options.atlasEntryIds||[]);
       atlasEntries=state.atlasEntries.filter(e=>ids.has(e.id));
-    }else if(scope==='folders'){
+    }else if(scope==='settings'){
+      artistBookmarks=[...state.artistBookmarks];presets=[...state.presets];
+    }else if(scope==='folders'||scope==='folders-all'){
       const fids=new Set(options.folderIds||[]);
-      folders=state.folders.filter(f=>fids.has(f.id));
+      folders=scope==='folders-all'?[...state.folders]:state.folders.filter(f=>fids.has(f.id));
       const referenced=new Set();
       folders.forEach(f=>(f.items||[]).forEach(it=>{
         if(it.type==='image'&&it.entryId)referenced.add(it.entryId);
@@ -5710,7 +5724,7 @@ async function confirmAtlasGalleryPicker(){const pickerTask=taskStart('Gallery �
       if(it.type==='imageGroup')return {...it,images:(it.images||[]).map(img=>img.blob?({...img,blob:undefined,attachmentPath:`folder-images/${f.id}/${it.id}/${img.id}.${mimeExt(img.mime||img.blob.type)}`}):({...img}))};
       return {...it};
     })}));
-    const manifest={version:7,mergeMode:'field-smart-v1',scope,exportedAt:new Date().toISOString(),entries:entries.map(({imageBlob,rawMetadata,...e})=>({...e,rawMetadata})),atlasEntries:atlasEntries.map(({imageBlob,rawMetadata,...e})=>({...e,rawMetadata})),atlasArtistFavorites:scope==='all'?state.atlasArtistFavorites:[],atlasArtistMemos:scope==='all'?state.atlasArtistMemos:{},atlasRepresentatives:scope==='all'?state.atlasRepresentatives:{},artistBookmarks,presets,folders:backupFolders};
+    const manifest={version:7,mergeMode:'field-smart-v1',scope,exportedAt:new Date().toISOString(),entries:entries.map(({imageBlob,rawMetadata,...e})=>({...e,rawMetadata})),atlasEntries:atlasEntries.map(({imageBlob,rawMetadata,...e})=>({...e,rawMetadata})),atlasArtistFavorites:['all','atlas-all','settings'].includes(scope)?state.atlasArtistFavorites:[],atlasArtistMemos:['all','atlas-all','settings'].includes(scope)?state.atlasArtistMemos:{},atlasRepresentatives:['all','atlas-all','settings'].includes(scope)?state.atlasRepresentatives:{},artistBookmarks,presets,folders:backupFolders};
     zip.file('catalog.json',JSON.stringify(manifest,null,2));
     const imageFolder=zip.folder('images'); entries.forEach(e=>imageFolder.file(`${e.id}.${extOf(e.fileName)}`,e.imageBlob));
     const atlasImageFolder=zip.folder('atlas-images'); atlasEntries.forEach(e=>atlasImageFolder.file(`${e.id}.${extOf(e.fileName)}`,e.imageBlob));
@@ -5720,7 +5734,7 @@ async function confirmAtlasGalleryPicker(){const pickerTask=taskStart('Gallery �
     }
     const backupTask=taskStart('백업 ZIP 생성','압축 중',100);
     let blob;try{blob=await zip.generateAsync({type:'blob'},meta=>taskUpdate(`백업 압축 중 · ${Math.round(meta.percent)}%`,Math.round(meta.percent),100,backupTask))}catch(err){taskEnd(`백업 실패: ${err?.message||'오류 발생'}`,true,backupTask);throw err}
-    const suffix=scope==='all'?'full':scope==='gallery'?'gallery-selected':scope==='atlas'?'atlas-selected':'folders-selected';
+    const suffix=({'all':'full','gallery-all':'gallery-all','gallery':'gallery-selected','atlas-all':'atlas-all','atlas':'atlas-selected','folders-all':'folders-all','folders':'folders-selected','settings':'settings'})[scope]||'custom';
     downloadBlob(blob,`nai-studio-backup-${suffix}-${dateStamp()}.zip`);
     taskEnd('백업 ZIP 다운로드 요청 완료',false,backupTask);toast('백업 ZIP을 만들었습니다.');
   }
