@@ -4,7 +4,7 @@
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
   <meta name="color-scheme" content="light" />
-  <title>NAI Studio v1.9.49</title>
+  <title>NAI Studio v1.9.50</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Young+Serif&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
@@ -250,6 +250,16 @@ body:not(.is-home) .menu-btn{display:grid}
 .atlas-review-carousel span{font-size:11px;color:#555;min-width:45px;text-align:center;font-variant-numeric:tabular-nums}
 .atlas-reviewing .atlas-card-visual{touch-action:pan-y}
 .atlas-reviewing .atlas-samples img{user-select:none;-webkit-user-drag:none}
+
+/* v1.9.50: one unobtrusive batch-save bar for review mode; never covers card artwork */
+.atlas-review-batch-bar{position:fixed;bottom:calc(12px + env(safe-area-inset-bottom,0px));left:50%;transform:translateX(-50%);z-index:110;display:flex;align-items:center;justify-content:space-between;gap:16px;width:min(440px,calc(100vw - 28px));padding:9px 11px 9px 15px;border:1px solid #ddd;border-radius:13px;background:rgba(255,255,255,.98);box-shadow:0 5px 26px rgba(0,0,0,.17)}
+.atlas-review-batch-bar.hidden{display:none!important}
+.atlas-review-batch-bar .atlas-review-status{padding:0;margin:0;border:0;background:none;color:#71531e;font-size:12px;font-weight:700}
+.atlas-review-batch-bar .btn{white-space:nowrap;min-width:92px}
+.atlas-review-batch-bar .btn:disabled{opacity:.4;cursor:default}
+.atlas-reviewing .atlas-shell{padding-bottom:calc(95px + env(safe-area-inset-bottom,0px))}
+.atlas-review-controls>.atlas-review-unsaved{justify-self:end;padding-right:3px}
+@media(max-width:700px){.atlas-review-batch-bar{bottom:calc(10px + env(safe-area-inset-bottom,0px));width:calc(100vw - 24px)}}
 </style>
 
 <style>
@@ -1921,7 +1931,7 @@ body.folder-lightbox-open{overflow:hidden}
         <div class="atlas-shell">
           <div class="atlas-head">
             <div><div class="portal-kicker">STYLE INDEX / PERSONAL ARCHIVE</div><h1>Artist Atlas</h1><p>작가별 샘플을 Gallery와 분리해 쌓아두고, 필요한 이미지만 Gallery로 보냅니다.</p></div>
-            <div class="atlas-head-actions"><button id="atlasReviewModeBtn" class="btn atlas-review-toggle" type="button" aria-pressed="false">평가 모드 OFF</button><button id="atlasReviewSaveAllBtn" class="btn primary hidden" type="button">모두 저장</button><button id="atlasAddBtn" class="btn primary">＋ 이미지 추가</button><button id="atlasFromGalleryBtn" class="btn">Gallery에서 가져오기</button><button id="atlasArtistListBtn" class="btn">Artist List</button><button id="atlasGroupSelectBtn" class="btn">선택</button></div>
+            <div class="atlas-head-actions"><button id="atlasReviewModeBtn" class="btn atlas-review-toggle" type="button" aria-pressed="false">평가 모드 OFF</button><button id="atlasAddBtn" class="btn primary">＋ 이미지 추가</button><button id="atlasFromGalleryBtn" class="btn">Gallery에서 가져오기</button><button id="atlasArtistListBtn" class="btn">Artist List</button><button id="atlasGroupSelectBtn" class="btn">선택</button></div>
           </div>
           <div class="atlas-tools">
             <div class="atlas-search"><input id="atlasSearch" type="search" placeholder="작가태그 · 메모 · Prompt · Character Prompt · Character UC · UC · Seed 검색"><button id="atlasSearchClear" type="button">×</button></div>
@@ -1958,9 +1968,10 @@ body.folder-lightbox-open{overflow:hidden}
               <p class="atlas-filter-hint">평가·활용 각각 체크한 항목 중 하나라도 맞으면 표시합니다. 평가와 활용 조건은 함께 적용됩니다.</p>
             </div>
           </details>
-          <div id="atlasReviewStatus" class="atlas-review-status hidden" role="status" aria-live="polite"></div>
+
           <div id="atlasGrid" class="atlas-grid"></div>
           <div id="atlasLoadSentinel" class="atlas-load-sentinel"></div>
+          <div id="atlasReviewBatchBar" class="atlas-review-batch-bar hidden" role="group" aria-label="평가 변경사항 일괄 저장"><span id="atlasReviewStatus" class="atlas-review-status" role="status" aria-live="polite">변경사항 0개</span><button id="atlasReviewSaveAllBtn" class="btn primary" type="button" disabled>전체 저장</button></div>
           <div id="atlasGroupSelectionBar" class="atlas-group-selection-bar hidden">
             <div class="bulk-left"><span id="atlasGroupSelectedCount">0개 작가 선택</span><button id="atlasGroupSelectAllBtn" class="text-btn">전체 선택</button><span class="sweep-hint">꾹 눌러 쓸어 선택</span></div>
             <div class="bulk-actions"><select id="atlasBulkRating" class="atlas-bulk-rating" aria-label="선택 작가 일괄 평가"><option value="">일괄 평가…</option><option value="good">♥ BEST</option><option value="liked">♡ GOOD</option><option value="maybe">△ MAYBE</option><option value="retest">↻ RETEST</option><option value="bad">✕ BAD</option><option value="parts">▽ PARTS</option><option value="untested">○ 미평가</option></select><button id="atlasGroupRepPdfBtn" class="btn small">대표 PDF</button><button id="atlasGroupAllPdfBtn" class="btn small">전체 이미지 PDF</button><button id="atlasGroupDeleteBtn" class="btn small danger">선택 삭제</button><button id="atlasGroupCancelBtn" class="btn small">취소</button></div>
@@ -3148,10 +3159,10 @@ function openDB(){
     const on=!!state.atlasReviewMode,n=Object.keys(state.atlasReviewDrafts).length;
     els.atlasView?.classList.toggle('atlas-reviewing',on);
     if(els.atlasReviewModeBtn){els.atlasReviewModeBtn.textContent=`평가 모드 ${on?'ON':'OFF'}`;els.atlasReviewModeBtn.classList.toggle('active',on);els.atlasReviewModeBtn.setAttribute('aria-pressed',String(on))}
-    els.atlasReviewSaveAllBtn?.classList.toggle('hidden',!on||!n);
-    if(els.atlasReviewSaveAllBtn)els.atlasReviewSaveAllBtn.textContent=`모두 저장 · ${n}`;
-    els.atlasReviewStatus?.classList.toggle('hidden',!on||!n);
-    if(els.atlasReviewStatus)els.atlasReviewStatus.textContent=n?`● 미저장 ${n}개 작가 · 카드별 저장 또는 모두 저장`:' ';
+    const batchBar=document.getElementById('atlasReviewBatchBar');
+    batchBar?.classList.toggle('hidden',!on);
+    if(els.atlasReviewSaveAllBtn){els.atlasReviewSaveAllBtn.textContent='전체 저장';els.atlasReviewSaveAllBtn.disabled=!n;}
+    if(els.atlasReviewStatus)els.atlasReviewStatus.textContent=n?`● 변경사항 ${n}개 작가`:'변경사항 0개';
   }
   function toggleAtlasReviewMode(){
     if(state.atlasReviewMode&&Object.keys(state.atlasReviewDrafts).length){
@@ -3167,7 +3178,7 @@ function openDB(){
     const next=rating==='untested'?'':rating,old=atlasClassification(key).rating;
     if(next===old)delete state.atlasReviewDrafts[key];else state.atlasReviewDrafts[key]=next;
     const card=[...els.atlasGrid.querySelectorAll('.atlas-card[data-group-key]')].find(el=>el.dataset.groupKey===key);
-    if(card){card.querySelectorAll('[data-review-rating]').forEach(b=>{const active=b.dataset.reviewRating===(next||'untested');b.classList.toggle('active',active);b.setAttribute('aria-pressed',String(active))});card.classList.toggle('atlas-review-dirty',atlasReviewDirty(key));const mark=card.querySelector('[data-review-dirty]');if(mark)mark.classList.toggle('hidden',!atlasReviewDirty(key));const save=card.querySelector('[data-review-save]');if(save)save.disabled=!atlasReviewDirty(key)}
+    if(card){card.querySelectorAll('[data-review-rating]').forEach(b=>{const active=b.dataset.reviewRating===(next||'untested');b.classList.toggle('active',active);b.setAttribute('aria-pressed',String(active))});card.classList.toggle('atlas-review-dirty',atlasReviewDirty(key));const mark=card.querySelector('[data-review-dirty]');if(mark)mark.classList.toggle('hidden',!atlasReviewDirty(key))}
     syncAtlasReviewUi();
   }
   async function saveAtlasReviewDrafts(closeAfter=false,onlyKey=null){
@@ -3204,7 +3215,7 @@ function openDB(){
   function atlasReviewCard(key){
     if(!state.atlasReviewMode)return '';
     const current=atlasReviewDraft(key)||'untested',dirty=atlasReviewDirty(key);
-    return `<div class="atlas-review-controls"><div class="atlas-review-buttons">${ATLAS_RATINGS.map(([value,label])=>`<button type="button" data-review-rating="${value}" class="${current===value?'active':''}" aria-pressed="${current===value}">${label}</button>`).join('')}</div><div class="atlas-review-footer"><span data-review-dirty class="atlas-review-unsaved ${dirty?'':'hidden'}">● 미저장</span><button type="button" data-review-save class="atlas-review-save" ${dirty?'':'disabled'}>✓ 저장</button></div></div>`;
+    return `<div class="atlas-review-controls"><div class="atlas-review-buttons">${ATLAS_RATINGS.map(([value,label])=>`<button type="button" data-review-rating="${value}" class="${current===value?'active':''}" aria-pressed="${current===value}">${label}</button>`).join('')}</div><span data-review-dirty class="atlas-review-unsaved ${dirty?'':'hidden'}">● 미저장</span></div>`;
   }
   function atlasRatingButtons(key){const current=atlasClassification(key).rating;return ATLAS_RATINGS.map(([value,label])=>`<button type="button" data-rating="${value}" class="${(current||'untested')===value?'active':''}" aria-pressed="${(current||'untested')===value}">${label}</button>`).join('')}
   function renderAtlasArtistClassification(key){const box=document.getElementById('atlasArtistClassification');if(!box)return;const c=atlasClassification(key);box.innerHTML=`<strong>작가 평가</strong><div class="atlas-rating-row">${atlasRatingButtons(key)}</div><strong>활용 태그 · 복수 선택</strong><div class="atlas-usage-row">${ATLAS_USAGE_TAGS.map(tag=>`<button type="button" data-usage="${tag}" class="${c.tags.includes(tag)?'active':''}" aria-pressed="${c.tags.includes(tag)}">${tag}</button>`).join('')}</div>`;box.querySelectorAll('[data-rating]').forEach(b=>b.onclick=()=>setAtlasClassification(key,{rating:b.dataset.rating==='untested'?'':b.dataset.rating}));box.querySelectorAll('[data-usage]').forEach(b=>b.onclick=()=>{const tags=atlasClassification(key).tags;setAtlasClassification(key,{tags:tags.includes(b.dataset.usage)?tags.filter(t=>t!==b.dataset.usage):[...tags,b.dataset.usage]})})}
@@ -3269,7 +3280,6 @@ function openDB(){
         visual.addEventListener('touchstart',ev=>{if(ev.touches.length===1)start={x:ev.touches[0].clientX,y:ev.touches[0].clientY}},{passive:true});
         visual.addEventListener('touchend',ev=>{if(!start||!ev.changedTouches.length)return;const dx=ev.changedTouches[0].clientX-start.x,dy=ev.changedTouches[0].clientY-start.y;start=null;if(Math.abs(dx)>45&&Math.abs(dx)>Math.abs(dy)*1.4){advanceAtlasReviewImage(g,card,dx<0?1:-1);visual.dataset.swiped='1';setTimeout(()=>{delete visual.dataset.swiped},350)}},{passive:true});
       }
-      const reviewSave=card.querySelector('[data-review-save]');if(reviewSave)reviewSave.onclick=ev=>{ev.stopPropagation();saveAtlasReviewDrafts(false,g.key)};
       card.querySelector('.atlas-group-check').onchange=ev=>{ev.stopPropagation();state.atlasGroupSelectMode=true;setAtlasGroupSelected(g.key,ev.target.checked)};const copyEl=card.querySelector('[data-atlas-copy-tag]');if(copyEl){const run=ev=>{ev.stopPropagation();copyAtlasGroupTag(g)};copyEl.onclick=run;copyEl.onkeydown=ev=>{if(ev.key==='Enter'||ev.key===' '){ev.preventDefault();run(ev)}}}card.onclick=e=>{if(e.target.closest('[data-atlas-card-fav]')){e.stopPropagation();toggleAtlasArtistFavorite(g.key);return}if(e.target.closest('[data-atlas-copy-tag]')||e.target.closest('.atlas-review-controls')||e.target.closest('.atlas-review-carousel')||e.target.closest('[data-swiped]'))return;if(state.atlasGroupSelectMode){setAtlasGroupSelected(g.key,!state.atlasGroupSelectedKeys.includes(g.key));return}openAtlasArtist(g.key)};
       els.atlasGrid.appendChild(card);
     }
