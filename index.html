@@ -4,7 +4,7 @@
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
   <meta name="color-scheme" content="light" />
-  <title>NAI Studio v1.9.41</title>
+  <title>NAI Studio v1.9.42</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Young+Serif&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
@@ -1429,6 +1429,9 @@ body.folder-lightbox-open{overflow:hidden}
 .load-more-btn:hover{background:#f6f6f6}.load-more-btn:active{background:#111;color:#fff}
 .gallery-list-page-note .load-more-btn{margin-top:10px}
 @media(max-width:640px){.load-more-wrap{padding-top:16px}.load-more-btn{min-width:160px}}
+</style>
+<style id="v1942-task-progress">
+#taskProgressPanel{position:fixed;right:14px;bottom:calc(16px + env(safe-area-inset-bottom));z-index:2147483600;width:min(370px,calc(100vw - 28px));padding:13px 14px 12px;background:#181818;color:#fff;border:1px solid #555;border-radius:12px;box-shadow:0 14px 40px #0004;font:12px/1.45 Inter,system-ui,sans-serif;pointer-events:auto}#taskProgressPanel[hidden]{display:none!important}#taskProgressPanel .task-head{display:flex;align-items:center;justify-content:space-between;gap:12px}#taskProgressPanel .task-title{font-weight:750;min-width:0;overflow-wrap:anywhere}#taskProgressPanel .task-close{border:0;background:transparent;color:#ddd;font-size:20px;line-height:1;cursor:pointer}#taskProgressPanel .task-stage{color:#d3d3d3;font-size:11px;margin:5px 0 9px;overflow-wrap:anywhere}#taskProgressPanel .task-track{height:5px;background:#555;border-radius:8px;overflow:hidden}#taskProgressPanel .task-fill{height:100%;width:0;background:#e9e9e9;transition:width .15s}#taskProgressPanel .task-footer{display:flex;justify-content:space-between;gap:8px;margin-top:6px;color:#d3d3d3;font-size:10px}#taskProgressPanel[data-state="failed"]{border-color:#ff8b8b}#taskProgressPanel[data-state="done"]{border-color:#91d9ae}@media(max-width:600px){#taskProgressPanel{right:9px;bottom:calc(10px + env(safe-area-inset-bottom));width:calc(100vw - 18px)}}
 </style>
 </head>
 <body>
@@ -3163,11 +3166,12 @@ function openDB(){
   function atlasFolderAttachment(e){return {type:'attachment',name:e.fileName||displayTitle(e)||'Atlas image',mime:e.imageBlob?.type||'image/png',blob:e.imageBlob,sourceLabel:'ATLAS',atlasEntryId:e.id,atlasMeta:{title:e.title||'',artistsText:e.artistsText||'',artists:e.artists||[],prompt:e.prompt||'',characterPrompts:e.characterPrompts||[],characterUc:e.characterUc||[],uc:e.uc||'',memo:e.memo||'',seed:e.seed,model:e.model||'',modelSource:e.modelSource||e.model||'',modelHash:e.modelHash||'',modelVersion:e.modelVersion||'',modelVariant:e.modelVariant||'',modelKey:modelKey(e),modelLabel:modelLabel(e)}}}
   async function saveAtlasEntries(entries,clean=false){
     entries=(entries||[]).filter(e=>e?.imageBlob);if(!entries.length){toast('선택한 이미지가 없습니다.');return}
+    const atlasSaveTask=taskStart(clean?'Atlas · 메타데이터 제거 저장':'Atlas · 원본 저장','이미지 처리 중',entries.length);
     try{
-      if(entries.length===1){const e=entries[0];let blob=e.imageBlob,ext=extOf(e.fileName);if(clean){const isPng=(blob.type||'').toLowerCase()==='image/png'||String(e.fileName||'').toLowerCase().endsWith('.png');if(isPng){blob=await stripPngMetadata(blob);ext='png'}else{blob=await reencodeImageWithoutMetadata(blob);ext=(blob.type||'').includes('png')?'png':'jpg'}}const base=(e.fileName||e.title||'atlas-image').replace(/\.[^.]+$/,'').replace(/[\\/:*?"<>|]+/g,'_')||'atlas-image';downloadBlob(blob,`${base}${clean?'_clean':''}.${ext}`)}
-      else{if(!window.JSZip){toast('ZIP 모듈을 불러오지 못했습니다.');return}const zip=new JSZip(),used=new Set();for(let i=0;i<entries.length;i++){const e=entries[i];let blob=e.imageBlob,ext=extOf(e.fileName);if(clean){const isPng=(blob.type||'').toLowerCase()==='image/png'||String(e.fileName||'').toLowerCase().endsWith('.png');if(isPng){blob=await stripPngMetadata(blob);ext='png'}else{blob=await reencodeImageWithoutMetadata(blob);ext=(blob.type||'').includes('png')?'png':'jpg'}}let base=(e.fileName||e.title||`atlas_${i+1}`).replace(/\.[^.]+$/,'').replace(/[\\/:*?"<>|]+/g,'_')||`atlas_${i+1}`,name=`${base}${clean?'_clean':''}.${ext}`,n=2;while(used.has(name))name=`${base}_${n++}${clean?'_clean':''}.${ext}`;used.add(name);zip.file(name,blob)}downloadBlob(await zip.generateAsync({type:'blob'}),`NAI_ARCHIVE_ATLAS_${clean?'metadata_removed':'original'}_${entries.length}_${dateStamp()}.zip`)}
-      toast(clean?'메타데이터 제거본을 저장했습니다.':'원본을 저장했습니다.')
-    }catch(err){console.error(err);toast('이미지 저장에 실패했습니다.')}
+      if(entries.length===1){const e=entries[0];let blob=e.imageBlob,ext=extOf(e.fileName);if(clean){const isPng=(blob.type||'').toLowerCase()==='image/png'||String(e.fileName||'').toLowerCase().endsWith('.png');if(isPng){blob=await stripPngMetadata(blob);ext='png'}else{blob=await reencodeImageWithoutMetadata(blob);ext=(blob.type||'').includes('png')?'png':'jpg'}}const base=(e.fileName||e.title||'atlas-image').replace(/\.[^.]+$/,'').replace(/[\\/:*?"<>|]+/g,'_')||'atlas-image';downloadBlob(blob,`${base}${clean?'_clean':''}.${ext}`);taskUpdate('개별 이미지 다운로드 요청 완료',1,1,atlasSaveTask)}
+      else{if(!window.JSZip){toast('ZIP 모듈을 불러오지 못했습니다.');return}const zip=new JSZip(),used=new Set();for(let i=0;i<entries.length;i++){const e=entries[i];let blob=e.imageBlob,ext=extOf(e.fileName);if(clean){const isPng=(blob.type||'').toLowerCase()==='image/png'||String(e.fileName||'').toLowerCase().endsWith('.png');if(isPng){blob=await stripPngMetadata(blob);ext='png'}else{blob=await reencodeImageWithoutMetadata(blob);ext=(blob.type||'').includes('png')?'png':'jpg'}}let base=(e.fileName||e.title||`atlas_${i+1}`).replace(/\.[^.]+$/,'').replace(/[\\/:*?"<>|]+/g,'_')||`atlas_${i+1}`,name=`${base}${clean?'_clean':''}.${ext}`,n=2;while(used.has(name))name=`${base}_${n++}${clean?'_clean':''}.${ext}`;used.add(name);zip.file(name,blob);taskUpdate(`${clean?'메타데이터 제거':'이미지 수집'} 중 · ${i+1}/${entries.length}`,i+1,entries.length,atlasSaveTask)}taskUpdate('ZIP 압축 중',0,100,atlasSaveTask);downloadBlob(await zip.generateAsync({type:'blob'},meta=>taskUpdate(`ZIP 압축 중 · ${Math.round(meta.percent)}%`,Math.round(meta.percent),100,atlasSaveTask)),`NAI_ARCHIVE_ATLAS_${clean?'metadata_removed':'original'}_${entries.length}_${dateStamp()}.zip`)}
+      taskEnd(`${entries.length}개 이미지 · 다운로드 요청 완료`,false,atlasSaveTask);toast(clean?'메타데이터 제거본을 저장했습니다.':'원본을 저장했습니다.')
+    }catch(err){console.error(err);taskEnd(`이미지 저장 실패: ${err?.message||'오류 발생'}`,true,atlasSaveTask);toast('이미지 저장에 실패했습니다.')}
   }
   function atlasCompareRef(id){return `atlas:${id}`}
   function resolveCompareRef(ref){return String(ref).startsWith('atlas:')?state.atlasEntries.find(e=>e.id===String(ref).slice(6))||null:state.entries.find(e=>e.id===ref)||null}
@@ -3252,15 +3256,16 @@ function openDB(){
   async function importAtlasImages(fileList,options={}){
     const files=[...(fileList||[])].filter(file=>/^image\/(png|jpeg|webp)$/i.test(file.type)||/\.(png|jpe?g|webp)$/i.test(file.name||''));if(!files.length){if(!options.quiet)toast('가져올 이미지가 없습니다.');return {added:0,skipped:0,failed:0,refreshed:0}}
     let added=0,skipped=0,failed=0,refreshed=0;const known=new Set(state.atlasEntries.map(e=>e.hash).filter(Boolean));
+    const atlasTask=options.progressToken??taskStart('Artist Atlas · 이미지 등록','이미지 분석 및 저장 중',options.progressTotal||files.length);
     if(els.importProgress){els.importProgress.classList.remove('hidden');els.importProgressText.textContent='Artist Atlas에 이미지 가져오는 중…';els.importProgressCount.textContent=`0 / ${files.length}`;els.importProgressBar.style.width='0%'}
-    for(let i=0;i<files.length;i++){const file=files[i];try{const hash=await sha256(file);if(known.has(hash)){const ex=state.atlasEntries.find(e=>e.hash===hash);if(ex){const meta=await extractImageMetadata(file),parsed=parseNovelAI(meta),now=Date.now();ex.lastImportAt=now;ex.updatedAt=now;ex.imageBlob=file;if(metadataScore(parsed)>metadataScore(ex)){Object.assign(ex,parsed,{rawMetadata:meta,fileName:ex.fileName||file.name});refreshed++}else skipped++;await txPut(STORE_ATLAS,ex)}}else{const meta=await extractImageMetadata(file),parsed=parseNovelAI(meta),now=Date.now();const e={id:crypto.randomUUID(),hash,fileName:file.name,imageBlob:file,createdAt:now,updatedAt:now,lastImportAt:now,favorite:false,memo:'',title:'',atlasOnly:true,...parsed,rawMetadata:meta};await txPut(STORE_ATLAS,e);state.atlasEntries.push(e);known.add(hash);added++}}catch(err){console.error(err);failed++}if(els.importProgress&&(i%5===0||i===files.length-1)){els.importProgressCount.textContent=`${i+1} / ${files.length}`;els.importProgressBar.style.width=`${Math.round((i+1)/files.length*100)}%`}if(i%12===11)await new Promise(r=>setTimeout(r,0))}
-    renderAtlas();const parts=[`${added}개 Atlas 등록`];if(refreshed)parts.push(`메타데이터 갱신 ${refreshed}개`);if(skipped)parts.push(`중복 ${skipped}개`);if(failed)parts.push(`실패 ${failed}개`);const msg=parts.join(' · ');if(!options.quiet){toast(msg);if(els.importProgress){els.importProgressText.textContent=msg;setTimeout(()=>els.importProgress.classList.add('hidden'),1600)}}return {added,skipped,failed,refreshed};
+    for(let i=0;i<files.length;i++){const file=files[i];try{const hash=await sha256(file);if(known.has(hash)){const ex=state.atlasEntries.find(e=>e.hash===hash);if(ex){const meta=await extractImageMetadata(file),parsed=parseNovelAI(meta),now=Date.now();ex.lastImportAt=now;ex.updatedAt=now;ex.imageBlob=file;if(metadataScore(parsed)>metadataScore(ex)){Object.assign(ex,parsed,{rawMetadata:meta,fileName:ex.fileName||file.name});refreshed++}else skipped++;await txPut(STORE_ATLAS,ex)}}else{const meta=await extractImageMetadata(file),parsed=parseNovelAI(meta),now=Date.now();const e={id:crypto.randomUUID(),hash,fileName:file.name,imageBlob:file,createdAt:now,updatedAt:now,lastImportAt:now,favorite:false,memo:'',title:'',atlasOnly:true,...parsed,rawMetadata:meta};await txPut(STORE_ATLAS,e);state.atlasEntries.push(e);known.add(hash);added++}}catch(err){console.error(err);failed++}if(els.importProgress&&(i%5===0||i===files.length-1)){els.importProgressCount.textContent=`${i+1} / ${files.length}`;els.importProgressBar.style.width=`${Math.round((i+1)/files.length*100)}%`}taskUpdate(`Atlas 이미지 분석·저장 중 · ${i+1}/${files.length}`, (options.progressOffset||0)+i+1,options.progressTotal||files.length,atlasTask);if(i%12===11)await new Promise(r=>setTimeout(r,0))}
+    renderAtlas();const parts=[`${added}개 Atlas 등록`];if(refreshed)parts.push(`메타데이터 갱신 ${refreshed}개`);if(skipped)parts.push(`중복 ${skipped}개`);if(failed)parts.push(`실패 ${failed}개`);const msg=parts.join(' · ');if(!options.quiet){taskEnd(msg,!!failed,atlasTask);toast(msg);if(els.importProgress){els.importProgressText.textContent=msg;setTimeout(()=>els.importProgress.classList.add('hidden'),1600)}}return {added,skipped,failed,refreshed};
   }
   async function importAtlasImagesFromZip(zipFile){
-    let stats={added:0,skipped:0,failed:0,refreshed:0,total:0};try{const zip=await JSZip.loadAsync(zipFile);const names=Object.keys(zip.files).filter(n=>!zip.files[n].dir&&/\.(png|jpe?g|webp)$/i.test(n));stats.total=names.length;for(let i=0;i<names.length;i+=80){const files=[];for(const name of names.slice(i,i+80)){const blob=await zip.file(name).async('blob'),base=name.split('/').pop()||`atlas-${i+files.length+1}.png`,type=/\.png$/i.test(base)?'image/png':/\.webp$/i.test(base)?'image/webp':'image/jpeg';files.push(new File([blob],base,{type,lastModified:Date.now()}))}const r=await importAtlasImages(files,{quiet:true});for(const k of ['added','skipped','failed','refreshed'])stats[k]+=r[k]||0;await new Promise(r=>setTimeout(r,0))}}catch(err){console.error(err);stats.failed++}return stats;
+    let stats={added:0,skipped:0,failed:0,refreshed:0,total:0};try{const zip=await JSZip.loadAsync(zipFile);const names=Object.keys(zip.files).filter(n=>!zip.files[n].dir&&/\.(png|jpe?g|webp)$/i.test(n));stats.total=names.length;for(let i=0;i<names.length;i+=80){const files=[];for(const name of names.slice(i,i+80)){const blob=await zip.file(name).async('blob'),base=name.split('/').pop()||`atlas-${i+files.length+1}.png`,type=/\.png$/i.test(base)?'image/png':/\.webp$/i.test(base)?'image/webp':'image/jpeg';files.push(new File([blob],base,{type,lastModified:Date.now()}))}const r=await importAtlasImages(files,{quiet:true,progressToken:taskProgress.token,progressOffset:i,progressTotal:names.length});for(const k of ['added','skipped','failed','refreshed'])stats[k]+=r[k]||0;await new Promise(r=>setTimeout(r,0))}}catch(err){console.error(err);stats.failed++}return stats;
   }
   async function importAtlasMixedBulkFiles(fileList){
-    const files=[...(fileList||[])],images=files.filter(f=>/^image\/(png|jpeg|webp)$/i.test(f.type)||/\.(png|jpe?g|webp)$/i.test(f.name||'')),zips=files.filter(f=>/\.zip$/i.test(f.name||'')||/^(application\/zip|application\/x-zip-compressed)$/i.test(f.type||'')),unsupported=files.length-images.length-zips.length;let t={added:0,skipped:0,failed:0,refreshed:0};if(images.length){const r=await importAtlasImages(images,{quiet:true});for(const k in t)t[k]+=r[k]||0}for(let i=0;i<zips.length;i++){if(els.importProgress){els.importProgress.classList.remove('hidden');els.importProgressText.textContent=`Atlas ZIP ${i+1} / ${zips.length} 푸는 중…`}const r=await importAtlasImagesFromZip(zips[i]);for(const k in t)t[k]+=r[k]||0}renderAtlas();const parts=[`${t.added}개 Atlas 등록`];if(t.refreshed)parts.push(`메타데이터 갱신 ${t.refreshed}개`);if(t.skipped)parts.push(`중복 ${t.skipped}개`);if(t.failed)parts.push(`실패 ${t.failed}개`);if(unsupported)parts.push(`지원하지 않는 파일 ${unsupported}개 제외`);const msg=parts.join(' · ');toast(msg);if(els.importProgress){els.importProgressText.textContent=msg;setTimeout(()=>els.importProgress.classList.add('hidden'),1600)}
+    const files=[...(fileList||[])],images=files.filter(f=>/^image\/(png|jpeg|webp)$/i.test(f.type)||/\.(png|jpe?g|webp)$/i.test(f.name||'')),zips=files.filter(f=>/\.zip$/i.test(f.name||'')||/^(application\/zip|application\/x-zip-compressed)$/i.test(f.type||'')),unsupported=files.length-images.length-zips.length;let t={added:0,skipped:0,failed:0,refreshed:0};if(images.length){const r=await importAtlasImages(images,{quiet:true});for(const k in t)t[k]+=r[k]||0}for(let i=0;i<zips.length;i++){taskStart('Artist Atlas · ZIP 등록',`ZIP ${i+1}/${zips.length} 압축 해제 중`);if(els.importProgress){els.importProgress.classList.remove('hidden');els.importProgressText.textContent=`Atlas ZIP ${i+1} / ${zips.length} 푸는 중…`}const r=await importAtlasImagesFromZip(zips[i]);for(const k in t)t[k]+=r[k]||0}renderAtlas();const parts=[`${t.added}개 Atlas 등록`];if(t.refreshed)parts.push(`메타데이터 갱신 ${t.refreshed}개`);if(t.skipped)parts.push(`중복 ${t.skipped}개`);if(t.failed)parts.push(`실패 ${t.failed}개`);if(unsupported)parts.push(`지원하지 않는 파일 ${unsupported}개 제외`);const msg=parts.join(' · ');taskEnd(msg,!!t.failed);toast(msg);if(els.importProgress){els.importProgressText.textContent=msg;setTimeout(()=>els.importProgress.classList.add('hidden'),1600)}
   }
   function filteredGalleryForAtlasPicker(){const q=(els.atlasGalleryPickerSearch?.value||'').trim().toLowerCase();return state.entries.filter(e=>!q||`${displayTitle(e)} ${e.artistsText||''} ${e.prompt||''}`.toLowerCase().includes(q));}
   function openAtlasGalleryPicker(){state.atlasGalleryPickerIds=[];els.atlasGalleryPickerSearch.value='';renderAtlasGalleryPicker();els.atlasGalleryPickerDialog.showModal();}
@@ -3331,7 +3336,7 @@ function openDB(){
     toast('Artist Atlas에 추가했습니다.');
   }
 
-async function confirmAtlasGalleryPicker(){let added=0,skipped=0;const known=new Set(state.atlasEntries.map(e=>e.hash).filter(Boolean));for(const id of state.atlasGalleryPickerIds){const src=state.entries.find(e=>e.id===id);if(!src)continue;if(src.hash&&known.has(src.hash)){skipped++;continue}const now=Date.now(),e={...src,id:crypto.randomUUID(),imageBlob:src.imageBlob,createdAt:now,updatedAt:now,lastImportAt:now,favorite:false,atlasOnly:true};await txPut(STORE_ATLAS,e);state.atlasEntries.push(e);if(e.hash)known.add(e.hash);added++}els.atlasGalleryPickerDialog.close();renderAtlas();toast(`${added}개 Atlas에 추가${skipped?` · 중복 ${skipped}개 제외`:''}`);}
+async function confirmAtlasGalleryPicker(){const pickerTask=taskStart('Gallery → Atlas 등록','선택 이미지 저장 중',state.atlasGalleryPickerIds.length);let processed=0;let added=0,skipped=0;const known=new Set(state.atlasEntries.map(e=>e.hash).filter(Boolean));for(const id of state.atlasGalleryPickerIds){const src=state.entries.find(e=>e.id===id);if(!src)continue;if(src.hash&&known.has(src.hash)){skipped++;continue}const now=Date.now(),e={...src,id:crypto.randomUUID(),imageBlob:src.imageBlob,createdAt:now,updatedAt:now,lastImportAt:now,favorite:false,atlasOnly:true};await txPut(STORE_ATLAS,e);state.atlasEntries.push(e);if(e.hash)known.add(e.hash);added++;taskUpdate(`Atlas 저장 중 · ${++processed}/${state.atlasGalleryPickerIds.length}`,processed,state.atlasGalleryPickerIds.length,pickerTask)}els.atlasGalleryPickerDialog.close();renderAtlas();taskEnd(`${added}개 등록 · ${skipped}개 중복`,false,pickerTask);toast(`${added}개 Atlas에 추가${skipped?` · 중복 ${skipped}개 제외`:''}`);}
 
   async function importImages(fileList, options={}){
     const files=[...(fileList||[])].filter(file=>/^image\/(png|jpeg|webp)$/i.test(file.type)||/\.(png|jpe?g|webp)$/i.test(file.name||''));
@@ -3339,6 +3344,7 @@ async function confirmAtlasGalleryPicker(){let added=0,skipped=0;const known=new
     let added=0, skipped=0, failed=0, refreshed=0;
     const knownHashes=new Set(state.entries.map(e=>e.hash).filter(Boolean));
     const total=files.length;
+    const galleryTask=options.progressToken??taskStart('Gallery · 이미지 등록','이미지 분석 및 저장 중',options.progressTotal||total);
     if(els.importProgress){
       els.importProgress.classList.remove('hidden');
       els.importProgressText.textContent=options.source==='folder'?'폴더에서 이미지 가져오는 중…':options.source==='bulk'?'대량 파일 등록 중…':'이미지 가져오는 중…';
@@ -3391,13 +3397,14 @@ async function confirmAtlasGalleryPicker(){let added=0,skipped=0;const known=new
         els.importProgressCount.textContent=`${i+1} / ${total}`;
         els.importProgressBar.style.width=`${Math.round(((i+1)/total)*100)}%`;
       }
+      taskUpdate(`Gallery 이미지 분석·저장 중 · ${i+1}/${total}`,(options.progressOffset||0)+i+1,options.progressTotal||total,galleryTask);
       if(i%12===11) await new Promise(r=>setTimeout(r,0));
     }
     els.fileInput.value=''; if(els.folderImportInput) els.folderImportInput.value='';
     render();
     const parts=[`${added}개 등록`]; if(refreshed)parts.push(`메타데이터 갱신 ${refreshed}개`); if(skipped)parts.push(`중복 ${skipped}개 제외`); if(failed)parts.push(`실패 ${failed}개`);
     const msg=parts.join(' · ');
-    if(!options.quiet){
+    if(!options.quiet){taskEnd(msg,!!failed,galleryTask);
       if(els.addStatus)els.addStatus.textContent=msg;
       toast(msg);
       if(els.importProgress){els.importProgressText.textContent=msg;setTimeout(()=>els.importProgress.classList.add('hidden'),1800)}
@@ -4542,9 +4549,11 @@ async function confirmAtlasGalleryPicker(){let added=0,skipped=0;const known=new
     const buttons=[els.selectedToAtlasCopyBtn,els.selectedToAtlasMoveBtn];
     buttons.forEach(b=>b.disabled=true);
     let added=0,already=0,moved=0,failed=0;
+    const transferTask=taskStart(move?'Gallery → Atlas 이동':'Gallery → Atlas 복사','도감 저장 중',entries.length);
     const movedIds=new Set();
     try{
-      for(const src of entries){
+      for(const [transferIndex,src] of entries.entries()){
+        taskUpdate(`도감 ${move?'이동':'복사'} 중 · ${transferIndex+1}/${entries.length}`,transferIndex,entries.length,transferTask);
         try{
           const exists=galleryEntryAlreadyInAtlas(src);
           const now=Date.now();
@@ -4553,6 +4562,7 @@ async function confirmAtlasGalleryPicker(){let added=0,skipped=0;const known=new
           if(entry){state.atlasEntries.push(entry);added++}else already++;
           if(move){movedIds.add(src.id);moved++}
         }catch(err){console.error('Gallery → Atlas transfer failed:',src.id,err);failed++}
+        taskUpdate(`도감 ${move?'이동':'복사'} 중 · ${transferIndex+1}/${entries.length}`,transferIndex+1,entries.length,transferTask);
       }
       if(movedIds.size){
         state.entries=state.entries.filter(e=>!movedIds.has(e.id));
@@ -4568,6 +4578,7 @@ async function confirmAtlasGalleryPicker(){let added=0,skipped=0;const known=new
       state.selectedIds=state.selectedIds.filter(id=>!movedIds.has(id));
       if(move&&!failed){state.selectedIds=[];state.selectMode=false}
       resetGalleryPaging();render();renderAtlas();
+      taskEnd(`신규 ${added}개 · 기존 ${already}개 · 실패 ${failed}개`,!!failed,transferTask);
       toast(`${move?'도감 이동':'도감 복사'}: 신규 ${added}개${already?` · 기존 ${already}개`:''}${move?` · Gallery에서 ${moved}개 제거`:''}${failed?` · 실패 ${failed}개 (Gallery 유지)`:''}`);
     }finally{buttons.forEach(b=>b.disabled=false)}
   }
@@ -4585,6 +4596,7 @@ async function confirmAtlasGalleryPicker(){let added=0,skipped=0;const known=new
       if(clean&&status){status.textContent=message;status.classList.remove('hidden');}
     };
     button.disabled=true;
+    const gallerySaveTask=taskStart(clean?'Gallery · 메타데이터 제거 저장':'Gallery · 원본 ZIP 저장','이미지 준비 중',entries.length);
     if(clean)showProgress(`제거 준비 중 · 0/${entries.length}`);
     // Mobile browsers may need a visible progress indication while PNG pixels are decoded and ZIP is built.
     await new Promise(resolve=>setTimeout(resolve,0));
@@ -4605,19 +4617,23 @@ async function confirmAtlasGalleryPicker(){let added=0,skipped=0;const known=new
         let name=`${base}${clean?'_clean':''}.${ext}`,n=2;
         while(used.has(name)){name=`${base}_${n++}${clean?'_clean':''}.${ext}`;}
         used.add(name);zip.file(name,blob);
+        taskUpdate(`${clean?'메타데이터 제거':'이미지 수집'} 중 · ${i+1}/${entries.length}`,i+1,entries.length,gallerySaveTask);
         if(clean&&i%2===1)await new Promise(resolve=>setTimeout(resolve,0));
       }
       if(clean)showProgress(`ZIP 압축 중 · ${entries.length}개`);
       const out=await zip.generateAsync({type:'blob'},meta=>{
+        taskUpdate(`ZIP 압축 중 · ${Math.round(meta.percent)}%`,Math.round(meta.percent),100,gallerySaveTask);
         if(clean)showProgress(`ZIP 압축 중 · ${Math.round(meta.percent)}%`);
       });
       const filename=`NAI_ARCHIVE_${clean?'metadata_removed':'original'}_${entries.length}_${dateStamp()}.zip`;
       downloadBlob(out,filename);
       if(clean&&status){status.textContent=`완료 · ${entries.length}개 · 다운로드 목록을 확인해주세요.`;status.classList.remove('hidden');}
+      taskEnd(`${entries.length}개 이미지 · ZIP 다운로드 요청 완료`,false,gallerySaveTask);
       toast(clean?`${entries.length}개 메타데이터 제거 ZIP 저장 요청 완료`:`${entries.length}개 원본 ZIP 저장 요청 완료`);
     }catch(err){
       console.error('Gallery bulk image download failed',err);
       if(clean&&status){status.textContent=`저장 실패: ${err?.message||String(err)}`;status.classList.remove('hidden');}
+      taskEnd(`저장 실패: ${err?.message||'오류 발생'}`,true,gallerySaveTask);
       toast(`일괄 저장 실패: ${err?.message||'오류 발생'}`);
     }finally{button.disabled=false;button.textContent=oldLabel;}
   }
@@ -5702,10 +5718,11 @@ async function confirmAtlasGalleryPicker(){let added=0,skipped=0;const known=new
       if(it.type==='attachment'&&it.blob)zip.file(`folder-images/${f.id}/${it.id}.${mimeExt(it.mime||it.blob.type)}`,it.blob);
       if(it.type==='imageGroup')for(const img of (it.images||[]))if(img.blob)zip.file(`folder-images/${f.id}/${it.id}/${img.id}.${mimeExt(img.mime||img.blob.type)}`,img.blob);
     }
-    const blob=await zip.generateAsync({type:'blob'});
+    const backupTask=taskStart('백업 ZIP 생성','압축 중',100);
+    let blob;try{blob=await zip.generateAsync({type:'blob'},meta=>taskUpdate(`백업 압축 중 · ${Math.round(meta.percent)}%`,Math.round(meta.percent),100,backupTask))}catch(err){taskEnd(`백업 실패: ${err?.message||'오류 발생'}`,true,backupTask);throw err}
     const suffix=scope==='all'?'full':scope==='gallery'?'gallery-selected':scope==='atlas'?'atlas-selected':'folders-selected';
     downloadBlob(blob,`nai-studio-backup-${suffix}-${dateStamp()}.zip`);
-    toast('백업 ZIP을 만들었습니다.');
+    taskEnd('백업 ZIP 다운로드 요청 완료',false,backupTask);toast('백업 ZIP을 만들었습니다.');
   }
 
   async function importImagesFromZip(zipFile, options={}){
@@ -5727,7 +5744,7 @@ async function confirmAtlasGalleryPicker(){let added=0,skipped=0;const known=new
           const type=/\.png$/i.test(base)?'image/png':/\.webp$/i.test(base)?'image/webp':'image/jpeg';
           files.push(new File([blob],base,{type,lastModified:Date.now()}));
         }
-        const r=await importImages(files,{source:'bulk',quiet:true});
+        const r=await importImages(files,{source:'bulk',quiet:true,progressToken:taskProgress.token,progressOffset:i,progressTotal:names.length});
         if(r){stats.added+=r.added||0;stats.skipped+=r.skipped||0;stats.failed+=r.failed||0;stats.refreshed+=r.refreshed||0;}
         await new Promise(r=>setTimeout(r,0));
       }
@@ -5753,6 +5770,7 @@ async function confirmAtlasGalleryPicker(){let added=0,skipped=0;const known=new
     }
 
     for(let i=0;i<zips.length;i++){
+      taskStart('Gallery · ZIP 등록',`ZIP ${i+1}/${zips.length} 압축 해제 중`);
       if(els.importProgress){
         els.importProgress.classList.remove('hidden');
         els.importProgressText.textContent=`ZIP ${i+1} / ${zips.length} 푸는 중…`;
@@ -5836,23 +5854,29 @@ async function confirmAtlasGalleryPicker(){let added=0,skipped=0;const known=new
   async function restoreZip(file){
     if(!file||!window.JSZip)return;
     if((state.entries.length||state.atlasEntries.length||state.folders.length)&&!confirm('백업을 현재 데이터와 스마트 병합할까요?\n\n빈칸은 기존 값을 지우지 않고, 서로 다른 항목/폴더는 모두 유지합니다. 같은 필드가 충돌할 때만 선택을 요청합니다.')){els.restoreInput.value='';return;}
+    const restoreTask=taskStart('백업 병합','ZIP 압축 해제 중');
     try{
       const zip=await JSZip.loadAsync(file),catalog=zip.file('catalog.json');if(!catalog)throw new Error('catalog.json 없음');
       const manifest=JSON.parse(await catalog.async('string')),stats={newEntries:0,newAtlas:0,autoMerged:0,conflicts:0,newFolders:0};
+      const restoreTotal=(manifest.entries||[]).length+(manifest.atlasEntries||[]).length+(manifest.folders||[]).length;let restoreDone=0;taskUpdate('Gallery 항목 병합 중',0,restoreTotal,restoreTask);
       for(const raw of manifest.entries||[]){
         const imgEntry=Object.keys(zip.files).find(n=>n.startsWith(`images/${raw.id}.`));const old=state.entries.find(x=>x.id===raw.id);
         if(!old&&!imgEntry)continue;
         const blob=imgEntry?await zip.file(imgEntry).async('blob'):old?.imageBlob;
         if(old){const merged=mergeEntrySmart(old,{...raw,imageBlob:blob},stats);merged.imageBlob=old.imageBlob||blob;await txPut(STORE_ENTRIES,merged);state.entries[state.entries.findIndex(x=>x.id===raw.id)]=merged}
         else{const e={...raw,imageBlob:blob};await txPut(STORE_ENTRIES,e);state.entries.push(e);stats.newEntries++}
+        taskUpdate('Gallery 항목 병합 중',++restoreDone,restoreTotal,restoreTask);
       }
+      taskUpdate('Atlas 항목 병합 중',restoreDone,restoreTotal,restoreTask);
       for(const raw of manifest.atlasEntries||[]){
         const imgEntry=Object.keys(zip.files).find(n=>n.startsWith(`atlas-images/${raw.id}.`));const old=state.atlasEntries.find(x=>x.id===raw.id);
         if(!old&&!imgEntry)continue;
         const blob=imgEntry?await zip.file(imgEntry).async('blob'):old?.imageBlob;
         if(old){const merged=mergeEntrySmart(old,{...raw,imageBlob:blob},stats);merged.imageBlob=old.imageBlob||blob;await txPut(STORE_ATLAS,merged);state.atlasEntries[state.atlasEntries.findIndex(x=>x.id===raw.id)]=merged}
         else{const e={...raw,imageBlob:blob};await txPut(STORE_ATLAS,e);state.atlasEntries.push(e);stats.newAtlas++}
+        taskUpdate('Atlas 항목 병합 중',++restoreDone,restoreTotal,restoreTask);
       }
+      taskUpdate('폴더와 첨부 이미지 복원 중',restoreDone,restoreTotal,restoreTask);
       const incomingFolders=manifest.folders||[];
       for(const f of incomingFolders)for(const it of (f.items||[])){
         if(it.type==='attachment'&&it.attachmentPath&&zip.file(it.attachmentPath)){it.blob=await zip.file(it.attachmentPath).async('blob');delete it.attachmentPath}
@@ -5868,8 +5892,9 @@ async function confirmAtlasGalleryPicker(){let added=0,skipped=0;const known=new
       for(const [k,v] of Object.entries(manifest.atlasArtistMemos||{}))if(!String(state.atlasArtistMemos?.[k]||'').trim())(state.atlasArtistMemos||(state.atlasArtistMemos={}))[k]=v;
       state.atlasRepresentatives={...(manifest.atlasRepresentatives||{}),...(state.atlasRepresentatives||{})};
       await persistFolders();await saveMeta('artistBookmarks',state.artistBookmarks);await saveMeta('presets',state.presets);await saveMeta('atlasArtistFavorites',state.atlasArtistFavorites);await saveMeta('atlasArtistMemos',state.atlasArtistMemos);await saveMeta('atlasRepresentatives',state.atlasRepresentatives);
+      taskEnd(`병합 완료 · Gallery +${stats.newEntries} · Atlas +${stats.newAtlas} · Folder +${stats.newFolders}`,false,restoreTask);
       els.restoreInput.value='';render();toast(`병합 완료 · Gallery +${stats.newEntries} · Atlas +${stats.newAtlas} · Folder +${stats.newFolders}${stats.autoMerged?` · 자동 병합 ${stats.autoMerged}`:''}${stats.conflicts?` · 충돌 확인 ${stats.conflicts}`:''}`);
-    }catch(err){console.error(err);els.restoreInput.value='';toast('백업 병합에 실패했습니다. ZIP 파일을 확인해주세요.');}
+    }catch(err){console.error(err);taskEnd(`백업 병합 실패: ${err?.message||'ZIP 파일을 확인해주세요.'}`,true,restoreTask);els.restoreInput.value='';toast('백업 병합에 실패했습니다. ZIP 파일을 확인해주세요.');}
   }
 
   function attachPdfTextLayer(canvas,items){
@@ -6179,8 +6204,8 @@ async function confirmAtlasGalleryPicker(){let added=0,skipped=0;const known=new
     els.exportPreviewCanvas.classList.remove('hidden');els.exportPreviewEmpty.classList.add('hidden');els.exportPreviewMeta.textContent='미리보기 생성 중…';
     try{let previewEntries=arr.slice(0,8),meta='첫 페이지';if(exportStudioState.preset==='hqsingle'&&exportStudioState.hqMode==='pair'){const pair=hqPairedEntries(arr,els.exportHqSeedA.value,els.exportHqSeedB.value);if(pair.a.length){previewEntries=pair.a.slice(0,1);meta=`A/B 공통 ${pair.a.length}명 · 동일 작가 순서`}else{els.exportPreviewCanvas.classList.add('hidden');els.exportPreviewEmpty.classList.remove('hidden');els.exportPreviewEmpty.textContent='Seed A/B를 입력하면 공통 작가 미리보기가 표시됩니다.';els.exportPreviewMeta.textContent='Seed A/B';return}}const pages=await buildExportPages(previewEntries,exportStudioState.preset,exportStudioState.cols,exportPresetFields(exportStudioState.preset),1);if(token!==exportStudioState.previewToken||!pages.length)return;const src=pages[0],dst=els.exportPreviewCanvas,ctx=dst.getContext('2d');els.exportPreviewEmpty.textContent='미리볼 항목이 없습니다.';dst.width=620;dst.height=877;ctx.fillStyle='#fff';ctx.fillRect(0,0,dst.width,dst.height);ctx.drawImage(src,0,0,dst.width,dst.height);els.exportPreviewMeta.textContent=exportStudioState.preset==='atlas'?'2×2 / 3×2 도감 · 첫 페이지':meta}catch(err){console.error(err);els.exportPreviewMeta.textContent='미리보기 실패'}
   }
-  async function exportPagesAsPdf(pages,label,quality=.91){const pp=[];for(const c of pages)pp.push({bytes:await canvasToJpegBytes(c,quality),width:c.width,height:c.height,textLayer:c.__naiTextLayer||[]});downloadBlob(makePdfFromJpegs(pp),`nai-studio-${label}-${dateStamp()}.pdf`)}
-  async function exportPagesAsPng(pages,label){if(!pages.length)return;const gap=24,W=Math.max(...pages.map(p=>p.width)),H=pages.reduce((s,p)=>s+p.height,0)+gap*(pages.length-1),c=document.createElement('canvas');c.width=W;c.height=H;const ctx=c.getContext('2d');ctx.fillStyle='#ededed';ctx.fillRect(0,0,W,H);let y=0;for(const p of pages){ctx.drawImage(p,0,y);y+=p.height+gap}c.toBlob(blob=>downloadBlob(blob,`nai-studio-${label}-${dateStamp()}.png`),'image/png')}
+  async function exportPagesAsPdf(pages,label,quality=.91){const t=taskStart('PDF 내보내기','페이지 인코딩 중',pages.length);try{const pp=[];for(const [i,c] of pages.entries()){pp.push({bytes:await canvasToJpegBytes(c,quality),width:c.width,height:c.height,textLayer:c.__naiTextLayer||[]});taskUpdate(`PDF 페이지 인코딩 중 · ${i+1}/${pages.length}`,i+1,pages.length,t)}taskUpdate('PDF 파일 조립 중',null,null,t);downloadBlob(makePdfFromJpegs(pp),`nai-studio-${label}-${dateStamp()}.pdf`);taskEnd(`${pages.length}페이지 PDF 다운로드 요청 완료`,false,t)}catch(err){taskEnd(`PDF 생성 실패: ${err?.message||'오류 발생'}`,true,t);throw err}}
+  async function exportPagesAsPng(pages,label){if(!pages.length)return;const pngTask=taskStart('PNG 내보내기','페이지 합치는 중',pages.length);const gap=24,W=Math.max(...pages.map(p=>p.width)),H=pages.reduce((s,p)=>s+p.height,0)+gap*(pages.length-1),c=document.createElement('canvas');c.width=W;c.height=H;const ctx=c.getContext('2d');ctx.fillStyle='#ededed';ctx.fillRect(0,0,W,H);let y=0;for(const [i,p] of pages.entries()){ctx.drawImage(p,0,y);y+=p.height+gap;taskUpdate(`페이지 합치는 중 · ${i+1}/${pages.length}`,i+1,pages.length,pngTask)}taskUpdate('PNG 인코딩 중',null,null,pngTask);c.toBlob(blob=>{if(blob){downloadBlob(blob,`nai-studio-${label}-${dateStamp()}.png`);taskEnd('PNG 다운로드 요청 완료',false,pngTask)}else taskEnd('PNG 인코딩 실패',true,pngTask)},'image/png')}
   async function runExportFromDialog(){
     const arr=exportStudioEntries();if(!arr.length){toast('내보낼 항목이 없습니다.');return}
     els.runExportBtn.disabled=true;els.runExportBtn.textContent='만드는 중…';
@@ -6420,6 +6445,33 @@ async function confirmAtlasGalleryPicker(){let added=0,skipped=0;const known=new
   const norm=s=>String(s||'').toLowerCase().replace(/\s+/g,' ').trim(); const normalizeText=s=>norm(s).replace(/\s*,\s*/g,',');
   function displayTitle(e){const custom=String(e?.title||'').trim();if(custom)return custom;const idx=displayTitleIndex.get(e?.id)||1;return `IMG${String(idx).padStart(2,'0')}`}
   const primaryArtist=e=>e.artists?.[0]?.name||''; const artistSummary=e=>(e.artists||[]).map(a=>`${a.name} ${a.weight}`).join(' · '); const esc=s=>String(s??'').replace(/[&<>"']/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m])); const escAttr=esc;
+  // Shared, viewport-fixed progress display: visible in Gallery, Atlas and dialogs.
+  const taskProgress={token:0,timer:null};
+  function taskStart(title,stage='준비 중…',total=0){
+    clearTimeout(taskProgress.timer);taskProgress.token++;const p=document.getElementById('taskProgressPanel');
+    const topDialog=[...document.querySelectorAll('dialog[open]')].at(-1);(topDialog||document.body).appendChild(p);p.hidden=false;p.dataset.state='running';document.getElementById('taskProgressTitle').textContent=title;
+    taskUpdate(stage,0,total);return taskProgress.token;
+  }
+  function taskUpdate(stage,done=null,total=null,token=null){
+    if(token!==null&&token!==taskProgress.token)return;
+    const p=document.getElementById('taskProgressPanel');if(!p||p.hidden)return;
+    if(p.parentElement?.tagName==='DIALOG'&&!p.parentElement.open)document.body.appendChild(p);
+    if(stage!==null)document.getElementById('taskProgressStage').textContent=stage;
+    if(total!==null){const t=Math.max(0,Number(total)||0),d=Math.max(0,Math.min(t,Number(done)||0));const pct=t?Math.round(d/t*100):0;
+      document.getElementById('taskProgressCount').textContent=t?`${d.toLocaleString()} / ${t.toLocaleString()}`:'진행 중';
+      document.getElementById('taskProgressPercent').textContent=t?`${pct}%`:'…';
+      document.getElementById('taskProgressFill').style.width=`${pct}%`;
+      document.getElementById('taskProgressTrack').setAttribute('aria-valuenow',String(pct));
+    }
+  }
+  function taskEnd(message,failed=false,token=null){
+    if(token!==null&&token!==taskProgress.token)return;
+    const p=document.getElementById('taskProgressPanel');if(!p)return;
+    if(p.parentElement?.tagName==='DIALOG')document.body.appendChild(p);p.hidden=false;p.dataset.state=failed?'failed':'done';document.getElementById('taskProgressStage').textContent=message;
+    if(!failed){document.getElementById('taskProgressFill').style.width='100%';document.getElementById('taskProgressPercent').textContent='100%';document.getElementById('taskProgressTrack').setAttribute('aria-valuenow','100')}
+    clearTimeout(taskProgress.timer);taskProgress.timer=setTimeout(()=>{if(p.dataset.state!=='running')p.hidden=true},failed?12000:5500);
+  }
+  document.getElementById('taskProgressClose').onclick=()=>{document.getElementById('taskProgressPanel').hidden=true};
   function toast(msg){els.toast.textContent=msg;els.toast.classList.add('show');clearTimeout(toast.t);toast.t=setTimeout(()=>els.toast.classList.remove('show'),1800)}
   async function sha256(file){const b=await crypto.subtle.digest('SHA-256',await file.arrayBuffer());return [...new Uint8Array(b)].map(x=>x.toString(16).padStart(2,'0')).join('')}
   function revokeObjectUrls(root){
@@ -6447,6 +6499,7 @@ async function confirmAtlasGalleryPicker(){let added=0,skipped=0;const known=new
 <style id="v1925-performance-pass">
 .gallery-load-more{grid-column:1/-1;width:100%;min-height:42px;border:1px solid #dedede;background:#fff;border-radius:8px;font:600 11px Inter,sans-serif;letter-spacing:.02em;color:#444;cursor:pointer;margin:4px 0 10px}.gallery-load-more:active{background:#f4f4f4}
 </style>
+<aside id="taskProgressPanel" hidden role="status" aria-live="polite" aria-atomic="true"><div class="task-head"><span class="task-title" id="taskProgressTitle">작업 준비 중</span><button type="button" class="task-close" id="taskProgressClose" aria-label="진행 상황 닫기">×</button></div><div class="task-stage" id="taskProgressStage">준비 중…</div><div class="task-track" role="progressbar" aria-label="작업 진행률" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0" id="taskProgressTrack"><div class="task-fill" id="taskProgressFill"></div></div><div class="task-footer"><span id="taskProgressCount">0 / 0</span><span id="taskProgressPercent">0%</span></div></aside>
 </body>
 </html>
 
