@@ -4,7 +4,7 @@
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
   <meta name="color-scheme" content="light" />
-  <title>NAI Studio v1.9.50</title>
+  <title>NAI Studio v1.9.52</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Young+Serif&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
@@ -260,6 +260,9 @@ body:not(.is-home) .menu-btn{display:grid}
 .atlas-reviewing .atlas-shell{padding-bottom:calc(95px + env(safe-area-inset-bottom,0px))}
 .atlas-review-controls>.atlas-review-unsaved{justify-self:end;padding-right:3px}
 @media(max-width:700px){.atlas-review-batch-bar{bottom:calc(10px + env(safe-area-inset-bottom,0px));width:calc(100vw - 24px)}}
+/* v1.9.51 · MEDIOCRE between MAYBE and PARTS */
+.atlas-rating-row button[data-rating="mediocre"].active{background:#8b8069;border-color:#8b8069}
+.atlas-review-buttons button[data-review-rating="mediocre"].active{background:#8b8069;border-color:#8b8069}
 </style>
 
 <style>
@@ -1576,6 +1579,7 @@ body.folder-lightbox-open{overflow:hidden}
         <label class="export-choice"><input type="radio" name="backupScope" value="folders-all"><span><b>폴더 전체</b><small>모든 폴더 · 첨부 이미지 · 참조 갤러리 이미지</small></span></label>
         <label class="export-choice"><input type="radio" name="backupScope" value="folders"><span><b>폴더 선택 항목</b><small>선택한 폴더와 연결된 갤러리 이미지</small></span></label>
         <div id="backupFolderChoices" class="backup-folder-choices hidden"></div>
+        <label id="backupRatingChoice" class="export-choice" style="margin-top:12px"><input type="checkbox" id="backupIncludeRatings" checked><span><b>도감 평가도 함께 백업</b><small>♥ ♡ △ ◇ ▽ ✕ ↻ 평가 포함 · 해제하면 평가만 제외 (활용 태그는 유지)</small></span></label>
         <label class="export-choice"><input type="radio" name="backupScope" value="settings"><span><b>즐겨찾기 · 프리셋 · 도감 설정</b><small>이미지 파일 없이 텍스트 설정만 백업</small></span></label>
       </div>
       <div class="modal-foot"><button id="runBackupBtn" class="btn primary">백업 ZIP 만들기</button></div>
@@ -1962,7 +1966,7 @@ body.folder-lightbox-open{overflow:hidden}
             <summary class="atlas-filter-summary"><span>⚑ 평가 · 활용 필터</span><span id="atlasFilterSummary" class="atlas-filter-summary-state">전체 보기</span><span class="atlas-filter-chevron">⌄</span></summary>
             <div class="atlas-filter-panel">
               <div class="atlas-filter-heading"><strong>평가 · 복수 선택</strong><button type="button" data-rating-action="all">전체 선택</button><button type="button" data-rating-action="none">전체 해제</button></div>
-              <div class="atlas-rating-filter" id="atlasRatingFilter" aria-label="아티스트 평가 필터"><button type="button" data-rating-filter="good" aria-pressed="true">♥ BEST</button><button type="button" data-rating-filter="liked" aria-pressed="true">♡ GOOD</button><button type="button" data-rating-filter="maybe" aria-pressed="true">△ MAYBE</button><button type="button" data-rating-filter="retest" aria-pressed="true">↻ RETEST</button><button type="button" data-rating-filter="bad" aria-pressed="true">✕ BAD</button><button type="button" data-rating-filter="parts" aria-pressed="true">▽ PARTS</button><button type="button" data-rating-filter="untested" aria-pressed="true">○ 미평가</button></div>
+              <div class="atlas-rating-filter" id="atlasRatingFilter" aria-label="아티스트 평가 필터"><button type="button" data-rating-filter="good" aria-pressed="true">♥ BEST</button><button type="button" data-rating-filter="liked" aria-pressed="true">♡ GOOD</button><button type="button" data-rating-filter="maybe" aria-pressed="true">△ MAYBE</button><button type="button" data-rating-filter="mediocre" aria-pressed="true">◇ MEDIOCRE</button><button type="button" data-rating-filter="retest" aria-pressed="true">↻ RETEST</button><button type="button" data-rating-filter="bad" aria-pressed="true">✕ BAD</button><button type="button" data-rating-filter="parts" aria-pressed="true">▽ PARTS</button><button type="button" data-rating-filter="untested" aria-pressed="true">○ 미평가</button></div>
               <div class="atlas-filter-heading"><strong>활용 태그 · 복수 선택</strong><button type="button" data-usage-action="all">전체 보기</button><button type="button" data-usage-action="none">전체 해제</button></div>
               <div class="atlas-usage-filter" id="atlasUsageFilter" aria-label="활용 태그 필터"><button type="button" data-usage-filter="얼굴">얼굴</button><button type="button" data-usage-filter="눈">눈</button><button type="button" data-usage-filter="체형">체형</button><button type="button" data-usage-filter="헤어">헤어</button><button type="button" data-usage-filter="선화">선화</button><button type="button" data-usage-filter="채색">채색</button><button type="button" data-usage-filter="질감">질감</button><button type="button" data-usage-filter="명암">명암</button><button type="button" data-usage-filter="분위기">분위기</button><button type="button" data-usage-filter="구도">구도</button></div>
               <p class="atlas-filter-hint">평가·활용 각각 체크한 항목 중 하나라도 맞으면 표시합니다. 평가와 활용 조건은 함께 적용됩니다.</p>
@@ -1974,7 +1978,7 @@ body.folder-lightbox-open{overflow:hidden}
           <div id="atlasReviewBatchBar" class="atlas-review-batch-bar hidden" role="group" aria-label="평가 변경사항 일괄 저장"><span id="atlasReviewStatus" class="atlas-review-status" role="status" aria-live="polite">변경사항 0개</span><button id="atlasReviewSaveAllBtn" class="btn primary" type="button" disabled>전체 저장</button></div>
           <div id="atlasGroupSelectionBar" class="atlas-group-selection-bar hidden">
             <div class="bulk-left"><span id="atlasGroupSelectedCount">0개 작가 선택</span><button id="atlasGroupSelectAllBtn" class="text-btn">전체 선택</button><span class="sweep-hint">꾹 눌러 쓸어 선택</span></div>
-            <div class="bulk-actions"><select id="atlasBulkRating" class="atlas-bulk-rating" aria-label="선택 작가 일괄 평가"><option value="">일괄 평가…</option><option value="good">♥ BEST</option><option value="liked">♡ GOOD</option><option value="maybe">△ MAYBE</option><option value="retest">↻ RETEST</option><option value="bad">✕ BAD</option><option value="parts">▽ PARTS</option><option value="untested">○ 미평가</option></select><button id="atlasGroupRepPdfBtn" class="btn small">대표 PDF</button><button id="atlasGroupAllPdfBtn" class="btn small">전체 이미지 PDF</button><button id="atlasGroupDeleteBtn" class="btn small danger">선택 삭제</button><button id="atlasGroupCancelBtn" class="btn small">취소</button></div>
+            <div class="bulk-actions"><select id="atlasBulkRating" class="atlas-bulk-rating" aria-label="선택 작가 일괄 평가"><option value="">일괄 평가…</option><option value="good">♥ BEST</option><option value="liked">♡ GOOD</option><option value="maybe">△ MAYBE</option><option value="mediocre">◇ MEDIOCRE</option><option value="retest">↻ RETEST</option><option value="bad">✕ BAD</option><option value="parts">▽ PARTS</option><option value="untested">○ 미평가</option></select><button id="atlasGroupRepPdfBtn" class="btn small">대표 PDF</button><button id="atlasGroupAllPdfBtn" class="btn small">전체 이미지 PDF</button><button id="atlasGroupDeleteBtn" class="btn small danger">선택 삭제</button><button id="atlasGroupCancelBtn" class="btn small">취소</button></div>
           </div>
         </div>
       </section>
@@ -2351,7 +2355,7 @@ body.folder-lightbox-open{overflow:hidden}
     atlasReviewMode: savedViewPrefs.atlas?.reviewMode===true,
     atlasReviewDrafts: {},
     atlasReviewImageIndices: {},
-    atlasRatingFilters: Array.isArray(savedViewPrefs.atlas?.ratingFilters)?[...new Set([...savedViewPrefs.atlas.ratingFilters.filter(v=>['good','liked','maybe','retest','bad','parts','untested'].includes(v)),...(savedViewPrefs.atlas.ratingFilters.length===5&&['good','maybe','bad','parts','untested'].every(v=>savedViewPrefs.atlas.ratingFilters.includes(v))?['liked','retest']:[])])]:['good','liked','maybe','retest','bad','parts','untested'],
+    atlasRatingFilters: Array.isArray(savedViewPrefs.atlas?.ratingFilters)?[...new Set([...savedViewPrefs.atlas.ratingFilters.filter(v=>['good','liked','maybe','mediocre','retest','bad','parts','untested'].includes(v)),...(savedViewPrefs.atlas.ratingFilters.length===5&&['good','maybe','bad','parts','untested'].every(v=>savedViewPrefs.atlas.ratingFilters.includes(v))?['liked','retest','mediocre']:[]),...(savedViewPrefs.atlas.ratingFilters.length===7&&['good','liked','maybe','retest','bad','parts','untested'].every(v=>savedViewPrefs.atlas.ratingFilters.includes(v))?['mediocre']:[])])]:['good','liked','maybe','mediocre','parts','bad','retest','untested'],
     atlasUsageFilters: Array.isArray(savedViewPrefs.atlas?.usageFilters)?[...new Set(savedViewPrefs.atlas.usageFilters.filter(v=>['얼굴','눈','체형','헤어','선화','채색','질감','명암','분위기','구도','_none_'].includes(v)))]:[],
     atlasRepresentatives: {},
     atlasCurrentGroupKey: null,
@@ -3143,7 +3147,7 @@ function openDB(){
     for(const g of groups)for(const e of g.entries)if(atlasEntryMatchesSearch(e,tokens))ids.add(e.id);
     return ids.size;
   }
-  const ATLAS_RATINGS=[['good','♥ BEST'],['liked','♡ GOOD'],['maybe','△ MAYBE'],['retest','↻ RETEST'],['parts','▽ PARTS'],['bad','✕ BAD'],['untested','○ 미평가']];
+  const ATLAS_RATINGS=[['good','♥ BEST'],['liked','♡ GOOD'],['maybe','△ MAYBE'],['mediocre','◇ MEDIOCRE'],['parts','▽ PARTS'],['bad','✕ BAD'],['retest','↻ RETEST'],['untested','○ 미평가']];
   const ATLAS_USAGE_TAGS=['얼굴','눈','체형','헤어','선화','채색','질감','명암','분위기','구도'];
   function syncAtlasClassificationFilters(){
     els.atlasRatingFilter?.querySelectorAll('[data-rating-filter]').forEach(b=>{const on=state.atlasRatingFilters.includes(b.dataset.ratingFilter);b.classList.toggle('active',on);b.setAttribute('aria-pressed',String(on))});
@@ -5913,23 +5917,26 @@ async function confirmAtlasGalleryPicker(){const pickerTask=taskStart('Gallery �
   function renderBackupFolderChoices(){
     const scope=document.querySelector('input[name="backupScope"]:checked')?.value||'all';
     els.backupFolderChoices.classList.toggle('hidden',scope!=='folders');
+    const ratingChoice=document.getElementById('backupRatingChoice');
+    if(ratingChoice)ratingChoice.classList.toggle('hidden',!['all','atlas-all','atlas','settings'].includes(scope));
     if(scope==='folders') els.backupFolderChoices.innerHTML=state.folders.length
       ? state.folders.map(f=>`<label><input type="checkbox" class="backup-folder-check" value="${esc(f.id)}"><span>${esc(f.name||'Untitled Folder')}</span></label>`).join('')
       : '<div class="muted-note" style="padding:8px">백업할 폴더가 없습니다.</div>';
   }
   async function runBackupFromDialog(){
     const scope=document.querySelector('input[name="backupScope"]:checked')?.value||'all';
+    const includeRatings=document.getElementById('backupIncludeRatings')?.checked!==false;
     if(scope==='gallery'){
       if(!state.selectedIds.length){toast('Gallery에서 먼저 이미지를 선택해주세요.');return;}
-      await backupZip({scope:'gallery',entryIds:[...state.selectedIds]});
+      await backupZip({scope:'gallery',entryIds:[...state.selectedIds],includeRatings});
     }else if(scope==='atlas'){
       if(!state.atlasSelectedIds.length){toast('도감에서 먼저 이미지를 선택해주세요.');return;}
-      await backupZip({scope:'atlas',atlasEntryIds:[...state.atlasSelectedIds]});
+      await backupZip({scope:'atlas',atlasEntryIds:[...state.atlasSelectedIds],includeRatings});
     }else if(scope==='folders'){
       const folderIds=[...document.querySelectorAll('.backup-folder-check:checked')].map(x=>x.value);
       if(!folderIds.length){toast('백업할 폴더를 선택해주세요.');return;}
-      await backupZip({scope:'folders',folderIds});
-    }else await backupZip({scope});
+      await backupZip({scope:'folders',folderIds,includeRatings});
+    }else await backupZip({scope,includeRatings});
     els.backupDialog.close();
   }
   async function backupZip(options={scope:'all'}){
@@ -5965,7 +5972,14 @@ async function confirmAtlasGalleryPicker(){const pickerTask=taskStart('Gallery �
       if(it.type==='imageGroup')return {...it,images:(it.images||[]).map(img=>img.blob?({...img,blob:undefined,attachmentPath:`folder-images/${f.id}/${it.id}/${img.id}.${mimeExt(img.mime||img.blob.type)}`}):({...img}))};
       return {...it};
     })}));
-    const manifest={version:7,mergeMode:'field-smart-v1',scope,exportedAt:new Date().toISOString(),entries:entries.map(({imageBlob,rawMetadata,...e})=>({...e,rawMetadata})),atlasEntries:atlasEntries.map(({imageBlob,rawMetadata,...e})=>({...e,rawMetadata})),atlasArtistFavorites:['all','atlas-all','settings'].includes(scope)?state.atlasArtistFavorites:[],atlasArtistMemos:['all','atlas-all','settings'].includes(scope)?state.atlasArtistMemos:{},atlasArtistClassifications:['all','atlas-all','settings'].includes(scope)?state.atlasArtistClassifications:{},atlasRepresentatives:['all','atlas-all','settings'].includes(scope)?state.atlasRepresentatives:{},artistBookmarks,presets,folders:backupFolders};
+    // v1.9.52: Ratings can be omitted independently of Atlas images and usage tags.
+    // For selected Atlas images, export classifications only for represented artist groups.
+    const includeAtlasSettings=['all','atlas-all','atlas','settings'].includes(scope);
+    const selectedAtlasKeys=scope==='atlas'?new Set(atlasEntries.map(e=>atlasGroupInfo(e).key)):null;
+    const atlasClassifications=Object.fromEntries(Object.entries(state.atlasArtistClassifications||{})
+      .filter(([key])=>includeAtlasSettings&&(!selectedAtlasKeys||selectedAtlasKeys.has(key)))
+      .map(([key,value])=>[key,options.includeRatings===false?{...value,rating:''}:{...value}]));
+    const manifest={version:8,includeRatings:options.includeRatings!==false,mergeMode:'field-smart-v1',scope,exportedAt:new Date().toISOString(),entries:entries.map(({imageBlob,rawMetadata,...e})=>({...e,rawMetadata})),atlasEntries:atlasEntries.map(({imageBlob,rawMetadata,...e})=>({...e,rawMetadata})),atlasArtistFavorites:['all','atlas-all','settings'].includes(scope)?state.atlasArtistFavorites:[],atlasArtistMemos:['all','atlas-all','settings'].includes(scope)?state.atlasArtistMemos:{},atlasArtistClassifications:atlasClassifications,atlasRepresentatives:['all','atlas-all','settings'].includes(scope)?state.atlasRepresentatives:{},artistBookmarks,presets,folders:backupFolders};
     zip.file('catalog.json',JSON.stringify(manifest,null,2));
     const imageFolder=zip.folder('images'); entries.forEach(e=>imageFolder.file(`${e.id}.${extOf(e.fileName)}`,e.imageBlob));
     const atlasImageFolder=zip.folder('atlas-images'); atlasEntries.forEach(e=>atlasImageFolder.file(`${e.id}.${extOf(e.fileName)}`,e.imageBlob));
@@ -5976,7 +5990,8 @@ async function confirmAtlasGalleryPicker(){const pickerTask=taskStart('Gallery �
     const backupTask=taskStart('백업 ZIP 생성','압축 중',100);
     let blob;try{blob=await zip.generateAsync({type:'blob'},meta=>taskUpdate(`백업 압축 중 · ${Math.round(meta.percent)}%`,Math.round(meta.percent),100,backupTask))}catch(err){taskEnd(`백업 실패: ${err?.message||'오류 발생'}`,true,backupTask);throw err}
     const suffix=({'all':'full','gallery-all':'gallery-all','gallery':'gallery-selected','atlas-all':'atlas-all','atlas':'atlas-selected','folders-all':'folders-all','folders':'folders-selected','settings':'settings'})[scope]||'custom';
-    downloadBlob(blob,`nai-studio-backup-${suffix}-${dateStamp()}.zip`);
+    const ratingSuffix=includeAtlasSettings?(options.includeRatings===false?'-no-ratings':'-with-ratings'):'';
+    downloadBlob(blob,`nai-studio-backup-${suffix}${ratingSuffix}-${dateStamp()}.zip`);
     taskEnd('백업 ZIP 다운로드 요청 완료',false,backupTask);toast('백업 ZIP을 만들었습니다.');
   }
 
@@ -6145,7 +6160,7 @@ async function confirmAtlasGalleryPicker(){const pickerTask=taskStart('Gallery �
       state.atlasArtistFavorites=[...new Set([...(state.atlasArtistFavorites||[]),...(manifest.atlasArtistFavorites||[])])];
       // Artist memos are free text without per-field history yet: keep local non-empty text; import only missing keys.
       for(const [k,v] of Object.entries(manifest.atlasArtistMemos||{}))if(!String(state.atlasArtistMemos?.[k]||'').trim())(state.atlasArtistMemos||(state.atlasArtistMemos={}))[k]=v;
-      for(const [k,v] of Object.entries(manifest.atlasArtistClassifications||{})){const local=state.atlasArtistClassifications?.[k];if(!local||( !local.rating && !(local.tags||[]).length))state.atlasArtistClassifications[k]=v;}
+      for(const [k,v] of Object.entries(manifest.atlasArtistClassifications||{})){const local=state.atlasArtistClassifications?.[k];if(!local||( !local.rating && !(local.tags||[]).length))state.atlasArtistClassifications[k]=manifest.includeRatings===false?{...v,rating:local?.rating||''}:v;}
       state.atlasRepresentatives={...(manifest.atlasRepresentatives||{}),...(state.atlasRepresentatives||{})};
       await persistFolders();await saveMeta('artistBookmarks',state.artistBookmarks);await saveMeta('presets',state.presets);await saveMeta('atlasArtistFavorites',state.atlasArtistFavorites);await saveMeta('atlasArtistMemos',state.atlasArtistMemos);await saveMeta('atlasArtistClassifications',state.atlasArtistClassifications);await saveMeta('atlasRepresentatives',state.atlasRepresentatives);
       taskEnd(`병합 완료 · Gallery +${stats.newEntries} · Atlas +${stats.newAtlas} · Folder +${stats.newFolders}`,false,restoreTask);
