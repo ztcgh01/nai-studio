@@ -51,7 +51,7 @@ async function materializeBinary(obj,baseParts=[]){
 }
 async function hydrateBinary(obj){
   if(!obj||typeof obj!=='object')return obj;
-  if(obj.__naiFile){try{return {__naiBinary:true,mime:obj.mime||'',name:obj.name||'',bytes:new Uint8Array(await fsp.readFile(path.join(root,obj.__naiFile)))}}catch{return null}}
+  if(obj.__naiFile){try{return {__naiBinary:true,__naiFileRef:obj.__naiFile,mime:obj.mime||'',name:obj.name||'',bytes:new Uint8Array(await fsp.readFile(path.join(root,obj.__naiFile)))}}catch{return null}}
   if(Array.isArray(obj)){const out=[];for(const v of obj)out.push(await hydrateBinary(v));return out}
   const out={};for(const [k,v] of Object.entries(obj))out[k]=await hydrateBinary(v);return out;
 }
@@ -59,9 +59,9 @@ function recFile(store,id){return path.join(root,STORE_DIR[store],safe(id)+'.jso
 function binBase(store,id){return store==='entries'?['images','gallery',safe(id)]:store==='atlasEntries'?['images','atlas',safe(id)]:['images','folders',safe(id)]}
 async function getAll(store){
   if(store==='meta'){const m=await readJson(path.join(root,'meta.json'),{});return Object.entries(m).map(([key,value])=>({key,value}))}
-  const dir=path.join(root,STORE_DIR[store]);let names=[];try{names=await fsp.readdir(dir)}catch{};const out=[];
-  for(const n of names.filter(x=>x.endsWith('.json'))){const raw=await readJson(path.join(dir,n));if(raw)out.push(await hydrateBinary(raw))}
-  return out;
+  const dir=path.join(root,STORE_DIR[store]);let names=[];try{names=await fsp.readdir(dir)}catch{}
+  const rows=await Promise.all(names.filter(x=>x.endsWith('.json')).map(async n=>{const raw=await readJson(path.join(dir,n));return raw?hydrateBinary(raw):null}));
+  return rows.filter(Boolean);
 }
 async function put(store,val){
   if(store==='meta'){const file=path.join(root,'meta.json'),m=await readJson(file,{});m[val.key]=val.value;await atomicJson(file,m);return}
@@ -75,8 +75,8 @@ async function replace(store,vals){
   if(store==='meta')throw new Error('meta replace unsupported');
   const dir=path.join(root,STORE_DIR[store]);await fsp.mkdir(dir,{recursive:true});
   const keep=new Set(vals.map(v=>safe(v.id)+'.json'));
-  for(const n of await fsp.readdir(dir))if(n.endsWith('.json')&&!keep.has(n))await fsp.unlink(path.join(dir,n));
   for(const v of vals)await put(store,v);
+  for(const n of await fsp.readdir(dir))if(n.endsWith('.json')&&!keep.has(n))await fsp.unlink(path.join(dir,n));
 }
 async function importLooseGalleryFiles(){
   const imgDir=path.join(root,'images','gallery'),recDir=path.join(root,'library','entries');
