@@ -78,10 +78,37 @@ async function replace(store,vals){
   for(const n of await fsp.readdir(dir))if(n.endsWith('.json')&&!keep.has(n))await fsp.unlink(path.join(dir,n));
   for(const v of vals)await put(store,v);
 }
+async function importLooseGalleryFiles(){
+  const imgDir=path.join(root,'images','gallery'),recDir=path.join(root,'library','entries');
+  const known=new Set();
+  for(const n of await fsp.readdir(recDir)){
+    if(!n.endsWith('.json'))continue;
+    const r=await readJson(path.join(recDir,n));
+    if(r&&r.__desktopImportedFile)known.add(r.__desktopImportedFile);
+  }
+  for(const n of await fsp.readdir(imgDir)){
+    if(!/\.(png|jpe?g|webp)$/i.test(n)||known.has(n))continue;
+    const abs=path.join(imgDir,n),st=await fsp.stat(abs);
+    const id='desktop_'+Buffer.from(n+'|'+st.size+'|'+st.mtimeMs).toString('base64url').slice(0,32);
+    if(await readJson(recFile('entries',id)))continue;
+    const mime=/\.png$/i.test(n)?'image/png':/\.webp$/i.test(n)?'image/webp':'image/jpeg';
+    await atomicJson(recFile('entries',id),{
+      id,
+      name:n,
+      fileName:n,
+      createdAt:new Date(st.birthtimeMs||st.mtimeMs).toISOString(),
+      updatedAt:new Date(st.mtimeMs).toISOString(),
+      __desktopImportedFile:n,
+      file:{__naiFile:path.relative(root,abs).replace(/\\/g,'/'),mime,name:n}
+    });
+  }
+}
 async function createWindow(){
   await ensure();
-  const win=new BrowserWindow({width:1440,height:920,minWidth:980,minHeight:680,backgroundColor:'#f7f7f7',
+  await importLooseGalleryFiles();
+  const win=new BrowserWindow({width:1440,height:920,minWidth:980,minHeight:680,backgroundColor:'#f7f7f7',autoHideMenuBar:true,
     webPreferences:{preload:path.join(__dirname,'preload.js'),contextIsolation:true,nodeIntegration:false,sandbox:false}});
+  win.setMenuBarVisibility(false);
   await win.loadFile(path.join(__dirname,'index.html'));
 }
 app.whenReady().then(()=>{
