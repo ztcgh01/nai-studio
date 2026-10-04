@@ -1,0 +1,33 @@
+{
+  "name": "nai-studio-desktop",
+  "productName": "NAI Studio",
+  "version": "0.3.0",
+  "private": true,
+  "description": "NAI Studio Windows desktop edition with filesystem-backed storage",
+  "main": "main.js",
+  "scripts": {
+    "start": "electron .",
+    "dist:win": "electron-builder --win nsis --x64"
+  },
+  "devDependencies": {
+    "electron": "39.1.2",
+    "electron-builder": "26.0.12"
+  },
+  "build": {
+    "appId": "dev.ztcloud.naistudio",
+    "productName": "NAI Studio",
+    "asar": true,
+    "files": ["index.html","main.js","preload.js","package.json"],
+    "directories": {"output":"dist"},
+    "win": {"target":[{"target":"nsis","arch":["x64"]}],"artifactName":"NAI-Studio-Setup-${version}.${ext}"},
+    "nsis": {
+      "oneClick": false,
+      "allowToChangeInstallationDirectory": true,
+      "createDesktopShortcut": true,
+      "createStartMenuShortcut": true,
+      "shortcutName": "NAI Studio",
+      "deleteAppDataOnUninstall": false,
+      "runAfterFinish": true
+    }
+  }
+}
