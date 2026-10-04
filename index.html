@@ -4,7 +4,7 @@
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
   <meta name="color-scheme" content="light" />
-  <title>NAI Studio Desktop v0.5.0</title>
+  <title>NAI Studio Desktop v0.6.0</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Young+Serif&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
@@ -2354,13 +2354,14 @@ body.folder-lightbox-open{overflow:hidden}
 
   const DESKTOP_MODE = !!window.naiDesktop;
   async function desktopEncode(value){
+    if(value instanceof Blob&&value.__naiFileRef)return {__naiFile:value.__naiFileRef,mime:value.type||'',name:value.name||''};
     if(value instanceof Blob)return {__naiBinary:true,mime:value.type||'',name:value.name||'',bytes:new Uint8Array(await value.arrayBuffer())};
     if(Array.isArray(value)){const out=[];for(const v of value)out.push(await desktopEncode(v));return out}
     if(value&&typeof value==='object'){const out={};for(const [k,v] of Object.entries(value))out[k]=await desktopEncode(v);return out}
     return value;
   }
   async function desktopDecode(value){
-    if(value&&value.__naiBinary&&value.bytes){const bytes=value.bytes instanceof Uint8Array?value.bytes:new Uint8Array(value.bytes);return value.name?new File([bytes],value.name,{type:value.mime||''}):new Blob([bytes],{type:value.mime||''})}
+    if(value&&value.__naiBinary&&value.bytes){const bytes=value.bytes instanceof Uint8Array?value.bytes:new Uint8Array(value.bytes),blob=value.name?new File([bytes],value.name,{type:value.mime||''}):new Blob([bytes],{type:value.mime||''});if(value.__naiFileRef)Object.defineProperty(blob,'__naiFileRef',{value:value.__naiFileRef,writable:false,enumerable:false});return blob}
     if(Array.isArray(value)){const out=[];for(const v of value)out.push(await desktopDecode(v));return out}
     if(value&&typeof value==='object'){const out={};for(const [k,v] of Object.entries(value))out[k]=await desktopDecode(v);return out}
     return value;
@@ -4904,7 +4905,7 @@ async function confirmAtlasGalleryPicker(){const pickerTask=taskStart('Gallery â
     const raw=String(text||'');if(!raw.trim())return [];
     return raw.split(/\n\s*---\s*\n/g).map(x=>x.trim()).filter(Boolean);
   }
-  function txPutMany(store,items){return new Promise((res,rej)=>{if(!items.length){res();return}const tx=db.transaction(store,'readwrite'),os=tx.objectStore(store);for(const item of items)os.put(item);tx.oncomplete=()=>res();tx.onerror=()=>rej(tx.error);tx.onabort=()=>rej(tx.error||new Error('transaction aborted'))})}
+  function txPutMany(store,items){if(DESKTOP_MODE)return Promise.all(items.map(item=>txPut(store,item)));return new Promise((res,rej)=>{if(!items.length){res();return}const tx=db.transaction(store,'readwrite'),os=tx.objectStore(store);for(const item of items)os.put(item);tx.oncomplete=()=>res();tx.onerror=()=>rej(tx.error);tx.onabort=()=>rej(tx.error||new Error('transaction aborted'))})}
   async function applyBulkEdit(){
     const entries=state.selectedIds.map(id=>state.entries.find(e=>e.id===id)).filter(Boolean);if(!entries.length)return;
     const enabled={artists:els.bulkEditArtistsOn.checked,prompt:els.bulkEditPromptOn.checked,characters:els.bulkEditCharactersOn.checked,characterUc:els.bulkEditCharacterUcOn.checked,uc:els.bulkEditUcOn.checked,memo:els.bulkEditMemoOn.checked,model:els.bulkEditModelOn.checked};
