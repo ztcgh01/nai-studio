@@ -1813,6 +1813,7 @@ body.folder-lightbox-open{overflow:hidden}
         <button id="backupBtn" class="utility-btn">Backup</button>
         <button id="restoreBtn" class="utility-btn">Merge Import</button>
         <button id="pdfBtn" class="utility-btn">Export</button>
+        <button id="updateBtn" class="utility-btn">Update</button>
       </div>
     </aside>
 
@@ -2548,6 +2549,7 @@ body.folder-lightbox-open{overflow:hidden}
   async function init(){
     mapEls();
     bind();
+    if(DESKTOP_MODE){const b=document.getElementById('updateBtn');if(b)b.onclick=()=>window.naiDesktop.checkUpdate();}else document.getElementById('updateBtn')?.classList.add('hidden');
     db = await openDB();if(!DESKTOP_MODE)await migrateLegacyDatabaseIfNeeded();
     await loadAll();
     // v2.0.1 SAFE: storage guard. Keep a tiny cross-check outside IndexedDB when possible,
