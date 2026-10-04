@@ -1,4 +1,5 @@
-const { app, BrowserWindow, ipcMain, shell } = require('electron');
+const { app, BrowserWindow, ipcMain, shell, dialog } = require('electron');
+const { autoUpdater } = require('electron-updater');
 const fs = require('fs');
 const fsp = fs.promises;
 const path = require('path');
@@ -103,13 +104,46 @@ async function importLooseGalleryFiles(){
     });
   }
 }
+let mainWindow=null,updateBusy=false;
+autoUpdater.autoDownload=false;
+autoUpdater.autoInstallOnAppQuit=true;
+autoUpdater.allowPrerelease=false;
+
+async function checkForUpdates(interactive=false){
+  if(!app.isPackaged){if(interactive)await dialog.showMessageBox({type:'info',title:'NAI Studio 업데이트',message:'개발 실행에서는 업데이트를 확인하지 않습니다.'});return {status:'dev'}}
+  if(updateBusy)return {status:'busy'};
+  updateBusy=true;
+  try{
+    const result=await autoUpdater.checkForUpdates();
+    const latest=result?.updateInfo?.version;
+    if(!latest||latest===app.getVersion()){
+      if(interactive)await dialog.showMessageBox(mainWindow,{type:'info',title:'NAI Studio 업데이트',message:`현재 최신 버전입니다. (v${app.getVersion()})`});
+      return {status:'current',version:app.getVersion()};
+    }
+    const choice=await dialog.showMessageBox(mainWindow,{type:'info',title:'NAI Studio 업데이트',message:`NAI Studio v${latest} 업데이트가 있습니다.`,detail:'프로그램 파일만 업데이트되며 Documents\\NAI Studio Data의 이미지와 라이브러리 데이터는 그대로 유지됩니다.',buttons:['업데이트','나중에'],defaultId:0,cancelId:1,noLink:true});
+    if(choice.response!==0)return {status:'later',version:latest};
+    await autoUpdater.downloadUpdate();
+    return {status:'downloading',version:latest};
+  }catch(err){
+    console.error('Update check failed',err);
+    if(interactive)await dialog.showMessageBox(mainWindow,{type:'warning',title:'업데이트 확인 실패',message:'업데이트 서버를 확인하지 못했습니다.',detail:String(err?.message||err)});
+    return {status:'error',message:String(err?.message||err)};
+  }finally{updateBusy=false}
+}
+autoUpdater.on('update-downloaded',async info=>{
+  const choice=await dialog.showMessageBox(mainWindow,{type:'info',title:'업데이트 준비 완료',message:`NAI Studio v${info.version} 다운로드가 완료되었습니다.`,detail:'지금 재시작하면 업데이트가 적용됩니다.',buttons:['재시작하여 업데이트','나중에'],defaultId:0,cancelId:1,noLink:true});
+  if(choice.response===0)autoUpdater.quitAndInstall(false,true);
+});
+
 async function createWindow(){
   await ensure();
   await importLooseGalleryFiles();
   const win=new BrowserWindow({width:1440,height:920,minWidth:980,minHeight:680,backgroundColor:'#f7f7f7',autoHideMenuBar:true,
     webPreferences:{preload:path.join(__dirname,'preload.js'),contextIsolation:true,nodeIntegration:false,sandbox:false}});
+  mainWindow=win;
   win.setMenuBarVisibility(false);
   await win.loadFile(path.join(__dirname,'index.html'));
+  setTimeout(()=>checkForUpdates(false),4500);
 }
 app.whenReady().then(()=>{
   ipcMain.handle('nai:getAll',(_,s)=>getAll(s));
@@ -118,6 +152,8 @@ app.whenReady().then(()=>{
   ipcMain.handle('nai:replace',(_,s,v)=>replace(s,v));
   ipcMain.handle('nai:dataPath',()=>root);
   ipcMain.handle('nai:openData',()=>shell.openPath(root));
+  ipcMain.handle('nai:checkUpdate',()=>checkForUpdates(true));
+  ipcMain.handle('nai:version',()=>app.getVersion());
   createWindow();
 });
 app.on('window-all-closed',()=>{if(process.platform!=='darwin')app.quit()});
