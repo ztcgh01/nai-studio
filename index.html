@@ -4,7 +4,7 @@
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
   <meta name="color-scheme" content="light" />
-  <title>NAI Studio v2.0.1 SAFE</title>
+  <title>NAI Studio v2.0.3 SAFE</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Young+Serif&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
@@ -1592,7 +1592,7 @@ body.folder-lightbox-open{overflow:hidden}
         <label class="export-choice"><input type="radio" name="backupScope" value="folders"><span><b>폴더 선택 항목</b><small>선택한 폴더와 연결된 갤러리 이미지</small></span></label>
         <div id="backupFolderChoices" class="backup-folder-choices hidden"></div>
         <label id="backupRatingChoice" class="export-choice" style="margin-top:12px"><input type="checkbox" id="backupIncludeRatings" checked><span><b>도감 평가도 함께 백업</b><small>♥ ♡ △ ◇ ▽ ✕ ↻ 평가 포함 · 해제하면 평가만 제외 (활용 태그는 유지)</small></span></label>
-        <label class="export-choice"><input type="checkbox" id="backupSafeSplit"><span><b>안전 분할 백업</b><small>모바일 권장 · 큰 백업을 약 12MB 단위의 여러 ZIP으로 나눠 메모리 폭주를 피합니다. 모든 ZIP을 보관하고 Merge Import로 차례대로 복원할 수 있습니다.</small></span></label>
+        <label class="export-choice"><input type="checkbox" id="backupSafeSplit"><span><b>모바일 안전 백업</b><small>큰 백업만 적당한 크기로 자동 분할합니다. 별도 설정 없이 그대로 사용하면 됩니다.</small></span></label>
         <label class="export-choice"><input type="radio" name="backupScope" value="settings"><span><b>즐겨찾기 · 프리셋 · 도감 설정</b><small>이미지 파일 없이 텍스트 설정만 백업</small></span></label>
       </div>
       <div class="modal-foot"><button id="runBackupBtn" class="btn primary">백업 ZIP 만들기</button></div>
@@ -1789,7 +1789,6 @@ body.folder-lightbox-open{overflow:hidden}
       </div>
       <div class="side-utility">
         <button id="backupBtn" class="utility-btn">Backup</button>
-        <button id="storageGuardBtn" class="utility-btn" title="저장소 보호 상태 확인">Storage Guard</button>
         <button id="restoreBtn" class="utility-btn">Merge Import</button>
         <button id="pdfBtn" class="utility-btn">Export</button>
       </div>
@@ -6127,18 +6126,21 @@ async function confirmAtlasGalleryPicker(){const pickerTask=taskStart('Gallery �
 
   async function backupZipSplitSafe(ctx){
     if(!window.JSZip){toast('ZIP 모듈을 불러오지 못했습니다.');return;}
-    const LIMIT=(/Android|iPhone|iPad|iPod|Mobile/i.test(navigator.userAgent)?4:12)*1024*1024;
+    // v2.0.3: deliberately boring mobile backup. Use a moderate fixed part size.
+    // No tiny 4 MB chunks, no target-part math, no preflight dialog.
+    const MB=1024*1024, LIMIT=128*MB;
     const chunks=[];
     const pushSized=(kind,arr,sizeFn)=>{
       let cur=[],bytes=0;
-      for(const x of arr){const n=Math.max(1,Number(sizeFn(x)||0));if(cur.length&&bytes+n>LIMIT){chunks.push({kind,items:cur});cur=[];bytes=0}cur.push(x);bytes+=n}
+      for(const x of arr){
+        const n=Math.max(1,Number(sizeFn(x)||0));
+        if(cur.length&&bytes+n>LIMIT){chunks.push({kind,items:cur});cur=[];bytes=0}
+        cur.push(x);bytes+=n;
+      }
       if(cur.length)chunks.push({kind,items:cur});
     };
-    // Settings are tiny and become their own independent recovery ZIP.
-    chunks.push({kind:'settings',items:[]});
     pushSized('gallery',ctx.entries,e=>e.imageBlob?.size||0);
     pushSized('atlas',ctx.atlasEntries,e=>e.imageBlob?.size||0);
-    // Folder data is also chunked. Large imageGroups may span parts; restore merges their images by id.
     for(const f of ctx.folders){
       let cur=[],bytes=0;
       const flush=()=>{if(cur.length){chunks.push({kind:'folder',folder:{...f,items:cur}});cur=[];bytes=0}};
@@ -6153,15 +6155,17 @@ async function confirmAtlasGalleryPicker(){const pickerTask=taskStart('Gallery �
           if(imgs.length){flush();chunks.push({kind:'folder',folder:{...f,items:[{...it,images:imgs}]}})}
           continue;
         }
-        let n=it.type==='attachment'?(it.blob?.size||0):0;
+        const n=it.type==='attachment'?(it.blob?.size||0):0;
         if(cur.length&&bytes+n>LIMIT)flush();
         cur.push(it);bytes+=n;
       }
       flush();if(!(f.items||[]).length)chunks.push({kind:'folder',folder:{...f,items:[]}});
     }
-    const total=chunks.length,task=taskStart('안전 분할 백업',`0 / ${total}`,total);
+    if(!chunks.length)chunks.push({kind:'settings',items:[]});
+    const total=chunks.length;
+    const task=taskStart('백업 ZIP 생성',total===1?'백업 중':`1 / ${total}`,total);
     for(let i=0;i<chunks.length;i++){
-      const c=chunks[i],zip=new JSZip();
+      const c=chunks[i],zip=new JSZip(),includeSettings=i===0;
       let entries=[],atlasEntries=[],folders=[];
       if(c.kind==='gallery')entries=c.items;
       if(c.kind==='atlas')atlasEntries=c.items;
@@ -6172,8 +6176,8 @@ async function confirmAtlasGalleryPicker(){const pickerTask=taskStart('Gallery �
         return {...it};
       })}));
       const selectedKeys=new Set(atlasEntries.map(e=>atlasGroupInfo(e).key));
-      const classes=Object.fromEntries(Object.entries(state.atlasArtistClassifications||{}).filter(([k])=>c.kind==='settings'||selectedKeys.has(k)).map(([k,v])=>[k,ctx.includeRatings?{...v}:{...v,rating:''}]));
-      const manifest={version:9,safeSplit:true,part:i+1,parts:total,includeRatings:ctx.includeRatings,mergeMode:'field-smart-v1',scope:ctx.scope,exportedAt:new Date().toISOString(),entries:entries.map(({imageBlob,rawMetadata,...e})=>({...e,rawMetadata})),atlasEntries:atlasEntries.map(({imageBlob,rawMetadata,...e})=>({...e,rawMetadata})),atlasArtistFavorites:c.kind==='settings'?state.atlasArtistFavorites:[],atlasArtistMemos:c.kind==='settings'?state.atlasArtistMemos:{},atlasArtistClassifications:classes,atlasRepresentatives:c.kind==='settings'?state.atlasRepresentatives:{},artistBookmarks:c.kind==='settings'?ctx.artistBookmarks:[],presets:c.kind==='settings'?ctx.presets:[],folders:folderManifest};
+      const classes=Object.fromEntries(Object.entries(state.atlasArtistClassifications||{}).filter(([k])=>includeSettings||selectedKeys.has(k)).map(([k,v])=>[k,ctx.includeRatings?{...v}:{...v,rating:''}]));
+      const manifest={version:10,safeSplit:true,part:i+1,parts:total,includeRatings:ctx.includeRatings,mergeMode:'field-smart-v1',scope:ctx.scope,exportedAt:new Date().toISOString(),entries:entries.map(({imageBlob,rawMetadata,...e})=>({...e,rawMetadata})),atlasEntries:atlasEntries.map(({imageBlob,rawMetadata,...e})=>({...e,rawMetadata})),atlasArtistFavorites:includeSettings?state.atlasArtistFavorites:[],atlasArtistMemos:includeSettings?state.atlasArtistMemos:{},atlasArtistClassifications:classes,atlasRepresentatives:includeSettings?state.atlasRepresentatives:{},artistBookmarks:includeSettings?ctx.artistBookmarks:[],presets:includeSettings?ctx.presets:[],folders:folderManifest};
       zip.file('catalog.json',JSON.stringify(manifest,null,2));
       const gi=zip.folder('images');for(const e of entries)gi.file(`${e.id}.${extOf(e.fileName)}`,e.imageBlob);
       const ai=zip.folder('atlas-images');for(const e of atlasEntries)ai.file(`${e.id}.${extOf(e.fileName)}`,e.imageBlob);
@@ -6181,13 +6185,15 @@ async function confirmAtlasGalleryPicker(){const pickerTask=taskStart('Gallery �
         if(it.type==='attachment'&&it.blob)zip.file(`folder-images/${f.id}/${it.id}.${mimeExt(it.mime||it.blob.type)}`,it.blob);
         if(it.type==='imageGroup')for(const img of (it.images||[]))if(img.blob)zip.file(`folder-images/${f.id}/${it.id}/${img.id}.${mimeExt(img.mime||img.blob.type)}`,img.blob);
       }
-      taskUpdate(`분할 ZIP ${i+1} / ${total} 생성 중`,i,total,task);
-      const blob=await zip.generateAsync({type:'blob',streamFiles:true},m=>taskUpdate(`분할 ZIP ${i+1}/${total} · ${Math.round(m.percent)}%`,i+m.percent/100,total,task));
-      const nn=String(i+1).padStart(3,'0');downloadBlob(blob,`nai-studio-safe-${dateStamp()}-part-${nn}-of-${String(total).padStart(3,'0')}.zip`);
-      // Give mobile browsers time to release the previous ZIP graph before the next part.
-      await new Promise(r=>setTimeout(r,450));
+      taskUpdate(total===1?'백업 ZIP 생성 중':`백업 ${i+1} / ${total}`,i,total,task);
+      const blob=await zip.generateAsync({type:'blob',streamFiles:true},m=>taskUpdate(total===1?`백업 중 · ${Math.round(m.percent)}%`:`백업 ${i+1}/${total} · ${Math.round(m.percent)}%`,i+m.percent/100,total,task));
+      const suffix=total===1?'':`-part-${String(i+1).padStart(2,'0')}-of-${String(total).padStart(2,'0')}`;
+      downloadBlob(blob,`nai-studio-backup-${dateStamp()}${suffix}.zip`);
+      await new Promise(r=>setTimeout(r,600));
     }
-    taskEnd(`안전 분할 백업 완료 · ${total}개 ZIP`,false,task);await refreshStorageGuardSnapshot();toast(`안전 분할 백업 ${total}개를 만들었습니다. 모두 보관해주세요.`);
+    taskEnd(total===1?'백업 완료':`백업 완료 · ${total}개`,false,task);
+    await refreshStorageGuardSnapshot();
+    toast(total===1?'백업 ZIP을 만들었습니다.':`백업 ZIP ${total}개를 만들었습니다.`);
   }
 
   async function importImagesFromZip(zipFile, options={}){
