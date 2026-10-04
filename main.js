@@ -19,7 +19,7 @@ async function recoverJson(file){
   try{await fsp.rename(bak,file)}catch{}
 }
 async function atomicJson(file,obj){
-  const tmp=file+'.tmp',bak=file+'.bak';
+  const tmp=file+'.tmp-'+process.pid+'-'+Date.now()+'-'+Math.random().toString(16).slice(2),bak=file+'.bak';
   await fsp.mkdir(path.dirname(file),{recursive:true});
   await fsp.writeFile(tmp,JSON.stringify(obj,null,2),'utf8');
   try{await fsp.unlink(bak)}catch{}
@@ -43,7 +43,7 @@ async function materializeBinary(obj,baseParts=[]){
   if(obj.__naiBinary&&obj.bytes){
     const ext=extFromMime(obj.mime,obj.name),rel=path.join(...baseParts)+'.'+ext,abs=path.join(root,rel);
     await fsp.mkdir(path.dirname(abs),{recursive:true});
-    const tmp=abs+'.tmp'; await fsp.writeFile(tmp,Buffer.from(obj.bytes)); await fsp.rename(tmp,abs);
+    const tmp=abs+'.tmp-'+process.pid+'-'+Date.now()+'-'+Math.random().toString(16).slice(2); await fsp.writeFile(tmp,Buffer.from(obj.bytes)); try{await fsp.rename(tmp,abs)}catch(err){try{await fsp.unlink(abs)}catch{}await fsp.rename(tmp,abs)}
     return {__naiFile:rel.replace(/\\/g,'/'),mime:obj.mime||'',name:obj.name||''};
   }
   if(Array.isArray(obj)){const out=[];for(let i=0;i<obj.length;i++)out.push(await materializeBinary(obj[i],[...baseParts,String(i)]));return out}
@@ -99,7 +99,7 @@ async function importLooseGalleryFiles(){
       createdAt:new Date(st.birthtimeMs||st.mtimeMs).toISOString(),
       updatedAt:new Date(st.mtimeMs).toISOString(),
       __desktopImportedFile:n,
-      file:{__naiFile:path.relative(root,abs).replace(/\\/g,'/'),mime,name:n}
+      imageBlob:{__naiFile:path.relative(root,abs).replace(/\\/g,'/'),mime,name:n}
     });
   }
 }
