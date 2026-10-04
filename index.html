@@ -4,7 +4,7 @@
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
   <meta name="color-scheme" content="light" />
-  <title>NAI Studio v2.0.3 SAFE</title>
+  <title>NAI Studio Desktop</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Young+Serif&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
@@ -2329,6 +2329,19 @@ body.folder-lightbox-open{overflow:hidden}
 (() => {
   'use strict';
 
+  const DESKTOP_MODE = !!window.naiDesktop;
+  async function desktopEncode(value){
+    if(value instanceof Blob)return {__naiBinary:true,mime:value.type||'',name:value.name||'',bytes:new Uint8Array(await value.arrayBuffer())};
+    if(Array.isArray(value)){const out=[];for(const v of value)out.push(await desktopEncode(v));return out}
+    if(value&&typeof value==='object'){const out={};for(const [k,v] of Object.entries(value))out[k]=await desktopEncode(v);return out}
+    return value;
+  }
+  async function desktopDecode(value){
+    if(value&&value.__naiBinary&&value.bytes){const bytes=value.bytes instanceof Uint8Array?value.bytes:new Uint8Array(value.bytes);return value.name?new File([bytes],value.name,{type:value.mime||''}):new Blob([bytes],{type:value.mime||''})}
+    if(Array.isArray(value)){const out=[];for(const v of value)out.push(await desktopDecode(v));return out}
+    if(value&&typeof value==='object'){const out={};for(const [k,v] of Object.entries(value))out[k]=await desktopDecode(v);return out}
+    return value;
+  }
   const DB_NAME = 'nai-studio';
   const LEGACY_DB_NAME = ['nai','archive'].join('-'); // stable internal storage id; independent from visible site name
   const DB_VERSION = 3;
@@ -2510,7 +2523,7 @@ body.folder-lightbox-open{overflow:hidden}
   async function init(){
     mapEls();
     bind();
-    db = await openDB();await migrateLegacyDatabaseIfNeeded();
+    db = await openDB();if(!DESKTOP_MODE)await migrateLegacyDatabaseIfNeeded();
     await loadAll();
     // v2.0.1 SAFE: storage guard. Keep a tiny cross-check outside IndexedDB when possible,
     // request persistent storage, and warn if a previously populated DB suddenly opens empty.
@@ -3055,6 +3068,7 @@ body.folder-lightbox-open{overflow:hidden}
   }
 
 function openDB(){
+    if(DESKTOP_MODE)return Promise.resolve({desktop:true});
     return new Promise((resolve,reject)=>{
       const req=indexedDB.open(DB_NAME,DB_VERSION);
       req.onupgradeneeded=()=>{
@@ -3067,9 +3081,9 @@ function openDB(){
       req.onsuccess=()=>resolve(req.result); req.onerror=()=>reject(req.error);
     });
   }
-  const txGetAll = store => new Promise((res,rej)=>{const r=db.transaction(store).objectStore(store).getAll();r.onsuccess=()=>res(r.result);r.onerror=()=>rej(r.error)});
-  const txPut = (store,val) => new Promise((res,rej)=>{const r=db.transaction(store,'readwrite').objectStore(store).put(val);r.onsuccess=()=>res();r.onerror=()=>rej(r.error)});
-  const txDel = (store,key) => new Promise((res,rej)=>{const r=db.transaction(store,'readwrite').objectStore(store).delete(key);r.onsuccess=()=>res();r.onerror=()=>rej(r.error)});
+  const txGetAll = store => DESKTOP_MODE ? window.naiDesktop.getAll(store).then(async rows=>{const out=[];for(const row of rows)out.push(await desktopDecode(row));return out}) : new Promise((res,rej)=>{const r=db.transaction(store).objectStore(store).getAll();r.onsuccess=()=>res(r.result);r.onerror=()=>rej(r.error)});
+  const txPut = async (store,val) => {if(DESKTOP_MODE){await window.naiDesktop.put(store,await desktopEncode(val));return}return new Promise((res,rej)=>{const r=db.transaction(store,'readwrite').objectStore(store).put(val);r.onsuccess=()=>res();r.onerror=()=>rej(r.error)})};
+  const txDel = (store,key) => DESKTOP_MODE ? window.naiDesktop.del(store,key) : new Promise((res,rej)=>{const r=db.transaction(store,'readwrite').objectStore(store).delete(key);r.onsuccess=()=>res();r.onerror=()=>rej(r.error)});
 
   async function loadAll(){
     state.entries = await txGetAll(STORE_ENTRIES);
@@ -5010,6 +5024,7 @@ async function confirmAtlasGalleryPicker(){const pickerTask=taskStart('Gallery �
   }
   async function savePreset(){const name=els.presetName.value.trim(),text=els.presetText.value.trim();if(!name||!text){toast('이름과 작가태그를 입력해주세요.');return;}state.presets.push({id:crypto.randomUUID(),name,text});await saveMeta('presets',state.presets);els.presetDialog.close();renderBookmarks();}
   function persistFoldersToStore(folders){
+    if(DESKTOP_MODE)return (async()=>{const encoded=[];for(const f of (folders||[]))encoded.push(await desktopEncode(f));await window.naiDesktop.replace(STORE_FOLDERS,encoded)})();
     return new Promise((resolve,reject)=>{
       const tx=db.transaction(STORE_FOLDERS,'readwrite');
       const store=tx.objectStore(STORE_FOLDERS);
