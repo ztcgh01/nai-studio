@@ -5,5 +5,7 @@ contextBridge.exposeInMainWorld('naiDesktop',{
   del:(s,id)=>ipcRenderer.invoke('nai:delete',s,id),
   replace:(s,v)=>ipcRenderer.invoke('nai:replace',s,v),
   dataPath:()=>ipcRenderer.invoke('nai:dataPath'),
-  openData:()=>ipcRenderer.invoke('nai:openData')
+  openData:()=>ipcRenderer.invoke('nai:openData'),
+  checkUpdate:()=>ipcRenderer.invoke('nai:checkUpdate'),
+  version:()=>ipcRenderer.invoke('nai:version')
 });
