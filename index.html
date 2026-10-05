@@ -2512,8 +2512,10 @@ body.is-home .refresh-icon-btn{display:grid}
   let folderNoteTimer=null;
   let pendingFolderImages=[];
   let folderInsertIndex=null;
+  let clipboardRenderLimit=60;
   let pendingSavedImageItems=[];
   let savedHubRenderLimit=80;
+  let comparePickerRenderLimit=80;
   let atlasGridUrls=[];
   let atlasArtistUrls=[];
   let atlasPickerUrls=[];
@@ -2531,6 +2533,11 @@ body.is-home .refresh-icon-btn{display:grid}
   let displayTitleIndex=new Map(),displayTitleStamp='';
   let atlasGroupsMemo={stamp:null,groups:[]};
   const lazyBlobLoads=new Map();
+  let entryById=new Map(),atlasById=new Map();
+  function rebuildEntryIndexes(){entryById=new Map(state.entries.map(e=>[e.id,e]));atlasById=new Map(state.atlasEntries.map(e=>[e.id,e]))}
+  function galleryEntry(id){return entryById.get(id)||null}
+  function atlasEntry(id){return atlasById.get(id)||null}
+
   function scheduleLazyBlob(scope,e){
     if(!DESKTOP_MODE||!e||e.imageBlob instanceof Blob||!desktopFileRef(e.imageBlob))return;
     const key=(scope.startsWith('atlas')||scope==='preview'&&state.atlasEntries.includes(e))?STORE_ATLAS:STORE_ENTRIES;
@@ -3264,13 +3271,14 @@ function openDB(){
       window.naiDesktop.getAll(STORE_META),
       window.naiDesktop.getAll(STORE_FOLDERS,{metadataOnly:true})
     ]);
-    const preserve=(rows,oldRows)=>rows.map(raw=>{
-      const old=oldRows.find(x=>x.id===raw.id),ref=raw?.imageBlob?.__naiFile;
+    const preserve=(rows,oldRows)=>{const oldMap=new Map(oldRows.map(x=>[x.id,x]));return rows.map(raw=>{
+      const old=oldMap.get(raw.id),ref=raw?.imageBlob?.__naiFile;
       if(old?.imageBlob && (!ref || old.imageBlob.__naiFileRef===ref))return {...raw,imageBlob:old.imageBlob};
       return raw;
-    });
+    })};
     state.entries=preserve(entryRows,state.entries);
     state.atlasEntries=preserve(atlasRows,state.atlasEntries);
+    rebuildEntryIndexes();
     const map=Object.fromEntries(meta.map(x=>[x.key,x.value]));
     state.artistBookmarks=map.artistBookmarks||[];state.presets=map.presets||[];
     state.folders=(folders.length?folders:(Array.isArray(map.folders)?map.folders:[])).map(f=>({...f,kind:f.kind||'clipboard'}));
@@ -3282,6 +3290,7 @@ function openDB(){
   async function loadAll(){
     state.entries = DESKTOP_MODE ? await window.naiDesktop.getAll(STORE_ENTRIES,{metadataOnly:true}) : await txGetAll(STORE_ENTRIES);
     state.atlasEntries = DESKTOP_MODE ? await window.naiDesktop.getAll(STORE_ATLAS,{metadataOnly:true}) : await txGetAll(STORE_ATLAS);
+    rebuildEntryIndexes();
     const meta = await txGetAll(STORE_META);
     const map=Object.fromEntries(meta.map(x=>[x.key,x.value]));
     state.artistBookmarks=map.artistBookmarks||[]; state.presets=map.presets||[];
@@ -5260,7 +5269,7 @@ async function confirmAtlasGalleryPicker(){const pickerTask=taskStart('Gallery �
     if(folderKind(f)==='clipboard')return `<div class="library-card-cover clipboard-cover"><div class="clip-paper"><div class="clip-lines"><i></i><i></i><i></i></div></div></div>`;
     const imgs=folderImageItems(f).slice(0,4),cells=[];
     for(const it of imgs){
-      if(it.type==='image'){const e=state.entries.find(x=>x.id===it.entryId);if(e?.imageBlob){const u=entryImageUrl('folderCover',e);if(u){if(u.startsWith('blob:'))folderObjectUrls.push(u);cells.push(`<img src="${u}" alt="">`)}}}
+      if(it.type==='image'){const e=galleryEntry(it.entryId);if(e?.imageBlob){const u=entryImageUrl('folderCover',e);if(u){if(u.startsWith('blob:'))folderObjectUrls.push(u);cells.push(`<img src="${u}" alt="">`)}}}
       else if(it.blob){let u='';if(it.blob instanceof Blob){u=URL.createObjectURL(it.blob);folderObjectUrls.push(u)}else if(desktopFileRef(it.blob))u=window.naiDesktop.imageUrl(it.blob.__naiFile);if(u)cells.push(`<img src="${u}" alt="">`)}
     }
     return `<div class="library-card-cover image-cover">${cells.length?cells.join(''):'<span class="cover-placeholder">▦</span>'}</div>`;
@@ -5399,7 +5408,7 @@ async function confirmAtlasGalleryPicker(){const pickerTask=taskStart('Gallery �
   function openFolder(id){
     const f=folderById(id);if(!f)return;state.currentFolderId=id;
     if(folderKind(f)==='image'){openImageFolder(f);return}
-    state.clipboardSelectMode=false;state.clipboardSelected=[];els.folderTitleInput.value=f.name;els.folderBookmarkBtn.textContent=f.bookmarked?'★':'☆';els.folderBlankEditor.innerHTML='';renderFolderItems();
+    state.clipboardSelectMode=false;state.clipboardSelected=[];clipboardRenderLimit=60;els.folderTitleInput.value=f.name;els.folderBookmarkBtn.textContent=f.bookmarked?'★':'☆';els.folderBlankEditor.innerHTML='';renderFolderItems();
     if(!els.folderDialog.open){pushAppHistory({naiFolder:true,folderId:id});folderHistoryActive=true;els.folderDialog.showModal()}
     requestAnimationFrame(()=>{const sc=els.folderDialog.querySelector('.folder-notebook-scroll');if(sc)sc.scrollTop=0})
   }
@@ -5408,9 +5417,9 @@ async function confirmAtlasGalleryPicker(){const pickerTask=taskStart('Gallery �
     if(!els.folderDialog?.open)return;commitFolderNote(true);if(folderHistoryActive)history.back();else{closingFolderFromHistory=true;els.folderDialog.close()}
   }
   function imageFolderEntryFromItem(it){
-    if(it.type==='image')return state.entries.find(e=>e.id===it.entryId)||null;
+    if(it.type==='image')return galleryEntry(it.entryId);
     if(it.type==='attachment'&&it.blob){
-      const meta=(it.atlasEntryId?state.atlasEntries.find(e=>e.id===it.atlasEntryId):null)||it.atlasMeta||{};
+      const meta=(it.atlasEntryId?atlasEntry(it.atlasEntryId):null)||it.atlasMeta||{};
       return {...meta,id:`folder:${it.id}`,imageBlob:it.blob,title:meta.title||it.name||'',artistsText:meta.artistsText||'',artists:meta.artists||[],prompt:meta.prompt||'',characterPrompts:meta.characterPrompts||[],characterUc:meta.characterUc||[],uc:meta.uc||'',memo:meta.memo||'',seed:meta.seed,model:meta.model||''};
     }return null;
   }
@@ -5426,10 +5435,13 @@ async function confirmAtlasGalleryPicker(){const pickerTask=taskStart('Gallery �
     if(!artists.length&&e.artistsText)artists=(splitArtistTags(e.artistsText||'').artists||[]);
     return atlasGroupInfo({...e,artists});
   }
+  const imageFolderGroupCache=new Map();
   function imageFolderArtistGroups(f){
+    const stamp=`${f.id}:${f.updatedAt||0}:${state.entries.length}:${state.atlasEntries.length}`,cached=imageFolderGroupCache.get(f.id);
+    if(cached?.stamp===stamp)return cached.groups;
     const map=new Map();
     for(const it of folderImageItems(f)){const e=imageFolderEntryFromItem(it);if(!e?.imageBlob)continue;const info=imageFolderGroupInfo(e);let g=map.get(info.key);if(!g){g={...info,items:[]};map.set(info.key,g)}g.items.push({it,e})}
-    return [...map.values()].sort((a,b)=>a.label.localeCompare(b.label,undefined,{numeric:true,sensitivity:'base'}));
+    const groups=[...map.values()].sort((a,b)=>a.label.localeCompare(b.label,undefined,{numeric:true,sensitivity:'base'}));imageFolderGroupCache.set(f.id,{stamp,groups});return groups;
   }
   async function setImageFolderViewMode(mode){const f=folderById(state.currentFolderId);if(!f)return;f.imageViewMode=mode==='atlas'?'atlas':'images';state.imageFolderArtistFilterKey='';try{await persistFolders()}catch(err){console.error(err)}renderImageFolder()}
   function renderImageFolder(){
@@ -5447,7 +5459,7 @@ async function confirmAtlasGalleryPicker(){const pickerTask=taskStart('Gallery �
     let displayItems=allItems;if(state.imageFolderArtistFilterKey){displayItems=allItems.filter(it=>imageFolderGroupInfo(imageFolderEntryFromItem(it)).key===state.imageFolderArtistFilterKey);const info=displayItems[0]?imageFolderGroupInfo(imageFolderEntryFromItem(displayItems[0])):null;els.imageFolderFilterClear.textContent=`← ${info?.label||'전체 작가'}`;els.imageFolderFilterClear.classList.remove('hidden')}else els.imageFolderFilterClear?.classList.add('hidden');
     const limit=Math.max(45,Number(state.imageFolderRenderLimit)||45),items=displayItems.slice(0,limit);els.imageFolderCount.textContent=state.imageFolderArtistFilterKey?`${displayItems.length} IMG / ${allItems.length}`:`${allItems.length} IMG`;
     els.imageFolderGrid.innerHTML=displayItems.length?items.map(it=>{const e=imageFolderEntryFromItem(it);if(!e?.imageBlob)return'';const u=entryImageUrl('folderGrid',e);if(u.startsWith('blob:'))folderObjectUrls.push(u);const on=state.imageFolderSelected.includes(it.id);return `<div class="image-folder-card ${on?'selected':''}" data-item-id="${it.id}"><span class="image-folder-thumb"><img src="${u}" alt="" loading="lazy" decoding="async"><button type="button" class="selection-expand-btn" aria-label="크게 보기">⛶</button></span><input class="pick-check" type="checkbox" ${on?'checked':''}><div class="image-folder-card-label">${esc(displayTitle(e))}</div></div>`}).join(''):'<div class="image-folder-empty">해당 작가의 이미지가 없습니다.</div>';
-    if(items.length<displayItems.length){const more=document.createElement('button');more.type='button';more.className='mini-btn image-folder-load-more';more.textContent=`＋ ${Math.min(45,displayItems.length-items.length)}개 더 보기`;more.style.gridColumn='1/-1';more.style.margin='8px auto 14px';more.onclick=()=>{state.imageFolderRenderLimit=limit+45;renderImageFolder()};els.imageFolderGrid.appendChild(more)}
+    if(items.length<displayItems.length){const more=document.createElement('button');more.type='button';more.className='mini-btn image-folder-load-more';more.textContent=`＋ ${Math.min(45,displayItems.length-items.length)}개 더 보기`;more.style.gridColumn='1/-1';more.style.margin='8px auto 14px';more.onclick=()=>{const sc=els.imageFolderDialog.querySelector('.modal-shell'),top=sc?.scrollTop||0;state.imageFolderRenderLimit=limit+45;renderImageFolder();requestAnimationFrame(()=>{if(sc)sc.scrollTop=top})};els.imageFolderGrid.appendChild(more)}
     els.imageFolderBulkBar.classList.toggle('hidden',!state.imageFolderSelectMode);els.imageFolderSelectedCount.textContent=`${state.imageFolderSelected.length}개 선택`;
     els.imageFolderGrid.querySelectorAll('.image-folder-card').forEach(card=>{const cb=card.querySelector('.pick-check'),id=card.dataset.itemId;const expand=card.querySelector('.selection-expand-btn');if(expand)expand.onclick=ev=>{ev.stopPropagation();openSelectionPreview('folder',id)};cb.onchange=()=>{state.imageFolderSelected=cb.checked?[...new Set([...state.imageFolderSelected,id])]:state.imageFolderSelected.filter(x=>x!==id);card.classList.toggle('selected',cb.checked);els.imageFolderSelectedCount.textContent=`${state.imageFolderSelected.length}개 선택`};card.onclick=ev=>{if(ev.target.closest('.selection-expand-btn'))return;if(Date.now()<(els.imageFolderGrid._suppressUntil||0))return;if(state.imageFolderSelectMode){if(ev.target===cb)return;cb.checked=!cb.checked;cb.dispatchEvent(new Event('change'));return}const it=folderImageItems(f).find(x=>x.id===id),e=imageFolderEntryFromItem(it);if(it?.type==='image'&&e)openDetail(e.id);else if(it?.blob)openFolderImageLightbox(it.blob,it.name||'image',e)}});
     bindSweepSelectionGrid({grid:els.imageFolderGrid,cardSelector:'.image-folder-card',checkboxSelector:'.pick-check',getKey:c=>c.dataset.itemId,isSelected:id=>state.imageFolderSelected.includes(id),setSelected:(id,on)=>{if(!state.imageFolderSelectMode)state.imageFolderSelectMode=true;state.imageFolderSelected=on?[...new Set([...state.imageFolderSelected,id])]:state.imageFolderSelected.filter(x=>x!==id);els.imageFolderDialog.classList.add('selecting');els.imageFolderBulkBar.classList.remove('hidden');const c=els.imageFolderGrid.querySelector(`[data-item-id="${CSS.escape(id)}"]`);c?.classList.toggle('selected',on)},updateCount:()=>{els.imageFolderSelectedCount.textContent=`${state.imageFolderSelected.length}개 선택`},enabled:()=>mode==='images'});
@@ -5521,7 +5533,7 @@ async function confirmAtlasGalleryPicker(){const pickerTask=taskStart('Gallery �
   function renderFolderItems(){
     const f=folderById(state.currentFolderId);if(!f)return;
     revokeFolderObjectUrls();
-    const items=f.items||[];
+    const allFolderItems=f.items||[],items=allFolderItems.slice(0,clipboardRenderLimit);
     const insertPoint=i=>`<button type="button" class="folder-insert-point" data-insert="${i}" aria-label="여기에 내용 삽입"><span>＋</span></button>`;
     els.folderItems.innerHTML=items.length
       ? insertPoint(0)+items.map((it,i)=>{
@@ -5538,7 +5550,7 @@ async function confirmAtlasGalleryPicker(){const pickerTask=taskStart('Gallery �
             if(e){content=`<img class="notebook-image" data-entry-id="${e.id}" alt="">${compactEntryDetails(e,it.detailFields||[])}`;source='GALLERY';}
             else content='<span class="muted-note">삭제된 Gallery 이미지</span>';
           }else if(it.type==='attachment'&&it.blob){
-            const ae=it.atlasEntryId?state.atlasEntries.find(x=>x.id===it.atlasEntryId):null,meta=ae||it.atlasMeta||null;
+            const ae=it.atlasEntryId?atlasEntry(it.atlasEntryId):null,meta=ae||it.atlasMeta||null;
             content=`<img class="notebook-image" ${it.atlasEntryId?`data-atlas-entry-id="${escAttr(it.atlasEntryId)}"`:''} alt="">${meta?compactEntryDetails(meta,['artists','memo']):''}`;source=it.sourceLabel||'IMAGE';
           }else{
             content=`<div class="notebook-text clipboard-text" contenteditable="true" data-note-index="${i}" data-placeholder="텍스트 입력">${esc(it.text||'')}</div>`;
@@ -5559,6 +5571,7 @@ async function confirmAtlasGalleryPicker(){const pickerTask=taskStart('Gallery �
           </article>${insertPoint(i+1)}`;
         }).join('')
       : '<div class="notebook-empty clipboard-empty">빈 클립보드입니다.<br>아무 곳이나 눌러 글을 쓰거나 이미지를 붙여보세요.</div>';
+    if(items.length<allFolderItems.length){const more=document.createElement('button');more.type='button';more.className='saved-hub-more';more.textContent=`더 불러오기 · ${items.length} / ${allFolderItems.length}`;more.onclick=()=>{const sc=els.folderDialog.querySelector('.folder-notebook-scroll'),top=sc?.scrollTop||0;clipboardRenderLimit=Math.min(allFolderItems.length,clipboardRenderLimit+60);renderFolderItems();requestAnimationFrame(()=>{if(sc)sc.scrollTop=top})};els.folderItems.appendChild(more)}
     syncClipboardSelection();
 
     els.folderItems.querySelectorAll('.notebook-item').forEach((node,i)=>{
@@ -5568,16 +5581,16 @@ async function confirmAtlasGalleryPicker(){const pickerTask=taskStart('Gallery �
         node.querySelectorAll('.collage-image').forEach((img,j)=>{
           const gimg=it.images?.[j];
           const blob=gimg?.blob||folderImageEntryByImg(gimg)?.imageBlob;if(!blob)return;
-          const url=URL.createObjectURL(blob);img.src=url;urls.push(url);
+          const url=blob instanceof Blob?URL.createObjectURL(blob):desktopFileRef(blob)?window.naiDesktop.imageUrl(blob.__naiFile):'';if(!url)return;img.src=url;if(url.startsWith('blob:'))urls.push(url);
           if(gimg?.entryId)img.dataset.entryId=gimg.entryId;
         });
         node.dataset.urls=urls.join('|');return;
       }
       const img=node.querySelector('img');if(!img)return;
       let blob=null;
-      if(it.type==='image')blob=state.entries.find(x=>x.id===it.entryId)?.imageBlob;
+      if(it.type==='image')blob=galleryEntry(it.entryId)?.imageBlob;
       else if(it.type==='attachment')blob=it.blob;
-      if(blob){const url=URL.createObjectURL(blob);img.src=url;node.dataset.url=url;}
+      if(blob){const url=blob instanceof Blob?URL.createObjectURL(blob):desktopFileRef(blob)?window.naiDesktop.imageUrl(blob.__naiFile):'';if(url){img.src=url;if(url.startsWith('blob:'))node.dataset.url=url;}}
     });
 
     // Tiny plus lines between every block. Tap = choose whether to type or insert media there.
@@ -5835,7 +5848,7 @@ async function confirmAtlasGalleryPicker(){const pickerTask=taskStart('Gallery �
     els.savedHubGrid.innerHTML=items.length?items.map(it=>{
       const checked=state.savedHubSelected.includes(it.key);
       if(it.kind==='image'||it.kind==='imageGroup'){
-        let u='';if(it.blob)u=URL.createObjectURL(it.blob);
+        let u='';if(it.entry)u=entryImageUrl('savedHub',it.entry);else if(it.blob instanceof Blob)u=URL.createObjectURL(it.blob);else if(desktopFileRef(it.blob))u=window.naiDesktop.imageUrl(it.blob.__naiFile);
         return `<label class="saved-hub-card image-card" ${u?`data-url="${u}"`:''}><input class="hub-check" type="checkbox" data-key="${escAttr(it.key)}" ${checked?'checked':''}><div class="hub-thumb">${u?`<img src="${u}" alt="" decoding="async">`:''}</div><div class="hub-card-copy"><strong>${esc(it.title)}</strong><span>${esc(it.sub||'')}</span></div></label>`;
       }
       if(it.kind==='folder'&&!insideFolder){
@@ -6076,7 +6089,7 @@ async function confirmAtlasGalleryPicker(){const pickerTask=taskStart('Gallery �
 
   function openComparePicker(){
     state.comparePickerIds=state.compareIds.filter(ref=>!String(ref).startsWith('atlas:'));
-    els.comparePickerSearch.value='';
+    els.comparePickerSearch.value='';comparePickerRenderLimit=80;
     renderComparePicker();
     els.comparePickerDialog.showModal();
   }
@@ -6091,23 +6104,25 @@ async function confirmAtlasGalleryPicker(){const pickerTask=taskStart('Gallery �
   }
 
   function renderComparePicker(){
-    const arr=filteredComparePickerEntries();
+    const all=filteredComparePickerEntries(),arr=all.slice(0,comparePickerRenderLimit);
     revokeComparePickerUrls();
     els.comparePickerGrid.innerHTML=arr.length?arr.map(e=>{
-      const url=URL.createObjectURL(e.imageBlob);
+      const url=entryImageUrl('comparePicker',e);
       const checked=state.comparePickerIds.includes(e.id);
-      return `<label class="compare-pick-card" data-url="${url}">
+      return `<label class="compare-pick-card" ${url.startsWith('blob:')?`data-url="${url}"`:''}>
         <input type="checkbox" class="compare-pick-check" data-id="${e.id}" ${checked?'checked':''}>
-        <img src="${url}" alt="">
+        <img src="${url}" alt="" loading="lazy" decoding="async">
         <div class="compare-pick-meta"><strong>${esc(displayTitle(e))}</strong><span>${esc(artistSummary(e))}</span></div>
       </label>`;
     }).join(''):'<div class="notebook-empty">불러올 이미지가 없습니다.</div>';
+    if(arr.length<all.length){const more=document.createElement('button');more.type='button';more.className='saved-hub-more';more.textContent=`더 불러오기 · ${arr.length} / ${all.length}`;more.onclick=()=>{const top=els.comparePickerGrid.scrollTop;comparePickerRenderLimit=Math.min(all.length,comparePickerRenderLimit+80);renderComparePicker();requestAnimationFrame(()=>{els.comparePickerGrid.scrollTop=top})};els.comparePickerGrid.appendChild(more)}
     els.comparePickerGrid.querySelectorAll('.compare-pick-check').forEach(cb=>cb.onchange=()=>{
       const id=cb.dataset.id;
       if(cb.checked&&!state.comparePickerIds.includes(id))state.comparePickerIds.push(id);
       if(!cb.checked)state.comparePickerIds=state.comparePickerIds.filter(x=>x!==id);
       updateComparePickerCount();
     });
+    pruneThumbCache('comparePicker',arr.map(e=>e.id),120);
     bindComparePickerDragSelect();
     updateComparePickerCount();
   }
@@ -6338,7 +6353,7 @@ async function confirmAtlasGalleryPicker(){const pickerTask=taskStart('Gallery �
 
   function renderCompare(){
     const items=state.compareIds.map(ref=>({ref,e:resolveCompareRef(ref)})).filter(x=>x.e),entries=items.map(x=>x.e); els.compareCount.textContent=entries.length; els.compareHint.classList.toggle('hidden',entries.length>0); revokeObjectUrls(els.compareGrid);
-    els.compareGrid.innerHTML=items.map(({ref,e})=>{const url=URL.createObjectURL(e.imageBlob),src=String(ref).startsWith('atlas:')?'ATLAS':'GALLERY';return `<article class="compare-card" data-url="${url}" data-ref="${escAttr(ref)}"><button class="compare-remove" data-ref="${escAttr(ref)}" title="Compare에서 제거">×</button><img src="${url}"><div class="pad"><strong>${esc(displayTitle(e))}</strong><div class="card-sub">${esc(artistSummary(e))}</div><div class="card-sub" style="margin-top:3px;font-size:8px;letter-spacing:.08em">${src}</div></div></article>`}).join('');els.compareGrid.querySelectorAll('.compare-remove').forEach(b=>b.onclick=()=>toggleCompareRef(b.dataset.ref,false));
+    els.compareGrid.innerHTML=items.map(({ref,e})=>{const url=entryImageUrl('compare',e),src=String(ref).startsWith('atlas:')?'ATLAS':'GALLERY';return `<article class="compare-card" ${url.startsWith('blob:')?`data-url="${url}"`:''} data-ref="${escAttr(ref)}"><button class="compare-remove" data-ref="${escAttr(ref)}" title="Compare에서 제거">×</button><img src="${url}"><div class="pad"><strong>${esc(displayTitle(e))}</strong><div class="card-sub">${esc(artistSummary(e))}</div><div class="card-sub" style="margin-top:3px;font-size:8px;letter-spacing:.08em">${src}</div></div></article>`}).join('');els.compareGrid.querySelectorAll('.compare-remove').forEach(b=>b.onclick=()=>toggleCompareRef(b.dataset.ref,false));
     if(entries.length<2){els.compareDiff.innerHTML='';return;}
     const names=[...new Set(entries.flatMap(e=>(e.artists||[]).map(a=>a.name)))].sort();
     const rows=names.map(name=>{const vals=entries.map(e=>{const a=(e.artists||[]).find(x=>norm(x.name)===norm(name));return a?a.weight:'—'});const changed=new Set(vals.map(String)).size>1;return `<tr><th>${esc(name)}</th>${vals.map(v=>`<td class="${changed?'diff-changed':''}">${esc(String(v))}</td>`).join('')}</tr>`}).join('');
