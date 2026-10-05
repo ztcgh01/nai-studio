@@ -102,7 +102,10 @@ async function replace(store,vals){
 }
 async function importLooseGalleryFiles(){
   let added=0;
-  const imgDir=path.join(root,'images','gallery'),recDir=path.join(root,'library','entries');
+  const imgDir=path.join(root,'images','gallery'),recDir=path.join(root,'library','entries'),scanFile=path.join(root,'library','.gallery-scan.json');
+  let dirStamp=0;try{dirStamp=(await fsp.stat(imgDir)).mtimeMs}catch{}
+  const previousScan=await readJson(scanFile,{});
+  if(dirStamp&&previousScan?.dirStamp===dirStamp)return 0;
   const known=new Set();
   for(const n of await fsp.readdir(recDir)){
     if(!n.endsWith('.json'))continue;
@@ -128,6 +131,8 @@ async function importLooseGalleryFiles(){
     });
     added++;
   }
+  let finalStamp=dirStamp;try{finalStamp=(await fsp.stat(imgDir)).mtimeMs}catch{}
+  await atomicJson(scanFile,{dirStamp:finalStamp,scannedAt:Date.now()});
   return added;
 }
 let mainWindow=null,updateBusy=false;
