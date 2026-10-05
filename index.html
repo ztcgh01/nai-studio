@@ -4,7 +4,7 @@
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
   <meta name="color-scheme" content="light" />
-  <title>NAI Studio Desktop v1.1.5</title>
+  <title>NAI Studio Desktop v1.2.0</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Young+Serif&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
@@ -2376,6 +2376,16 @@ body.is-home .refresh-icon-btn{display:grid}
     if(value&&typeof value==='object'){const out={};for(const [k,v] of Object.entries(value))out[k]=await desktopDecode(v);return out}
     return value;
   }
+  function desktopFileRef(v){return DESKTOP_MODE&&v&&typeof v==='object'&&typeof v.__naiFile==='string'}
+  async function ensureEntryBlob(entry,store){
+    if(!DESKTOP_MODE||!entry)return entry?.imageBlob||null;
+    if(entry.imageBlob instanceof Blob)return entry.imageBlob;
+    if(!desktopFileRef(entry.imageBlob))return null;
+    const full=await window.naiDesktop.getOneHydrated(store,entry.id);
+    const decoded=await desktopDecode(full);
+    if(decoded?.imageBlob instanceof Blob)entry.imageBlob=decoded.imageBlob;
+    return entry.imageBlob instanceof Blob?entry.imageBlob:null;
+  }
   const DB_NAME = 'nai-studio';
   const LEGACY_DB_NAME = ['nai','archive'].join('-'); // stable internal storage id; independent from visible site name
   const DB_VERSION = 3;
@@ -2512,8 +2522,22 @@ body.is-home .refresh-icon-btn{display:grid}
   const atlasSearchCache=new WeakMap();
   let displayTitleIndex=new Map(),displayTitleStamp='';
   let atlasGroupsMemo={stamp:null,groups:[]};
+  const lazyBlobLoads=new Map();
+  function scheduleLazyBlob(scope,e){
+    if(!DESKTOP_MODE||!e||e.imageBlob instanceof Blob||!desktopFileRef(e.imageBlob))return;
+    const key=(scope.startsWith('atlas')||scope==='preview'&&state.atlasEntries.includes(e))?STORE_ATLAS:STORE_ENTRIES;
+    const loadKey=key+':'+e.id;if(lazyBlobLoads.has(loadKey))return;
+    const job=ensureEntryBlob(e,key).then(blob=>{
+      if(!blob)return;
+      const url=cachedThumbUrl(scope,e);
+      document.querySelectorAll(`[data-id="${CSS.escape(e.id)}"] img`).forEach(img=>{if(!img.src)img.src=url});
+    }).catch(err=>console.warn('Lazy image load failed',e.id,err)).finally(()=>lazyBlobLoads.delete(loadKey));
+    lazyBlobLoads.set(loadKey,job);
+  }
   function cachedThumbUrl(scope,e){
-    if(!e?.imageBlob)return '';const key=`${scope}:${e.id}`,old=thumbUrlCache.get(key);
+    if(!e?.imageBlob)return '';
+    if(!(e.imageBlob instanceof Blob)){scheduleLazyBlob(scope,e);return ''}
+    const key=`${scope}:${e.id}`,old=thumbUrlCache.get(key);
     if(old&&old.blob===e.imageBlob){old.last=Date.now();return old.url}
     if(old){try{URL.revokeObjectURL(old.url)}catch{}thumbUrlCache.delete(key)}
     const url=URL.createObjectURL(e.imageBlob);thumbUrlCache.set(key,{url,blob:e.imageBlob,last:Date.now()});return url;
@@ -3196,8 +3220,8 @@ function openDB(){
   const txDel = (store,key) => DESKTOP_MODE ? window.naiDesktop.del(store,key) : new Promise((res,rej)=>{const r=db.transaction(store,'readwrite').objectStore(store).delete(key);r.onsuccess=()=>res();r.onerror=()=>rej(r.error)});
 
   async function loadAll(){
-    state.entries = await txGetAll(STORE_ENTRIES);
-    state.atlasEntries = await txGetAll(STORE_ATLAS);
+    state.entries = DESKTOP_MODE ? await window.naiDesktop.getAll(STORE_ENTRIES,{metadataOnly:true}) : await txGetAll(STORE_ENTRIES);
+    state.atlasEntries = DESKTOP_MODE ? await window.naiDesktop.getAll(STORE_ATLAS,{metadataOnly:true}) : await txGetAll(STORE_ATLAS);
     const meta = await txGetAll(STORE_META);
     const map=Object.fromEntries(meta.map(x=>[x.key,x.value]));
     state.artistBookmarks=map.artistBookmarks||[]; state.presets=map.presets||[];
@@ -3698,8 +3722,9 @@ function openDB(){
     for(const [k,v] of Object.entries(state.atlasRepresentatives))if(ids.includes(v))delete state.atlasRepresentatives[k];
     await saveMeta('atlasRepresentatives',state.atlasRepresentatives);state.atlasSelectedIds=[];state.atlasSelectMode=false;renderAtlas();renderAtlasArtistDialog();toast(`${ids.length}개를 삭제했습니다.`);
   }
-  function openAtlasImageDetail(id){
-    const e=state.atlasEntries.find(x=>x.id===id);if(!e)return;state.atlasCurrentImageId=id;const g=atlasGroupInfo(e);state.atlasCurrentGroupKey=g.key;if(atlasDetailUrl)URL.revokeObjectURL(atlasDetailUrl);atlasDetailUrl=URL.createObjectURL(e.imageBlob);els.atlasImageDetailImg.src=atlasDetailUrl;els.atlasImageDetailTitle.textContent=g.label;els.atlasImageDetailArtists.textContent=e.artistsText||'';els.atlasImageDetailPrompt.textContent=e.prompt||'';els.atlasImageDetailCharacters.textContent=(e.characterPrompts||[]).join('\n\n');els.atlasImageDetailCharacterUc.textContent=(e.characterUc||[]).join('\n\n');els.atlasImageDetailUc.textContent=e.uc||'';els.atlasImageDetailMemo.value=e.memo||'';els.atlasImageDetailMeta.innerHTML=detailMetaHtml(e);bindSeedCopy(els.atlasImageDetailMeta);bindModelEdit(els.atlasImageDetailMeta,'atlas');els.atlasImageFavBtn.textContent=`${e.favorite?'★':'☆'} 이미지 즐겨찾기`;els.atlasImageRepBtn.textContent=state.atlasRepresentatives[g.key]===id?'대표 이미지 해제':'대표 이미지 지정';els.atlasImageCompareBtn.textContent=state.compareIds.includes(atlasCompareRef(id))?'− 비교':'＋ 비교';if(!els.atlasImageDetailDialog.open){pushAppHistory({atlasImage:true,atlasImageId:id});atlasImageHistoryActive=true;els.atlasImageDetailDialog.showModal();}
+  async function openAtlasImageDetail(id){
+    const e=state.atlasEntries.find(x=>x.id===id);if(!e)return;
+    if(DESKTOP_MODE&&!(e.imageBlob instanceof Blob)){await ensureEntryBlob(e,STORE_ATLAS);if(!(e.imageBlob instanceof Blob)){toast('이미지를 불러오지 못했습니다.');return}}state.atlasCurrentImageId=id;const g=atlasGroupInfo(e);state.atlasCurrentGroupKey=g.key;if(atlasDetailUrl)URL.revokeObjectURL(atlasDetailUrl);atlasDetailUrl=URL.createObjectURL(e.imageBlob);els.atlasImageDetailImg.src=atlasDetailUrl;els.atlasImageDetailTitle.textContent=g.label;els.atlasImageDetailArtists.textContent=e.artistsText||'';els.atlasImageDetailPrompt.textContent=e.prompt||'';els.atlasImageDetailCharacters.textContent=(e.characterPrompts||[]).join('\n\n');els.atlasImageDetailCharacterUc.textContent=(e.characterUc||[]).join('\n\n');els.atlasImageDetailUc.textContent=e.uc||'';els.atlasImageDetailMemo.value=e.memo||'';els.atlasImageDetailMeta.innerHTML=detailMetaHtml(e);bindSeedCopy(els.atlasImageDetailMeta);bindModelEdit(els.atlasImageDetailMeta,'atlas');els.atlasImageFavBtn.textContent=`${e.favorite?'★':'☆'} 이미지 즐겨찾기`;els.atlasImageRepBtn.textContent=state.atlasRepresentatives[g.key]===id?'대표 이미지 해제':'대표 이미지 지정';els.atlasImageCompareBtn.textContent=state.compareIds.includes(atlasCompareRef(id))?'− 비교':'＋ 비교';if(!els.atlasImageDetailDialog.open){pushAppHistory({atlasImage:true,atlasImageId:id});atlasImageHistoryActive=true;els.atlasImageDetailDialog.showModal();}
   }
   async function saveAtlasArtistMemo(){
     const key=state.atlasCurrentGroupKey;if(!key)return;
@@ -4813,7 +4838,9 @@ async function confirmAtlasGalleryPicker(){const pickerTask=taskStart('Gallery �
   }
 
   async function openDetail(id){
-    const e=state.entries.find(x=>x.id===id); if(!e)return; state.currentId=id;
+    const e=state.entries.find(x=>x.id===id); if(!e)return;
+    if(DESKTOP_MODE&&!(e.imageBlob instanceof Blob)){await ensureEntryBlob(e,STORE_ENTRIES);if(!(e.imageBlob instanceof Blob)){toast('이미지를 불러오지 못했습니다.');return}}
+    state.currentId=id;
     els.detailTitle.value=e.title||''; revokeDetailObjectUrl(); els.detailImage.src=URL.createObjectURL(e.imageBlob); els.detailImage.dataset.url=els.detailImage.src;
     els.detailArtists.value=e.artistsText||''; els.detailPrompt.value=e.prompt||''; els.detailUc.value=e.uc||''; els.detailMemo.value=e.memo||'';
     const favMark=e.favorite?'★':'☆';
