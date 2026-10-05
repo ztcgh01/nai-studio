@@ -2555,7 +2555,10 @@ body.is-home .refresh-icon-btn{display:none}
   async function init(){
     mapEls();
     bind();
-    if(DESKTOP_MODE){const b=document.getElementById('updateBtn');if(b)b.onclick=()=>window.naiDesktop.checkUpdate();}else document.getElementById('updateBtn')?.classList.add('hidden');
+    if(DESKTOP_MODE){
+      const b=document.getElementById('updateBtn');if(b)b.onclick=()=>window.naiDesktop.checkUpdate();
+      try{const v=await window.naiDesktop.version();document.title=`NAI Studio Desktop v${v}`;document.querySelectorAll('[data-app-version]').forEach(el=>el.textContent=`v${v}`)}catch(err){console.warn('Version sync failed',err)}
+    }else document.getElementById('updateBtn')?.classList.add('hidden');
     if(els.refreshBtn)els.refreshBtn.onclick=async()=>{
       if(els.refreshBtn.disabled)return;
       els.refreshBtn.disabled=true;const old=els.refreshBtn.textContent;els.refreshBtn.textContent='Refreshing…';
