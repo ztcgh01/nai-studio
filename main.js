@@ -100,44 +100,52 @@ async function replace(store,vals){
   for(const v of vals)await put(store,v);
   for(const n of await fsp.readdir(dir))if(n.endsWith('.json')&&!keep.has(n))await fsp.unlink(path.join(dir,n));
 }
-async function importLooseGalleryFiles({force=false}={}){
+async function importLooseImages(kind,{force=false}={}){
+  const cfg=kind==='atlas'
+    ?{store:'atlasEntries',imageDir:'atlas',recordDir:'atlas',scanName:'.atlas-scan.json',idPrefix:'desktop_atlas_'}
+    :{store:'entries',imageDir:'gallery',recordDir:'entries',scanName:'.gallery-scan.json',idPrefix:'desktop_'};
   let added=0;
-  const imgDir=path.join(root,'images','gallery'),recDir=path.join(root,'library','entries'),scanFile=path.join(root,'library','.gallery-scan.json');
+  const imgDir=path.join(root,'images',cfg.imageDir),recDir=path.join(root,'library',cfg.recordDir),scanFile=path.join(root,'library',cfg.scanName);
   let dirStamp=0;try{dirStamp=(await fsp.stat(imgDir)).mtimeMs}catch{}
   const previousScan=await readJson(scanFile,{});
   if(!force&&dirStamp&&previousScan?.dirStamp===dirStamp)return 0;
 
-  // Build the known set from filenames stored in entry JSON. This is the only full record pass,
-  // and it runs only on explicit rescan or when the gallery directory changed since last startup scan.
   const known=new Set();
   for(const n of await fsp.readdir(recDir)){
     if(!n.endsWith('.json'))continue;
     const r=await readJson(path.join(recDir,n));
     if(r&&r.__desktopImportedFile)known.add(r.__desktopImportedFile);
     const ref=r?.imageBlob?.__naiFile;
-    if(ref&&String(ref).replace(/\\/g,'/').startsWith('images/gallery/'))known.add(path.basename(ref));
+    if(ref&&String(ref).replace(/\\/g,'/').startsWith('images/'+cfg.imageDir+'/'))known.add(path.basename(ref));
   }
-
-  // Cheap filename diff first. stat/read/write only files that are genuinely new.
   const imageNames=(await fsp.readdir(imgDir)).filter(n=>/\.(png|jpe?g|webp)$/i.test(n));
   const newNames=imageNames.filter(n=>!known.has(n));
   for(const n of newNames){
     const abs=path.join(imgDir,n),st=await fsp.stat(abs);
-    const id='desktop_'+Buffer.from(n+'|'+st.size+'|'+st.mtimeMs).toString('base64url').slice(0,32);
-    if(await readJson(recFile('entries',id)))continue;
+    const id=cfg.idPrefix+Buffer.from(n+'|'+st.size+'|'+st.mtimeMs).toString('base64url').slice(0,32);
+    if(await readJson(recFile(cfg.store,id)))continue;
     const mime=/\.png$/i.test(n)?'image/png':/\.webp$/i.test(n)?'image/webp':'image/jpeg';
-    await atomicJson(recFile('entries',id),{
+    const row={
       id,name:n,fileName:n,
       createdAt:new Date(st.birthtimeMs||st.mtimeMs).toISOString(),
       updatedAt:new Date(st.mtimeMs).toISOString(),
       __desktopImportedFile:n,
       imageBlob:{__naiFile:path.relative(root,abs).replace(/\\/g,'/'),mime,name:n}
-    });
+    };
+    if(kind==='atlas'){row.rating='unrated';row.utilityTags=[];row.memo='';row.artists=[]}
+    await atomicJson(recFile(cfg.store,id),row);
     added++;
   }
   let finalStamp=dirStamp;try{finalStamp=(await fsp.stat(imgDir)).mtimeMs}catch{}
   await atomicJson(scanFile,{dirStamp:finalStamp,scannedAt:Date.now()});
   return added;
+}
+async function scanLooseImages(options={}){
+  const [gallery,atlas]=await Promise.all([
+    importLooseImages('gallery',options),
+    importLooseImages('atlas',options)
+  ]);
+  return {gallery,atlas,total:gallery+atlas};
 }
 let mainWindow=null,updateBusy=false;
 autoUpdater.autoDownload=false;
@@ -178,7 +186,7 @@ async function createWindow(){
   win.setMenuBarVisibility(false);
   await win.loadFile(path.join(__dirname,'index.html'));
   // Do not block first paint by rescanning the whole on-disk library.
-  setTimeout(async()=>{try{const added=await importLooseGalleryFiles();if(added>0&&!win.isDestroyed())win.webContents.send('nai:externalImportComplete',{added});}catch(err){console.error('Loose gallery scan failed',err)}},1200);
+  setTimeout(async()=>{try{const result=await scanLooseImages();if(result.total>0&&!win.isDestroyed())win.webContents.send('nai:externalImportComplete',result);}catch(err){console.error('Loose image scan failed',err)}},1200);
   setTimeout(()=>checkForUpdates(false),4500);
 }
 app.whenReady().then(()=>{
@@ -193,7 +201,7 @@ app.whenReady().then(()=>{
   });
   ipcMain.handle('nai:getAll',(_,s,o)=>getAll(s,o));
   ipcMain.handle('nai:getOneHydrated',(_,s,id)=>getOneHydrated(s,id));
-  ipcMain.handle('nai:rescanLooseGallery',()=>importLooseGalleryFiles({force:true}));
+  ipcMain.handle('nai:scanLooseImages',()=>scanLooseImages({force:true}));
   ipcMain.handle('nai:put',(_,s,v)=>put(s,v));
   ipcMain.handle('nai:putMany',(_,s,v)=>putMany(s,v));
   ipcMain.handle('nai:delete',(_,s,id)=>del(s,id));
