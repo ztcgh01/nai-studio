@@ -74,6 +74,24 @@ async function getAll(store,options={}){
   const rows=await Promise.all(rawRows.map(raw=>hydrateBinary(raw)));
   return rows.filter(Boolean);
 }
+async function getFolderSummaries(){
+  const dir=path.join(root,STORE_DIR.foldersV2);let names=[];try{names=await fsp.readdir(dir)}catch{}
+  const rows=(await Promise.all(names.filter(x=>x.endsWith('.json')).map(n=>readJson(path.join(dir,n))))).filter(Boolean);
+  return rows.map(f=>{
+    const items=Array.isArray(f.items)?f.items.map(it=>{
+      if(!it||typeof it!=='object')return it;
+      const o={...it};
+      // Filesystem refs are tiny and safe for cover rendering. Never ship binary byte payloads in Archive summaries.
+      if(o.blob?.__naiBinary||o.blob?.bytes)delete o.blob;
+      if(Array.isArray(o.images))o.images=o.images.map(v=>{
+        if(v?.blob?.__naiBinary||v?.blob?.bytes){const z={...v};delete z.blob;return z}
+        return v;
+      });
+      return o;
+    }):[];
+    return {...f,items};
+  });
+}
 async function getOneHydrated(store,id){
   if(store==='meta')return null;
   const raw=await readJson(recFile(store,id));
@@ -185,8 +203,7 @@ async function createWindow(){
   mainWindow=win;
   win.setMenuBarVisibility(false);
   await win.loadFile(path.join(__dirname,'index.html'));
-  // Do not block first paint by rescanning the whole on-disk library.
-  setTimeout(async()=>{try{const result=await scanLooseImages();if(result.total>0&&!win.isDestroyed())win.webContents.send('nai:externalImportComplete',result);}catch(err){console.error('Loose image scan failed',err)}},1200);
+  // Disk discovery is manual-only via Image Scan. Never rescan the library during startup.
   setTimeout(()=>checkForUpdates(false),4500);
 }
 app.whenReady().then(()=>{
@@ -201,6 +218,7 @@ app.whenReady().then(()=>{
   });
   ipcMain.handle('nai:getAll',(_,s,o)=>getAll(s,o));
   ipcMain.handle('nai:getOneHydrated',(_,s,id)=>getOneHydrated(s,id));
+  ipcMain.handle('nai:getFolderSummaries',()=>getFolderSummaries());
   ipcMain.handle('nai:scanLooseImages',()=>scanLooseImages({force:true}));
   ipcMain.handle('nai:put',(_,s,v)=>put(s,v));
   ipcMain.handle('nai:putMany',(_,s,v)=>putMany(s,v));
