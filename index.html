@@ -4,7 +4,7 @@
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
   <meta name="color-scheme" content="light" />
-  <title>NAI Studio Desktop v1.1.1</title>
+  <title>NAI Studio Desktop v1.1.2</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Young+Serif&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
@@ -1600,6 +1600,8 @@ body.folder-lightbox-open{overflow:hidden}
 .floating-menu-tools .menu-btn{position:static!important}
 .refresh-icon-btn{width:36px;height:36px;border:1px solid var(--line);background:#fff;border-radius:7px;display:grid;place-items:center;padding:0;font-size:19px;line-height:1;font-weight:400}
 .refresh-icon-btn:hover{background:#f5f5f5}
+.refresh-icon-btn.refreshing{animation:naiRefreshSpin .55s linear infinite;pointer-events:none}
+@keyframes naiRefreshSpin{to{transform:rotate(360deg)}}
 body.is-home .refresh-icon-btn{display:none}
 </style></head>
 <body>
@@ -2561,16 +2563,10 @@ body.is-home .refresh-icon-btn{display:none}
     }else document.getElementById('updateBtn')?.classList.add('hidden');
     if(els.refreshBtn)els.refreshBtn.onclick=async()=>{
       if(els.refreshBtn.disabled)return;
-      els.refreshBtn.disabled=true;const old=els.refreshBtn.textContent;els.refreshBtn.textContent='Refreshing…';
-      try{
-        releaseThumbCache();
-        await loadAll();
-        render();
-        if(state.view==='atlas')renderAtlas();
-        else if(state.view==='folders')renderFolders();
-        else if(state.view==='bookmarks')renderBookmarks();
-      }catch(err){console.error('Refresh failed',err);alert('새로고침에 실패했습니다.');}
-      finally{els.refreshBtn.disabled=false;els.refreshBtn.textContent=old;}
+      els.refreshBtn.disabled=true;els.refreshBtn.classList.add('refreshing');
+      try{await desktopRefreshLight();toast('새로고침 완료');}
+      catch(err){console.error('Refresh failed',err);toast('새로고침 실패');}
+      finally{els.refreshBtn.disabled=false;els.refreshBtn.classList.remove('refreshing');}
     };
     db = await openDB();if(!DESKTOP_MODE)await migrateLegacyDatabaseIfNeeded();
     await loadAll();
@@ -3149,6 +3145,35 @@ function openDB(){
   }
   const txGetAll = store => DESKTOP_MODE ? window.naiDesktop.getAll(store).then(async rows=>{const out=[];for(const row of rows)out.push(await desktopDecode(row));return out}) : new Promise((res,rej)=>{const r=db.transaction(store).objectStore(store).getAll();r.onsuccess=()=>res(r.result);r.onerror=()=>rej(r.error)});
   const txPut = async (store,val) => {if(DESKTOP_MODE){await window.naiDesktop.put(store,await desktopEncode(val));return}return new Promise((res,rej)=>{const r=db.transaction(store,'readwrite').objectStore(store).put(val);r.onsuccess=()=>res();r.onerror=()=>rej(r.error)})};
+  const txPutMany = async (store,vals) => {
+    if(!vals?.length)return;
+    if(DESKTOP_MODE){
+      const encoded=await Promise.all(vals.map(v=>desktopEncode(v)));
+      await window.naiDesktop.putMany(store,encoded);return;
+    }
+    await Promise.all(vals.map(v=>txPut(store,v)));
+  };
+  async function desktopRefreshLight(){
+    if(!DESKTOP_MODE){location.reload();return}
+    const [entryRows,atlasRows,meta,folders]=await Promise.all([
+      window.naiDesktop.getAll(STORE_ENTRIES,{metadataOnly:true}),
+      window.naiDesktop.getAll(STORE_ATLAS,{metadataOnly:true}),
+      window.naiDesktop.getAll(STORE_META),
+      window.naiDesktop.getAll(STORE_FOLDERS,{metadataOnly:true})
+    ]);
+    const preserve=(rows,oldRows)=>rows.map(raw=>{
+      const old=oldRows.find(x=>x.id===raw.id),ref=raw?.imageBlob?.__naiFile;
+      if(old?.imageBlob && (!ref || old.imageBlob.__naiFileRef===ref))return {...raw,imageBlob:old.imageBlob};
+      return raw;
+    });
+    state.entries=preserve(entryRows,state.entries);
+    state.atlasEntries=preserve(atlasRows,state.atlasEntries);
+    const map=Object.fromEntries(meta.map(x=>[x.key,x.value]));
+    state.artistBookmarks=map.artistBookmarks||[];state.presets=map.presets||[];
+    state.folders=(folders.length?folders:(Array.isArray(map.folders)?map.folders:[])).map(f=>({...f,kind:f.kind||'clipboard'}));
+    state.atlasArtistFavorites=map.atlasArtistFavorites||[];state.atlasArtistMemos=map.atlasArtistMemos||{};state.atlasArtistClassifications=map.atlasArtistClassifications||{};state.atlasRepresentatives=map.atlasRepresentatives||{};
+    releaseThumbCache();atlasGroupsMemo={stamp:null,groups:[]};displayTitleStamp='';resetGalleryPaging();resetAtlasPaging();render();
+  }
   const txDel = (store,key) => DESKTOP_MODE ? window.naiDesktop.del(store,key) : new Promise((res,rej)=>{const r=db.transaction(store,'readwrite').objectStore(store).delete(key);r.onsuccess=()=>res();r.onerror=()=>rej(r.error)});
 
   async function loadAll(){
