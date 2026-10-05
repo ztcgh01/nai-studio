@@ -63,11 +63,18 @@ function binaryStem(store,id,obj,keyPath=[]){
   const suffix=keyPath.length?'-'+keyPath.map(safe).join('-'):'';
   return safe((original||id)+suffix+'-'+safe(id).slice(-10));
 }
-async function getAll(store){
+async function getAll(store,options={}){
   if(store==='meta'){const m=await readJson(path.join(root,'meta.json'),{});return Object.entries(m).map(([key,value])=>({key,value}))}
   const dir=path.join(root,STORE_DIR[store]);let names=[];try{names=await fsp.readdir(dir)}catch{}
-  const rows=await Promise.all(names.filter(x=>x.endsWith('.json')).map(async n=>{const raw=await readJson(path.join(dir,n));return raw?hydrateBinary(raw):null}));
+  const rawRows=(await Promise.all(names.filter(x=>x.endsWith('.json')).map(n=>readJson(path.join(dir,n))))).filter(Boolean);
+  if(options?.metadataOnly)return rawRows;
+  const rows=await Promise.all(rawRows.map(raw=>hydrateBinary(raw)));
   return rows.filter(Boolean);
+}
+async function putMany(store,vals){
+  if(!Array.isArray(vals)||!vals.length)return;
+  const concurrency=Math.min(8,vals.length);let next=0;
+  await Promise.all(Array.from({length:concurrency},async()=>{while(next<vals.length){const i=next++;await put(store,vals[i])}}));
 }
 async function put(store,val){
   if(store==='meta'){const file=path.join(root,'meta.json'),m=await readJson(file,{});m[val.key]=val.value;await atomicJson(file,m);return}
@@ -91,6 +98,8 @@ async function importLooseGalleryFiles(){
     if(!n.endsWith('.json'))continue;
     const r=await readJson(path.join(recDir,n));
     if(r&&r.__desktopImportedFile)known.add(r.__desktopImportedFile);
+    const collectRefs=v=>{if(!v||typeof v!=='object')return;if(v.__naiFile&&String(v.__naiFile).replace(/\\/g,'/').startsWith('images/gallery/'))known.add(path.basename(v.__naiFile));else if(Array.isArray(v))v.forEach(collectRefs);else Object.values(v).forEach(collectRefs)};
+    collectRefs(r);
   }
   for(const n of await fsp.readdir(imgDir)){
     if(!/\.(png|jpe?g|webp)$/i.test(n)||known.has(n))continue;
@@ -151,8 +160,9 @@ async function createWindow(){
   setTimeout(()=>checkForUpdates(false),4500);
 }
 app.whenReady().then(()=>{
-  ipcMain.handle('nai:getAll',(_,s)=>getAll(s));
+  ipcMain.handle('nai:getAll',(_,s,o)=>getAll(s,o));
   ipcMain.handle('nai:put',(_,s,v)=>put(s,v));
+  ipcMain.handle('nai:putMany',(_,s,v)=>putMany(s,v));
   ipcMain.handle('nai:delete',(_,s,id)=>del(s,id));
   ipcMain.handle('nai:replace',(_,s,v)=>replace(s,v));
   ipcMain.handle('nai:dataPath',()=>root);
