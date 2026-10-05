@@ -2614,8 +2614,33 @@ body.is-home .refresh-icon-btn{display:grid}
         rescanBtn.textContent='Scanning…';
         try{
           const result=await window.naiDesktop.scanLooseImages();
-          if(result?.total>0)await desktopRefreshLight();
-          toast(result?.total>0?`Image Scan 완료 · Gallery ${result.gallery} / Atlas ${result.atlas}`:'새 이미지 없음');
+          await desktopRefreshLight();
+          const repairTargets=state.atlasEntries.filter(e=>e.__desktopImportedFile&&!e.__desktopMetadataScanned&&!(e.artists||[]).length&&!String(e.artistsText||'').trim()&&desktopFileRef(e.imageBlob));
+          let repaired=0,failed=0;
+          if(repairTargets.length){
+            rescanBtn.textContent=`Metadata 0/${repairTargets.length}`;
+            const chunkSize=8;
+            for(let i=0;i<repairTargets.length;i+=chunkSize){
+              const chunk=repairTargets.slice(i,i+chunkSize);
+              const writes=[];
+              await Promise.all(chunk.map(async e=>{
+                try{
+                  const blob=await ensureEntryBlob(e,STORE_ATLAS);
+                  if(!blob)throw new Error('image unavailable');
+                  const meta=await extractImageMetadata(blob),parsed=parseNovelAI(meta);
+                  Object.assign(e,parsed,{rawMetadata:meta,__desktopMetadataScanned:true,updatedAt:Date.now()});
+                  writes.push(e);repaired++;
+                }catch(err){console.error('Atlas metadata repair failed',e.id,err);e.__desktopMetadataScanned=true;writes.push(e);failed++}
+              }));
+              if(writes.length)await txPutMany(STORE_ATLAS,writes);
+              rescanBtn.textContent=`Metadata ${Math.min(i+chunk.length,repairTargets.length)}/${repairTargets.length}`;
+              await new Promise(r=>setTimeout(r,0));
+            }
+            await desktopRefreshLight();
+          }
+          const parts=[`Gallery +${result?.gallery||0}`,`Atlas +${result?.atlas||0}`];
+          if(repairTargets.length)parts.push(`Atlas metadata ${repaired}${failed?` / 실패 ${failed}`:''}`);
+          toast(`Image Scan 완료 · ${parts.join(' · ')}`);
         }catch(err){console.error('Image rescan failed',err);toast('Image Scan 실패');}
         finally{rescanBtn.disabled=false;rescanBtn.textContent=original;}
       };
