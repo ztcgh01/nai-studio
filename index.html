@@ -1822,7 +1822,7 @@ body.is-home .refresh-icon-btn{display:grid}
         <button id="backupBtn" class="utility-btn">Backup</button>
         <button id="restoreBtn" class="utility-btn">Merge Import</button>
         <button id="pdfBtn" class="utility-btn">Export</button>
-        <button id="rescanImagesBtn" class="utility-btn">이미지 재스캔</button>
+        <button id="rescanImagesBtn" class="utility-btn">Image Scan</button>
         <button id="updateBtn" class="utility-btn">Update</button>
       </div>
     </aside>
@@ -2611,12 +2611,12 @@ body.is-home .refresh-icon-btn{display:grid}
         if(rescanBtn.disabled)return;
         rescanBtn.disabled=true;
         const original=rescanBtn.textContent;
-        rescanBtn.textContent='재스캔 중…';
+        rescanBtn.textContent='Scanning…';
         try{
-          const added=await window.naiDesktop.rescanLooseGallery();
-          if(added>0)await desktopRefreshLight();
-          toast(added>0?`새 이미지 ${added}개 반영 완료`:'새 이미지 없음');
-        }catch(err){console.error('Image rescan failed',err);toast('이미지 재스캔 실패');}
+          const result=await window.naiDesktop.scanLooseImages();
+          if(result?.total>0)await desktopRefreshLight();
+          toast(result?.total>0?`Image Scan 완료 · Gallery ${result.gallery} / Atlas ${result.atlas}`:'새 이미지 없음');
+        }catch(err){console.error('Image rescan failed',err);toast('Image Scan 실패');}
         finally{rescanBtn.disabled=false;rescanBtn.textContent=original;}
       };
     }
@@ -2633,7 +2633,7 @@ body.is-home .refresh-icon-btn{display:grid}
     },true);
     db = await openDB();if(!DESKTOP_MODE)await migrateLegacyDatabaseIfNeeded();
     await loadAll();
-    if(DESKTOP_MODE&&window.naiDesktop?.onExternalImportComplete)window.naiDesktop.onExternalImportComplete(async payload=>{if(payload?.added>0){await desktopRefreshLight();toast(`${payload.added}개 외부 이미지를 백그라운드에서 추가했습니다.`)}});
+    if(DESKTOP_MODE&&window.naiDesktop?.onExternalImportComplete)window.naiDesktop.onExternalImportComplete(async payload=>{if(payload?.total>0){await desktopRefreshLight();toast(`외부 이미지 ${payload.total}개 반영 · Gallery ${payload.gallery} / Atlas ${payload.atlas}`)}});
     // v2.0.1 SAFE: storage guard. Keep a tiny cross-check outside IndexedDB when possible,
     // request persistent storage, and warn if a previously populated DB suddenly opens empty.
     if(!DESKTOP_MODE)await initStorageGuard();
