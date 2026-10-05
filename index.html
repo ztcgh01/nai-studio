@@ -3148,11 +3148,29 @@ function openDB(){
   const txPutMany = async (store,vals) => {
     if(!vals?.length)return;
     if(DESKTOP_MODE){
-      const encoded=await Promise.all(vals.map(v=>desktopEncode(v)));
-      await window.naiDesktop.putMany(store,encoded);return;
+      const chunkSize=12;
+      for(let i=0;i<vals.length;i+=chunkSize){
+        const encoded=await Promise.all(vals.slice(i,i+chunkSize).map(v=>desktopEncode(v)));
+        await window.naiDesktop.putMany(store,encoded);
+      }
+      return;
     }
     await Promise.all(vals.map(v=>txPut(store,v)));
   };
+  async function analyzeImportFiles(files,onProgress){
+    const out=new Array(files.length),workers=Math.min(DESKTOP_MODE?4:2,files.length);let next=0,done=0;
+    await Promise.all(Array.from({length:workers},async()=>{
+      while(true){
+        const i=next++;if(i>=files.length)break;
+        const file=files[i];
+        try{const [hash,meta]=await Promise.all([sha256(file),extractImageMetadata(file)]);out[i]={file,hash,meta,parsed:parseNovelAI(meta)}}
+        catch(err){console.error(err);out[i]={file,error:err}}
+        done++;if(onProgress)onProgress(done,files.length);
+        if(done%8===0)await new Promise(r=>setTimeout(r,0));
+      }
+    }));
+    return out;
+  }
   async function desktopRefreshLight(){
     if(!DESKTOP_MODE){location.reload();return}
     const [entryRows,atlasRows,meta,folders]=await Promise.all([
@@ -3710,12 +3728,39 @@ function openDB(){
     const e={...a,id:crypto.randomUUID(),imageBlob:a.imageBlob,createdAt:now,updatedAt:now,lastImportAt:now,favorite:false,memo:a.memo||'',title:a.title||''};delete e.atlasOnly;await txPut(STORE_ENTRIES,e);state.entries.push(e);render();if(!silent)toast('Gallery에 추가했습니다.');return e.id;
   }
   async function importAtlasImages(fileList,options={}){
-    const files=[...(fileList||[])].filter(file=>/^image\/(png|jpeg|webp)$/i.test(file.type)||/\.(png|jpe?g|webp)$/i.test(file.name||''));if(!files.length){if(!options.quiet)toast('가져올 이미지가 없습니다.');return {added:0,skipped:0,failed:0,refreshed:0}}
-    let added=0,skipped=0,failed=0,refreshed=0;const known=new Set(state.atlasEntries.map(e=>e.hash).filter(Boolean));
-    const atlasTask=options.progressToken??taskStart('Artist Atlas · 이미지 등록','이미지 분석 및 저장 중',options.progressTotal||files.length);
-    if(els.importProgress){els.importProgress.classList.remove('hidden');els.importProgressText.textContent='Artist Atlas에 이미지 가져오는 중…';els.importProgressCount.textContent=`0 / ${files.length}`;els.importProgressBar.style.width='0%'}
-    for(let i=0;i<files.length;i++){const file=files[i];try{const hash=await sha256(file);if(known.has(hash)){const ex=state.atlasEntries.find(e=>e.hash===hash);if(ex){const meta=await extractImageMetadata(file),parsed=parseNovelAI(meta),now=Date.now();ex.lastImportAt=now;ex.updatedAt=now;ex.imageBlob=file;if(metadataScore(parsed)>metadataScore(ex)){Object.assign(ex,parsed,{rawMetadata:meta,fileName:ex.fileName||file.name});refreshed++}else skipped++;await txPut(STORE_ATLAS,ex)}}else{const meta=await extractImageMetadata(file),parsed=parseNovelAI(meta),now=Date.now();const e={id:crypto.randomUUID(),hash,fileName:file.name,imageBlob:file,createdAt:now,updatedAt:now,lastImportAt:now,favorite:false,memo:'',title:'',atlasOnly:true,...parsed,rawMetadata:meta};await txPut(STORE_ATLAS,e);state.atlasEntries.push(e);known.add(hash);added++}}catch(err){console.error(err);failed++}if(els.importProgress&&(i%5===0||i===files.length-1)){els.importProgressCount.textContent=`${i+1} / ${files.length}`;els.importProgressBar.style.width=`${Math.round((i+1)/files.length*100)}%`}taskUpdate(`Atlas 이미지 분석·저장 중 · ${i+1}/${files.length}`, (options.progressOffset||0)+i+1,options.progressTotal||files.length,atlasTask);if(i%12===11)await new Promise(r=>setTimeout(r,0))}
-    renderAtlas();const parts=[`${added}개 Atlas 등록`];if(refreshed)parts.push(`메타데이터 갱신 ${refreshed}개`);if(skipped)parts.push(`중복 ${skipped}개`);if(failed)parts.push(`실패 ${failed}개`);const msg=parts.join(' · ');if(!options.quiet){taskEnd(msg,!!failed,atlasTask);toast(msg);if(els.importProgress){els.importProgressText.textContent=msg;setTimeout(()=>els.importProgress.classList.add('hidden'),1600)}}return {added,skipped,failed,refreshed};
+    const files=[...(fileList||[])].filter(file=>/^image\/(png|jpeg|webp)$/i.test(file.type)||/\.(png|jpe?g|webp)$/i.test(file.name||''));
+    if(!files.length){if(!options.quiet)toast('가져올 이미지가 없습니다.');return {added:0,skipped:0,failed:0,refreshed:0}}
+    let added=0,skipped=0,failed=0,refreshed=0;
+    const known=new Set(state.atlasEntries.map(e=>e.hash).filter(Boolean)),total=files.length;
+    const atlasTask=options.progressToken??taskStart('Artist Atlas · 이미지 등록','이미지 분석 중',options.progressTotal||total);
+    if(els.importProgress){els.importProgress.classList.remove('hidden');els.importProgressText.textContent='Artist Atlas 이미지 분석 중…';els.importProgressCount.textContent=`0 / ${total}`;els.importProgressBar.style.width='0%'}
+    const analyzed=await analyzeImportFiles(files,(done,n)=>{
+      if(els.importProgress){els.importProgressCount.textContent=`${done} / ${n}`;els.importProgressBar.style.width=`${Math.round(done/n*70)}%`}
+      taskUpdate(`Atlas 이미지 분석 중 · ${done}/${n}`,Math.round(done*.7),n,atlasTask);
+    });
+    const writes=[];
+    for(const a of analyzed){
+      if(a.error){failed++;continue}
+      const {file,hash,meta,parsed}=a;
+      if(known.has(hash)){
+        const ex=state.atlasEntries.find(e=>e.hash===hash);
+        if(ex){
+          const now=Date.now();ex.lastImportAt=now;ex.updatedAt=now;
+          if(metadataScore(parsed)>metadataScore(ex)){Object.assign(ex,parsed,{rawMetadata:meta,fileName:ex.fileName||file.name});refreshed++}else skipped++;
+          if(!DESKTOP_MODE||!ex.imageBlob)ex.imageBlob=file;
+          writes.push(ex);
+        }else skipped++;
+      }else{
+        const now=Date.now(),e={id:crypto.randomUUID(),hash,fileName:file.name,imageBlob:file,createdAt:now,updatedAt:now,lastImportAt:now,favorite:false,memo:'',title:'',atlasOnly:true,...parsed,rawMetadata:meta};
+        state.atlasEntries.push(e);known.add(hash);writes.push(e);added++;
+      }
+    }
+    if(writes.length){if(els.importProgress){els.importProgressText.textContent='Atlas 이미지 저장 중…';els.importProgressBar.style.width='75%'}await txPutMany(STORE_ATLAS,writes)}
+    if(els.importProgress){els.importProgressCount.textContent=`${total} / ${total}`;els.importProgressBar.style.width='100%'}
+    renderAtlas();
+    const parts=[`${added}개 Atlas 등록`];if(refreshed)parts.push(`메타데이터 갱신 ${refreshed}개`);if(skipped)parts.push(`중복 ${skipped}개`);if(failed)parts.push(`실패 ${failed}개`);const msg=parts.join(' · ');
+    if(!options.quiet){taskEnd(msg,!!failed,atlasTask);toast(msg);if(els.importProgress){els.importProgressText.textContent=msg;setTimeout(()=>els.importProgress.classList.add('hidden'),1200)}}
+    return {added,skipped,failed,refreshed};
   }
   async function importAtlasImagesFromZip(zipFile){
     let stats={added:0,skipped:0,failed:0,refreshed:0,total:0};try{const zip=await JSZip.loadAsync(zipFile);const names=Object.keys(zip.files).filter(n=>!zip.files[n].dir&&/\.(png|jpe?g|webp)$/i.test(n));stats.total=names.length;for(let i=0;i<names.length;i+=80){const files=[];for(const name of names.slice(i,i+80)){const blob=await zip.file(name).async('blob'),base=name.split('/').pop()||`atlas-${i+files.length+1}.png`,type=/\.png$/i.test(base)?'image/png':/\.webp$/i.test(base)?'image/webp':'image/jpeg';files.push(new File([blob],base,{type,lastModified:Date.now()}))}const r=await importAtlasImages(files,{quiet:true,progressToken:taskProgress.token,progressOffset:i,progressTotal:names.length});for(const k of ['added','skipped','failed','refreshed'])stats[k]+=r[k]||0;await new Promise(r=>setTimeout(r,0))}}catch(err){console.error(err);stats.failed++}return stats;
@@ -3796,76 +3841,45 @@ async function confirmAtlasGalleryPicker(){const pickerTask=taskStart('Gallery �
 
   async function importImages(fileList, options={}){
     const files=[...(fileList||[])].filter(file=>/^image\/(png|jpeg|webp)$/i.test(file.type)||/\.(png|jpe?g|webp)$/i.test(file.name||''));
-    if(!files.length){if(!options.quiet)toast('가져올 이미지가 없습니다.');return {added:0,skipped:0,failed:0};}
-    let added=0, skipped=0, failed=0, refreshed=0;
-    const knownHashes=new Set(state.entries.map(e=>e.hash).filter(Boolean));
-    const total=files.length;
-    const galleryTask=options.progressToken??taskStart('Gallery · 이미지 등록','이미지 분석 및 저장 중',options.progressTotal||total);
-    if(els.importProgress){
-      els.importProgress.classList.remove('hidden');
-      els.importProgressText.textContent=options.source==='folder'?'폴더에서 이미지 가져오는 중…':options.source==='bulk'?'대량 파일 등록 중…':'이미지 가져오는 중…';
-      els.importProgressCount.textContent=`0 / ${total}`;
-      els.importProgressBar.style.width='0%';
-    }
-    // Thousands of files are accepted. Process sequentially and yield periodically so mobile UI stays responsive.
-    for(let i=0;i<files.length;i++){
-      const file=files[i];
-      try{
-        const hash=await sha256(file);
-        if(knownHashes.has(hash)){
-          const existing=state.entries.find(e=>e.hash===hash);
-          // Re-scan duplicates instead of blindly skipping them. This lets entries
-          // imported by older versions pick up newly supported NovelAI metadata.
-          if(existing){
-            const meta=await extractImageMetadata(file);
-            const parsed=parseNovelAI(meta);
-            const oldScore=metadataScore(existing);
-            const newScore=metadataScore(parsed);
-            const now=Date.now();
-            // Re-importing an existing image should make it easy to find again.
-            // Keep the original createdAt intact, but bump lastImportAt so
-            // "최근 등록순" places this existing entry at the top.
-            existing.lastImportAt=now;
-            existing.updatedAt=now;
-            existing.imageBlob=file;
-            if(newScore>oldScore){
-              Object.assign(existing,parsed,{
-                rawMetadata:meta,
-                fileName:existing.fileName||file.name
-              });
-              refreshed++;
-            }else{
-              skipped++;
-            }
-            await txPut(STORE_ENTRIES,existing);
-          }else skipped++;
-        }
-        else{
-          const meta=await extractImageMetadata(file);
-          const parsed=parseNovelAI(meta);
-          const id=crypto.randomUUID();
-          const now=Date.now();
-          const entry={id,hash,fileName:file.name,imageBlob:file,createdAt:now,updatedAt:now,lastImportAt:now,favorite:false,memo:'',title:'',...parsed,rawMetadata:meta};
-          await txPut(STORE_ENTRIES,entry);state.entries.push(entry);knownHashes.add(hash);added++;
-        }
-      }catch(err){console.error(err);failed++;}
-      if(els.importProgress && (i%5===0 || i===total-1)){
-        els.importProgressCount.textContent=`${i+1} / ${total}`;
-        els.importProgressBar.style.width=`${Math.round(((i+1)/total)*100)}%`;
+    if(!files.length){if(!options.quiet)toast('가져올 이미지가 없습니다.');return {added:0,skipped:0,failed:0,refreshed:0};}
+    let added=0,skipped=0,failed=0,refreshed=0;
+    const total=files.length,knownHashes=new Set(state.entries.map(e=>e.hash).filter(Boolean));
+    const galleryTask=options.progressToken??taskStart('Gallery · 이미지 등록','이미지 분석 중',options.progressTotal||total);
+    if(els.importProgress){els.importProgress.classList.remove('hidden');els.importProgressText.textContent=options.source==='folder'?'폴더 이미지 분석 중…':options.source==='bulk'?'대량 이미지 분석 중…':'이미지 분석 중…';els.importProgressCount.textContent=`0 / ${total}`;els.importProgressBar.style.width='0%'}
+    const analyzed=await analyzeImportFiles(files,(done,n)=>{
+      if(els.importProgress){els.importProgressCount.textContent=`${done} / ${n}`;els.importProgressBar.style.width=`${Math.round(done/n*70)}%`}
+      taskUpdate(`Gallery 이미지 분석 중 · ${done}/${n}`,Math.round(done*.7),n,galleryTask);
+    });
+    const writes=[];
+    for(const a of analyzed){
+      if(a.error){failed++;continue}
+      const {file,hash,meta,parsed}=a;
+      if(knownHashes.has(hash)){
+        const existing=state.entries.find(e=>e.hash===hash);
+        if(existing){
+          const oldScore=metadataScore(existing),newScore=metadataScore(parsed),now=Date.now();
+          existing.lastImportAt=now;existing.updatedAt=now;
+          if(newScore>oldScore){Object.assign(existing,parsed,{rawMetadata:meta,fileName:existing.fileName||file.name});refreshed++}else skipped++;
+          // Keep the already materialized desktop file instead of rewriting identical image bytes.
+          if(!DESKTOP_MODE||!existing.imageBlob)existing.imageBlob=file;
+          writes.push(existing);
+        }else skipped++;
+      }else{
+        const now=Date.now(),entry={id:crypto.randomUUID(),hash,fileName:file.name,imageBlob:file,createdAt:now,updatedAt:now,lastImportAt:now,favorite:false,memo:'',title:'',...parsed,rawMetadata:meta};
+        state.entries.push(entry);knownHashes.add(hash);writes.push(entry);added++;
       }
-      taskUpdate(`Gallery 이미지 분석·저장 중 · ${i+1}/${total}`,(options.progressOffset||0)+i+1,options.progressTotal||total,galleryTask);
-      if(i%12===11) await new Promise(r=>setTimeout(r,0));
     }
-    els.fileInput.value=''; if(els.folderImportInput) els.folderImportInput.value='';
+    if(writes.length){
+      if(els.importProgress){els.importProgressText.textContent='이미지 저장 중…';els.importProgressBar.style.width='75%'}
+      await txPutMany(STORE_ENTRIES,writes);
+    }
+    if(els.importProgress){els.importProgressCount.textContent=`${total} / ${total}`;els.importProgressBar.style.width='100%'}
+    els.fileInput.value='';if(els.folderImportInput)els.folderImportInput.value='';
     render();
-    const parts=[`${added}개 등록`]; if(refreshed)parts.push(`메타데이터 갱신 ${refreshed}개`); if(skipped)parts.push(`중복 ${skipped}개 제외`); if(failed)parts.push(`실패 ${failed}개`);
+    const parts=[`${added}개 등록`];if(refreshed)parts.push(`메타데이터 갱신 ${refreshed}개`);if(skipped)parts.push(`중복 ${skipped}개 제외`);if(failed)parts.push(`실패 ${failed}개`);
     const msg=parts.join(' · ');
-    if(!options.quiet){taskEnd(msg,!!failed,galleryTask);
-      if(els.addStatus)els.addStatus.textContent=msg;
-      toast(msg);
-      if(els.importProgress){els.importProgressText.textContent=msg;setTimeout(()=>els.importProgress.classList.add('hidden'),1800)}
-    }
-    if(added && state.view==='add') setView('library');
+    if(!options.quiet){taskEnd(msg,!!failed,galleryTask);if(els.addStatus)els.addStatus.textContent=msg;toast(msg);if(els.importProgress){els.importProgressText.textContent=msg;setTimeout(()=>els.importProgress.classList.add('hidden'),1200)}}
+    if(added&&state.view==='add')setView('library');
     return {added,skipped,failed,refreshed};
   }
   async function extractImageMetadata(file){
