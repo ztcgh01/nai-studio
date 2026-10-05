@@ -1,8 +1,11 @@
-const { app, BrowserWindow, ipcMain, shell, dialog } = require('electron');
+const { app, BrowserWindow, ipcMain, shell, dialog, protocol, net } = require('electron');
 const { autoUpdater } = require('electron-updater');
 const fs = require('fs');
 const fsp = fs.promises;
 const path = require('path');
+const { pathToFileURL } = require('url');
+
+protocol.registerSchemesAsPrivileged([{scheme:'nai-image',privileges:{standard:true,secure:true,supportFetchAPI:true,stream:true}}]);
 
 const STORE_DIR = { entries:'library/entries', atlasEntries:'library/atlas', foldersV2:'library/folders' };
 let root;
@@ -98,6 +101,7 @@ async function replace(store,vals){
   for(const n of await fsp.readdir(dir))if(n.endsWith('.json')&&!keep.has(n))await fsp.unlink(path.join(dir,n));
 }
 async function importLooseGalleryFiles(){
+  let added=0;
   const imgDir=path.join(root,'images','gallery'),recDir=path.join(root,'library','entries');
   const known=new Set();
   for(const n of await fsp.readdir(recDir)){
@@ -122,7 +126,9 @@ async function importLooseGalleryFiles(){
       __desktopImportedFile:n,
       imageBlob:{__naiFile:path.relative(root,abs).replace(/\\/g,'/'),mime,name:n}
     });
+    added++;
   }
+  return added;
 }
 let mainWindow=null,updateBusy=false;
 autoUpdater.autoDownload=false;
@@ -157,15 +163,25 @@ autoUpdater.on('update-downloaded',async info=>{
 
 async function createWindow(){
   await ensure();
-  await importLooseGalleryFiles();
   const win=new BrowserWindow({width:1440,height:920,minWidth:980,minHeight:680,backgroundColor:'#f7f7f7',autoHideMenuBar:true,
     webPreferences:{preload:path.join(__dirname,'preload.js'),contextIsolation:true,nodeIntegration:false,sandbox:false}});
   mainWindow=win;
   win.setMenuBarVisibility(false);
   await win.loadFile(path.join(__dirname,'index.html'));
+  // Do not block first paint by rescanning the whole on-disk library.
+  setTimeout(async()=>{try{const added=await importLooseGalleryFiles();if(added>0&&!win.isDestroyed())win.webContents.send('nai:externalImportComplete',{added});}catch(err){console.error('Loose gallery scan failed',err)}},1200);
   setTimeout(()=>checkForUpdates(false),4500);
 }
 app.whenReady().then(()=>{
+  protocol.handle('nai-image',request=>{
+    try{
+      const u=new URL(request.url),rel=decodeURIComponent(u.pathname.replace(/^\/+/,'' )).replace(/\\/g,'/');
+      if(!rel.startsWith('images/'))return new Response('Forbidden',{status:403});
+      const imagesRoot=path.resolve(root,'images'),abs=path.resolve(root,rel);
+      if(abs!==imagesRoot&&!abs.startsWith(imagesRoot+path.sep))return new Response('Forbidden',{status:403});
+      return net.fetch(pathToFileURL(abs).href);
+    }catch(err){console.error('nai-image protocol failed',err);return new Response('Not found',{status:404})}
+  });
   ipcMain.handle('nai:getAll',(_,s,o)=>getAll(s,o));
   ipcMain.handle('nai:getOneHydrated',(_,s,id)=>getOneHydrated(s,id));
   ipcMain.handle('nai:put',(_,s,v)=>put(s,v));
