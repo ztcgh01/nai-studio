@@ -1,6 +1,7 @@
 const { contextBridge, ipcRenderer } = require('electron');
 contextBridge.exposeInMainWorld('naiDesktop',{
   getAll:(s,o)=>ipcRenderer.invoke('nai:getAll',s,o),
+  getOneHydrated:(s,id)=>ipcRenderer.invoke('nai:getOneHydrated',s,id),
   put:(s,v)=>ipcRenderer.invoke('nai:put',s,v),
   putMany:(s,v)=>ipcRenderer.invoke('nai:putMany',s,v),
   del:(s,id)=>ipcRenderer.invoke('nai:delete',s,id),
