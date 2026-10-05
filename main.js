@@ -71,6 +71,12 @@ async function getAll(store,options={}){
   const rows=await Promise.all(rawRows.map(raw=>hydrateBinary(raw)));
   return rows.filter(Boolean);
 }
+async function getOneHydrated(store,id){
+  if(store==='meta')return null;
+  const raw=await readJson(recFile(store,id));
+  if(!raw)return null;
+  return hydrateBinary(raw);
+}
 async function putMany(store,vals){
   if(!Array.isArray(vals)||!vals.length)return;
   const concurrency=Math.min(8,vals.length);let next=0;
@@ -161,6 +167,7 @@ async function createWindow(){
 }
 app.whenReady().then(()=>{
   ipcMain.handle('nai:getAll',(_,s,o)=>getAll(s,o));
+  ipcMain.handle('nai:getOneHydrated',(_,s,id)=>getOneHydrated(s,id));
   ipcMain.handle('nai:put',(_,s,v)=>put(s,v));
   ipcMain.handle('nai:putMany',(_,s,v)=>putMany(s,v));
   ipcMain.handle('nai:delete',(_,s,id)=>del(s,id));
