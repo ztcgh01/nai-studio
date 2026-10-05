@@ -98,6 +98,24 @@ async function getOneHydrated(store,id){
   if(!raw)return null;
   return hydrateBinary(raw);
 }
+async function copyAtlasToGalleryBatch(items,onProgress){
+  if(!Array.isArray(items)||!items.length)return [];
+  const out=new Array(items.length),concurrency=Math.min(6,items.length);let next=0,done=0;
+  await Promise.all(Array.from({length:concurrency},async()=>{while(true){
+    const i=next++;if(i>=items.length)break;
+    const it=items[i],src=await readJson(recFile('atlasEntries',it.atlasId));
+    if(!src)throw new Error('Atlas record not found: '+it.atlasId);
+    const ref=src?.imageBlob?.__naiFile;if(!ref)throw new Error('Atlas image file reference missing: '+it.atlasId);
+    const srcAbs=path.resolve(root,ref),imagesRoot=path.resolve(root,'images');
+    if(!srcAbs.startsWith(imagesRoot+path.sep))throw new Error('Invalid Atlas image path');
+    const ext=path.extname(srcAbs)||'.png',name=path.basename(srcAbs,ext),rel=path.join('images','gallery',safe(name)+'-'+safe(it.entry.id).slice(-10)+ext).replace(/\\/g,'/');
+    const dst=path.join(root,rel);await fsp.mkdir(path.dirname(dst),{recursive:true});
+    try{await fsp.copyFile(srcAbs,dst)}catch(err){if(err?.code!=='EEXIST')throw err}
+    const row={...it.entry,imageBlob:{__naiFile:rel,mime:src.imageBlob?.mime||'',name:src.imageBlob?.name||path.basename(dst)}};
+    await atomicJson(recFile('entries',row.id),row);out[i]=row;done++;onProgress?.(done,items.length);
+  }}));
+  return out;
+}
 async function putMany(store,vals){
   if(!Array.isArray(vals)||!vals.length)return;
   const concurrency=Math.min(8,vals.length);let next=0;
@@ -225,6 +243,7 @@ app.whenReady().then(()=>{
   ipcMain.handle('nai:scanLooseImages',()=>scanLooseImages({force:true}));
   ipcMain.handle('nai:put',(_,s,v)=>put(s,v));
   ipcMain.handle('nai:putMany',(_,s,v)=>putMany(s,v));
+  ipcMain.handle('nai:atlasToGalleryBatch',async(event,items)=>copyAtlasToGalleryBatch(items,(done,total)=>event.sender.send('nai:batchProgress',{kind:'atlasToGallery',done,total})));
   ipcMain.handle('nai:delete',(_,s,id)=>del(s,id));
   ipcMain.handle('nai:replace',(_,s,v)=>replace(s,v));
   ipcMain.handle('nai:dataPath',()=>root);
