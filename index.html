@@ -3797,29 +3797,38 @@ function openDB(){
   async function atlasEntriesToGallery(entries){
     entries=(entries||[]).filter(Boolean);if(!entries.length){toast('선택한 이미지가 없습니다.');return}
     const knownHashes=new Set(state.entries.map(e=>e.hash).filter(Boolean)),knownAtlasSources=new Set(state.entries.map(e=>e.__fromAtlasId).filter(Boolean));
-    const writes=[];let skipped=0;const now=Date.now();
+    const pending=[];let skipped=0;const now=Date.now();
     for(const a of entries){
       if((a.hash&&knownHashes.has(a.hash))||knownAtlasSources.has(a.id)){skipped++;continue}
-      let imageBlob=a.imageBlob;
-      if(DESKTOP_MODE&&desktopFileRef(imageBlob)){
-        const hydrated=await window.naiDesktop.getOneHydrated(STORE_ATLAS,a.id);
-        if(hydrated?.imageBlob)imageBlob=hydrated.imageBlob;
-      }
-      const e={...a,id:crypto.randomUUID(),__fromAtlasId:a.id,imageBlob,createdAt:now,updatedAt:now,lastImportAt:now,favorite:false,memo:a.memo||'',title:a.title||''};
-      delete e.atlasOnly;writes.push(e);if(a.hash)knownHashes.add(a.hash);knownAtlasSources.add(a.id);
+      const e={...a,id:crypto.randomUUID(),__fromAtlasId:a.id,createdAt:now,updatedAt:now,lastImportAt:now,favorite:false,memo:a.memo||'',title:a.title||''};
+      delete e.atlasOnly;pending.push({atlasId:a.id,entry:e});if(a.hash)knownHashes.add(a.hash);knownAtlasSources.add(a.id);
     }
-    if(writes.length){await txPutMany(STORE_ENTRIES,writes);state.entries.push(...writes);rebuildEntryIndexes();resetGalleryPaging()}
-    const parts=[`Gallery +${writes.length}`];if(skipped)parts.push(`이미 존재 ${skipped}`);toast(parts.join(' · '));
-    if(state.view==='library')renderLibrary();
-    return {added:writes.length,skipped};
+    if(!pending.length){toast('선택한 이미지는 모두 Gallery에 있습니다.');return {added:0,skipped}}
+    const t=taskStart('Atlas → Gallery','파일 복사 중',pending.length);let writes=[];
+    try{
+      if(DESKTOP_MODE){
+        const off=window.naiDesktop.onBatchProgress(v=>{if(v?.kind==='atlasToGallery')taskUpdate('파일 복사 · Gallery 등록 중',v.done,v.total,t)});
+        try{writes=await window.naiDesktop.atlasToGalleryBatch(pending)}finally{off?.()}
+      }else{
+        writes=pending.map(v=>v.entry);await txPutMany(STORE_ENTRIES,writes);taskUpdate('Gallery 등록 중',writes.length,writes.length,t);
+      }
+      state.entries.push(...writes);rebuildEntryIndexes();resetGalleryPaging();
+      const msg=`Gallery +${writes.length}${skipped?' · 이미 존재 '+skipped:''}`;taskEnd(msg,false,t);toast(msg);
+      if(state.view==='library')renderLibrary();return {added:writes.length,skipped};
+    }catch(err){console.error(err);taskEnd('Gallery 전송 실패: '+(err?.message||'오류'),true,t);toast('Gallery 전송에 실패했습니다.');return {added:0,skipped,error:err}}
   }
   async function atlasBulkToGallery(){const r=await atlasEntriesToGallery(atlasSelectedEntries());if(r&&els.atlasArtistDialog.open)renderAtlasArtistDialog()}
 
   async function atlasBulkDelete(){
     const ids=[...state.atlasSelectedIds];if(!ids.length||!confirm(`선택한 ${ids.length}개 이미지를 Artist Atlas에서 삭제할까요? Gallery 이미지는 삭제되지 않습니다.`))return;
-    for(const id of ids){await txDel(STORE_ATLAS,id);state.atlasEntries=state.atlasEntries.filter(x=>x.id!==id);state.compareIds=state.compareIds.filter(ref=>ref!==atlasCompareRef(id))}
-    for(const [k,v] of Object.entries(state.atlasRepresentatives))if(ids.includes(v))delete state.atlasRepresentatives[k];
-    await saveMeta('atlasRepresentatives',state.atlasRepresentatives);state.atlasSelectedIds=[];state.atlasSelectMode=false;renderAtlas();renderAtlasArtistDialog();toast(`${ids.length}개를 삭제했습니다.`);
+    const t=taskStart('Atlas 이미지 삭제','삭제 중',ids.length);let done=0;
+    try{
+      const idSet=new Set(ids);
+      for(let i=0;i<ids.length;i+=8){const batch=ids.slice(i,i+8);await Promise.all(batch.map(id=>txDel(STORE_ATLAS,id)));done+=batch.length;taskUpdate('Atlas 레코드 삭제 중',done,ids.length,t);await new Promise(r=>setTimeout(r,0))}
+      state.atlasEntries=state.atlasEntries.filter(x=>!idSet.has(x.id));state.compareIds=state.compareIds.filter(ref=>!ids.some(id=>ref===atlasCompareRef(id)));
+      for(const [k,v] of Object.entries(state.atlasRepresentatives))if(idSet.has(v))delete state.atlasRepresentatives[k];
+      await saveMeta('atlasRepresentatives',state.atlasRepresentatives);state.atlasSelectedIds=[];state.atlasSelectMode=false;rebuildEntryIndexes();renderAtlas();renderAtlasArtistDialog();taskEnd(`${ids.length}개 삭제 완료`,false,t);toast(`${ids.length}개를 삭제했습니다.`);
+    }catch(err){console.error(err);taskEnd('삭제 실패: '+(err?.message||'오류'),true,t);toast('삭제 중 오류가 발생했습니다.')}
   }
   async function openAtlasImageDetail(id){
     const e=atlasEntry(id);if(!e)return;
