@@ -3794,7 +3794,7 @@ function openDB(){
     await saveMeta('atlasRepresentatives',state.atlasRepresentatives);state.atlasSelectedIds=[];state.atlasSelectMode=false;renderAtlas();renderAtlasArtistDialog();toast(`${ids.length}개를 삭제했습니다.`);
   }
   async function openAtlasImageDetail(id){
-    const e=state.atlasEntries.find(x=>x.id===id);if(!e)return;
+    const e=atlasEntry(id);if(!e)return;
     const directUrl=desktopDirectImageUrl(e);if(DESKTOP_MODE&&!directUrl&&!(e.imageBlob instanceof Blob)){await ensureEntryBlob(e,STORE_ATLAS);if(!(e.imageBlob instanceof Blob)){toast('이미지를 불러오지 못했습니다.');return}}state.atlasCurrentImageId=id;const g=atlasGroupInfo(e);state.atlasCurrentGroupKey=g.key;if(atlasDetailUrl?.startsWith('blob:'))URL.revokeObjectURL(atlasDetailUrl);atlasDetailUrl=directUrl||URL.createObjectURL(e.imageBlob);els.atlasImageDetailImg.src=atlasDetailUrl;els.atlasImageDetailTitle.textContent=g.label;els.atlasImageDetailArtists.textContent=e.artistsText||'';els.atlasImageDetailPrompt.textContent=e.prompt||'';els.atlasImageDetailCharacters.textContent=(e.characterPrompts||[]).join('\n\n');els.atlasImageDetailCharacterUc.textContent=(e.characterUc||[]).join('\n\n');els.atlasImageDetailUc.textContent=e.uc||'';els.atlasImageDetailMemo.value=e.memo||'';els.atlasImageDetailMeta.innerHTML=detailMetaHtml(e);bindSeedCopy(els.atlasImageDetailMeta);bindModelEdit(els.atlasImageDetailMeta,'atlas');els.atlasImageFavBtn.textContent=`${e.favorite?'★':'☆'} 이미지 즐겨찾기`;els.atlasImageRepBtn.textContent=state.atlasRepresentatives[g.key]===id?'대표 이미지 해제':'대표 이미지 지정';els.atlasImageCompareBtn.textContent=state.compareIds.includes(atlasCompareRef(id))?'− 비교':'＋ 비교';if(!els.atlasImageDetailDialog.open){pushAppHistory({atlasImage:true,atlasImageId:id});atlasImageHistoryActive=true;els.atlasImageDetailDialog.showModal();}
   }
   async function saveAtlasArtistMemo(){
@@ -4747,7 +4747,7 @@ async function confirmAtlasGalleryPicker(){const pickerTask=taskStart('Gallery �
   function renderSelectionPreview(){
     const c=selectionPreviewCtx;if(!c||!c.items.length)return closeSelectionPreviewRaw();
     c.index=(c.index+c.items.length)%c.items.length;const item=c.items[c.index],e=item.entry;if(!e?.imageBlob)return;
-    if(selectionPreviewUrl){try{URL.revokeObjectURL(selectionPreviewUrl)}catch{}}selectionPreviewUrl=URL.createObjectURL(e.imageBlob);
+    if(selectionPreviewUrl?.startsWith('blob:')){try{URL.revokeObjectURL(selectionPreviewUrl)}catch{}}selectionPreviewUrl=entryImageUrl('preview',e);
     els.selectionPreviewImg.src=selectionPreviewUrl;els.selectionPreviewTitle.textContent=item.title||e.fileName||'';els.selectionPreviewCount.textContent=`${c.index+1} / ${c.items.length}`;
     const on=isSelectionPreviewSelected(c.source,item.key);els.selectionPreviewPick.textContent=on?'✓ 선택됨':'선택';els.selectionPreviewPick.classList.toggle('selected',on);
     const disabled=c.items.length<2;els.selectionPreviewPrev.disabled=disabled;els.selectionPreviewNext.disabled=disabled;
@@ -4909,7 +4909,7 @@ async function confirmAtlasGalleryPicker(){const pickerTask=taskStart('Gallery �
   }
 
   async function openDetail(id){
-    const e=state.entries.find(x=>x.id===id); if(!e)return;
+    const e=galleryEntry(id); if(!e)return;
     const directUrl=desktopDirectImageUrl(e);if(DESKTOP_MODE&&!directUrl&&!(e.imageBlob instanceof Blob)){await ensureEntryBlob(e,STORE_ENTRIES);if(!(e.imageBlob instanceof Blob)){toast('이미지를 불러오지 못했습니다.');return}}
     state.currentId=id;
     els.detailTitle.value=e.title||''; revokeDetailObjectUrl(); els.detailImage.src=directUrl||URL.createObjectURL(e.imageBlob); els.detailImage.dataset.url=els.detailImage.src;
@@ -5415,7 +5415,7 @@ async function confirmAtlasGalleryPicker(){const pickerTask=taskStart('Gallery �
   function openFolder(id){
     rebuildEntryIndexes();
     const f=folderById(id);if(!f)return;state.currentFolderId=id;
-    if(folderKind(f)==='image'){openImageFolder(f);return}
+    if(folderKind(f)==='image'){requestAnimationFrame(()=>openImageFolder(f));return}
     state.clipboardSelectMode=false;state.clipboardSelected=[];clipboardRenderLimit=60;els.folderTitleInput.value=f.name;els.folderBookmarkBtn.textContent=f.bookmarked?'★':'☆';els.folderBlankEditor.innerHTML='';renderFolderItems();
     if(!els.folderDialog.open){pushAppHistory({naiFolder:true,folderId:id});folderHistoryActive=true;els.folderDialog.showModal()}
     requestAnimationFrame(()=>{const sc=els.folderDialog.querySelector('.folder-notebook-scroll');if(sc)sc.scrollTop=0})
@@ -5857,7 +5857,7 @@ async function confirmAtlasGalleryPicker(){const pickerTask=taskStart('Gallery �
       const checked=state.savedHubSelected.includes(it.key);
       if(it.kind==='image'||it.kind==='imageGroup'){
         let u='';if(it.entry)u=entryImageUrl('savedHub',it.entry);else if(it.blob instanceof Blob)u=URL.createObjectURL(it.blob);else if(desktopFileRef(it.blob))u=window.naiDesktop.imageUrl(it.blob.__naiFile);
-        return `<label class="saved-hub-card image-card" ${u?`data-url="${u}"`:''}><input class="hub-check" type="checkbox" data-key="${escAttr(it.key)}" ${checked?'checked':''}><div class="hub-thumb">${u?`<img src="${u}" alt="" decoding="async">`:''}</div><div class="hub-card-copy"><strong>${esc(it.title)}</strong><span>${esc(it.sub||'')}</span></div></label>`;
+        return `<label class="saved-hub-card image-card" ${u?.startsWith('blob:')?`data-url="${u}"`:''}><input class="hub-check" type="checkbox" data-key="${escAttr(it.key)}" ${checked?'checked':''}><div class="hub-thumb">${u?`<img src="${u}" alt="" decoding="async">`:''}</div><div class="hub-card-copy"><strong>${esc(it.title)}</strong><span>${esc(it.sub||'')}</span></div></label>`;
       }
       if(it.kind==='folder'&&!insideFolder){
         return `<div class="saved-hub-card text-card folder-card-browse" data-folder-id="${escAttr(it.folderId)}"><button type="button" class="hub-folder-open" aria-label="폴더 열기"></button><input class="hub-check" type="checkbox" data-key="${escAttr(it.key)}" ${checked?'checked':''}><span class="hub-kind">▱</span><div class="hub-card-copy"><strong>${esc(it.title||'Untitled')}</strong><span>${esc(it.sub||'')}</span></div><button type="button" class="folder-all-btn">전체</button></div>`;
