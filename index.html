@@ -3269,7 +3269,7 @@ function openDB(){
       window.naiDesktop.getAll(STORE_ENTRIES,{metadataOnly:true}),
       window.naiDesktop.getAll(STORE_ATLAS,{metadataOnly:true}),
       window.naiDesktop.getAll(STORE_META),
-      window.naiDesktop.getAll(STORE_FOLDERS,{metadataOnly:true})
+      window.naiDesktop.getFolderSummaries()
     ]);
     const preserve=(rows,oldRows)=>{const oldMap=new Map(oldRows.map(x=>[x.id,x]));return rows.map(raw=>{
       const old=oldMap.get(raw.id),ref=raw?.imageBlob?.__naiFile;
@@ -3294,7 +3294,7 @@ function openDB(){
     const meta = await txGetAll(STORE_META);
     const map=Object.fromEntries(meta.map(x=>[x.key,x.value]));
     state.artistBookmarks=map.artistBookmarks||[]; state.presets=map.presets||[];
-    const storedFolders=await txGetAll(STORE_FOLDERS);
+    const storedFolders=DESKTOP_MODE ? await window.naiDesktop.getFolderSummaries() : await txGetAll(STORE_FOLDERS);
     const legacyFolders=Array.isArray(map.folders)?map.folders:[];
     state.folders=(storedFolders.length?storedFolders:legacyFolders).map(f=>({...f,kind:f.kind||'clipboard'}));
     if(!storedFolders.length&&legacyFolders.length){
