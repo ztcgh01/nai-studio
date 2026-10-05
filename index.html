@@ -1595,9 +1595,15 @@ body.folder-lightbox-open{overflow:hidden}
 .folder-pick-choice{display:flex;align-items:center;gap:8px;padding:7px 8px;border-radius:6px;cursor:pointer;font-size:10px}
 .folder-pick-choice:hover{background:#f5f5f5}.folder-pick-choice input{width:17px;height:17px}
 .folder-pick-choice small{margin-left:auto;color:#888}.folder-pick-choice .path{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+</style><style id="desktop-refresh-position">
+.floating-menu-tools{position:fixed;z-index:71;left:18px;top:18px;display:flex;align-items:center;gap:7px}
+.floating-menu-tools .menu-btn{position:static!important}
+.refresh-icon-btn{width:36px;height:36px;border:1px solid var(--line);background:#fff;border-radius:7px;display:grid;place-items:center;padding:0;font-size:19px;line-height:1;font-weight:400}
+.refresh-icon-btn:hover{background:#f5f5f5}
+body.is-home .refresh-icon-btn{display:none}
 </style></head>
 <body>
-  <button id="menuBtn" class="menu-btn" aria-label="메뉴"><span></span></button>
+  <div class="floating-menu-tools"><button id="menuBtn" class="menu-btn" aria-label="메뉴"><span></span></button><button id="refreshBtn" class="refresh-icon-btn" aria-label="새로고침" title="새로고침">↻</button></div>
   <input id="fileInput" type="file" accept="image/png,image/jpeg,image/webp" multiple hidden />
   <input id="folderImportInput" type="file" accept="image/png,image/jpeg" multiple webkitdirectory directory hidden />
   
@@ -1813,7 +1819,6 @@ body.folder-lightbox-open{overflow:hidden}
         <button id="backupBtn" class="utility-btn">Backup</button>
         <button id="restoreBtn" class="utility-btn">Merge Import</button>
         <button id="pdfBtn" class="utility-btn">Export</button>
-        <button id="refreshBtn" class="utility-btn">Refresh</button>
         <button id="updateBtn" class="utility-btn">Update</button>
       </div>
     </aside>
