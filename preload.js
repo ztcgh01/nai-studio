@@ -2,6 +2,7 @@ const { contextBridge, ipcRenderer } = require('electron');
 contextBridge.exposeInMainWorld('naiDesktop',{
   getAll:(s,o)=>ipcRenderer.invoke('nai:getAll',s,o),
   getOneHydrated:(s,id)=>ipcRenderer.invoke('nai:getOneHydrated',s,id),
+  getFolderSummaries:()=>ipcRenderer.invoke('nai:getFolderSummaries'),
   scanLooseImages:()=>ipcRenderer.invoke('nai:scanLooseImages'),
   imageUrl:(rel)=>`nai-image://local/${encodeURIComponent(String(rel||''))}`,
   onExternalImportComplete:(cb)=>{const fn=(_e,payload)=>cb(payload);ipcRenderer.on('nai:externalImportComplete',fn);return ()=>ipcRenderer.removeListener('nai:externalImportComplete',fn)},
