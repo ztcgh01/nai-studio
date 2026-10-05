@@ -3800,7 +3800,12 @@ function openDB(){
     const writes=[];let skipped=0;const now=Date.now();
     for(const a of entries){
       if((a.hash&&knownHashes.has(a.hash))||knownAtlasSources.has(a.id)){skipped++;continue}
-      const e={...a,id:crypto.randomUUID(),__fromAtlasId:a.id,imageBlob:a.imageBlob,createdAt:now,updatedAt:now,lastImportAt:now,favorite:false,memo:a.memo||'',title:a.title||''};
+      let imageBlob=a.imageBlob;
+      if(DESKTOP_MODE&&desktopFileRef(imageBlob)){
+        const hydrated=await window.naiDesktop.getOneHydrated(STORE_ATLAS,a.id);
+        if(hydrated?.imageBlob)imageBlob=hydrated.imageBlob;
+      }
+      const e={...a,id:crypto.randomUUID(),__fromAtlasId:a.id,imageBlob,createdAt:now,updatedAt:now,lastImportAt:now,favorite:false,memo:a.memo||'',title:a.title||''};
       delete e.atlasOnly;writes.push(e);if(a.hash)knownHashes.add(a.hash);knownAtlasSources.add(a.id);
     }
     if(writes.length){await txPutMany(STORE_ENTRIES,writes);state.entries.push(...writes);rebuildEntryIndexes();resetGalleryPaging()}
