@@ -4,7 +4,7 @@
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
   <meta name="color-scheme" content="light" />
-  <title>NAI Studio Desktop v1.1.3</title>
+  <title>NAI Studio Desktop v1.1.4</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Young+Serif&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
@@ -1596,13 +1596,13 @@ body.folder-lightbox-open{overflow:hidden}
 .folder-pick-choice:hover{background:#f5f5f5}.folder-pick-choice input{width:17px;height:17px}
 .folder-pick-choice small{margin-left:auto;color:#888}.folder-pick-choice .path{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 </style><style id="desktop-refresh-position">
-.floating-menu-tools{position:fixed;z-index:71;left:18px;top:18px;display:flex;align-items:center;gap:7px}
+.floating-menu-tools{position:fixed!important;z-index:10050!important;left:18px;top:18px;display:flex!important;align-items:center;gap:7px;visibility:visible!important;opacity:1!important}
 .floating-menu-tools .menu-btn{position:static!important}
 .refresh-icon-btn{width:28px;height:36px;border:0;background:transparent;border-radius:0;display:grid;place-items:center;padding:0;font-size:21px;line-height:1;font-weight:400;cursor:pointer}
 .refresh-icon-btn:hover{background:transparent;opacity:.62}
 .refresh-icon-btn.refreshing{animation:naiRefreshSpin .55s linear infinite;pointer-events:none}
 @keyframes naiRefreshSpin{to{transform:rotate(360deg)}}
-body.is-home .refresh-icon-btn{display:none}
+body.is-home .refresh-icon-btn{display:grid}
 </style></head>
 <body>
   <div class="floating-menu-tools"><button id="menuBtn" class="menu-btn" aria-label="메뉴"><span></span></button><button id="refreshBtn" class="refresh-icon-btn" aria-label="새로고침" title="새로고침">↻</button></div>
@@ -2561,13 +2561,19 @@ body.is-home .refresh-icon-btn{display:none}
       const b=document.getElementById('updateBtn');if(b)b.onclick=()=>window.naiDesktop.checkUpdate();
       try{const v=await window.naiDesktop.version();document.title=`NAI Studio Desktop v${v}`;document.querySelectorAll('[data-app-version]').forEach(el=>el.textContent=`v${v}`)}catch(err){console.warn('Version sync failed',err)}
     }else document.getElementById('updateBtn')?.classList.add('hidden');
-    if(els.refreshBtn)els.refreshBtn.onclick=async()=>{
-      if(els.refreshBtn.disabled)return;
-      els.refreshBtn.disabled=true;els.refreshBtn.classList.add('refreshing');
+    const runLightRefresh=async()=>{
+      if(els.refreshBtn?.disabled)return;
+      if(els.refreshBtn){els.refreshBtn.disabled=true;els.refreshBtn.classList.add('refreshing');}
       try{await desktopRefreshLight();toast('새로고침 완료');}
       catch(err){console.error('Refresh failed',err);toast('새로고침 실패');}
-      finally{els.refreshBtn.disabled=false;els.refreshBtn.classList.remove('refreshing');}
+      finally{if(els.refreshBtn){els.refreshBtn.disabled=false;els.refreshBtn.classList.remove('refreshing');}}
     };
+    if(els.refreshBtn)els.refreshBtn.onclick=runLightRefresh;
+    window.addEventListener('keydown',e=>{
+      if(e.key==='F5'){
+        e.preventDefault();e.stopImmediatePropagation();runLightRefresh();
+      }
+    },true);
     db = await openDB();if(!DESKTOP_MODE)await migrateLegacyDatabaseIfNeeded();
     await loadAll();
     // v2.0.1 SAFE: storage guard. Keep a tiny cross-check outside IndexedDB when possible,
