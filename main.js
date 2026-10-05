@@ -202,6 +202,7 @@ async function createWindow(){
     webPreferences:{preload:path.join(__dirname,'preload.js'),contextIsolation:true,nodeIntegration:false,sandbox:false}});
   mainWindow=win;
   win.setMenuBarVisibility(false);
+  win.webContents.on('found-in-page',(_event,result)=>{if(!win.isDestroyed())win.webContents.send('nai:findResult',result)});
   await win.loadFile(path.join(__dirname,'index.html'));
   // Disk discovery is manual-only via Image Scan. Never rescan the library during startup.
   setTimeout(()=>checkForUpdates(false),4500);
@@ -217,6 +218,8 @@ app.whenReady().then(()=>{
     }catch(err){console.error('nai-image protocol failed',err);return new Response('Not found',{status:404})}
   });
   ipcMain.handle('nai:getAll',(_,s,o)=>getAll(s,o));
+  ipcMain.handle('nai:findInPage',(event,text,options={})=>event.sender.findInPage(String(text||''),options||{}));
+  ipcMain.handle('nai:stopFind',(event,action='clearSelection')=>{event.sender.stopFind(action);return true});
   ipcMain.handle('nai:getOneHydrated',(_,s,id)=>getOneHydrated(s,id));
   ipcMain.handle('nai:getFolderSummaries',()=>getFolderSummaries());
   ipcMain.handle('nai:scanLooseImages',()=>scanLooseImages({force:true}));
