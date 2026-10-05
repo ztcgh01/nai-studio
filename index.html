@@ -4,7 +4,7 @@
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
   <meta name="color-scheme" content="light" />
-  <title>NAI Studio Desktop v1.1.2</title>
+  <title>NAI Studio Desktop v1.1.3</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Young+Serif&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
@@ -1598,8 +1598,8 @@ body.folder-lightbox-open{overflow:hidden}
 </style><style id="desktop-refresh-position">
 .floating-menu-tools{position:fixed;z-index:71;left:18px;top:18px;display:flex;align-items:center;gap:7px}
 .floating-menu-tools .menu-btn{position:static!important}
-.refresh-icon-btn{width:36px;height:36px;border:1px solid var(--line);background:#fff;border-radius:7px;display:grid;place-items:center;padding:0;font-size:19px;line-height:1;font-weight:400}
-.refresh-icon-btn:hover{background:#f5f5f5}
+.refresh-icon-btn{width:28px;height:36px;border:0;background:transparent;border-radius:0;display:grid;place-items:center;padding:0;font-size:21px;line-height:1;font-weight:400;cursor:pointer}
+.refresh-icon-btn:hover{background:transparent;opacity:.62}
 .refresh-icon-btn.refreshing{animation:naiRefreshSpin .55s linear infinite;pointer-events:none}
 @keyframes naiRefreshSpin{to{transform:rotate(360deg)}}
 body.is-home .refresh-icon-btn{display:none}
@@ -3145,18 +3145,6 @@ function openDB(){
   }
   const txGetAll = store => DESKTOP_MODE ? window.naiDesktop.getAll(store).then(async rows=>{const out=[];for(const row of rows)out.push(await desktopDecode(row));return out}) : new Promise((res,rej)=>{const r=db.transaction(store).objectStore(store).getAll();r.onsuccess=()=>res(r.result);r.onerror=()=>rej(r.error)});
   const txPut = async (store,val) => {if(DESKTOP_MODE){await window.naiDesktop.put(store,await desktopEncode(val));return}return new Promise((res,rej)=>{const r=db.transaction(store,'readwrite').objectStore(store).put(val);r.onsuccess=()=>res();r.onerror=()=>rej(r.error)})};
-  const txPutMany = async (store,vals) => {
-    if(!vals?.length)return;
-    if(DESKTOP_MODE){
-      const chunkSize=12;
-      for(let i=0;i<vals.length;i+=chunkSize){
-        const encoded=await Promise.all(vals.slice(i,i+chunkSize).map(v=>desktopEncode(v)));
-        await window.naiDesktop.putMany(store,encoded);
-      }
-      return;
-    }
-    await Promise.all(vals.map(v=>txPut(store,v)));
-  };
   async function analyzeImportFiles(files,onProgress){
     const out=new Array(files.length),workers=Math.min(DESKTOP_MODE?4:2,files.length);let next=0,done=0;
     await Promise.all(Array.from({length:workers},async()=>{
@@ -4975,7 +4963,18 @@ async function confirmAtlasGalleryPicker(){const pickerTask=taskStart('Gallery â
     const raw=String(text||'');if(!raw.trim())return [];
     return raw.split(/\n\s*---\s*\n/g).map(x=>x.trim()).filter(Boolean);
   }
-  function txPutMany(store,items){if(DESKTOP_MODE)return Promise.all(items.map(item=>txPut(store,item)));return new Promise((res,rej)=>{if(!items.length){res();return}const tx=db.transaction(store,'readwrite'),os=tx.objectStore(store);for(const item of items)os.put(item);tx.oncomplete=()=>res();tx.onerror=()=>rej(tx.error);tx.onabort=()=>rej(tx.error||new Error('transaction aborted'))})}
+  async function txPutMany(store,items){
+    if(!items?.length)return;
+    if(DESKTOP_MODE){
+      const chunkSize=12;
+      for(let i=0;i<items.length;i+=chunkSize){
+        const encoded=await Promise.all(items.slice(i,i+chunkSize).map(v=>desktopEncode(v)));
+        await window.naiDesktop.putMany(store,encoded);
+      }
+      return;
+    }
+    return new Promise((res,rej)=>{const tx=db.transaction(store,'readwrite'),os=tx.objectStore(store);for(const item of items)os.put(item);tx.oncomplete=()=>res();tx.onerror=()=>rej(tx.error);tx.onabort=()=>rej(tx.error||new Error('transaction aborted'))});
+  }
   async function applyBulkEdit(){
     const entries=state.selectedIds.map(id=>state.entries.find(e=>e.id===id)).filter(Boolean);if(!entries.length)return;
     const enabled={artists:els.bulkEditArtistsOn.checked,prompt:els.bulkEditPromptOn.checked,characters:els.bulkEditCharactersOn.checked,characterUc:els.bulkEditCharacterUcOn.checked,uc:els.bulkEditUcOn.checked,memo:els.bulkEditMemoOn.checked,model:els.bulkEditModelOn.checked};
