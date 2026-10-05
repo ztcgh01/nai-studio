@@ -100,12 +100,12 @@ async function replace(store,vals){
   for(const v of vals)await put(store,v);
   for(const n of await fsp.readdir(dir))if(n.endsWith('.json')&&!keep.has(n))await fsp.unlink(path.join(dir,n));
 }
-async function importLooseGalleryFiles(){
+async function importLooseGalleryFiles({force=false}={}){
   let added=0;
   const imgDir=path.join(root,'images','gallery'),recDir=path.join(root,'library','entries'),scanFile=path.join(root,'library','.gallery-scan.json');
   let dirStamp=0;try{dirStamp=(await fsp.stat(imgDir)).mtimeMs}catch{}
   const previousScan=await readJson(scanFile,{});
-  if(dirStamp&&previousScan?.dirStamp===dirStamp)return 0;
+  if(!force&&dirStamp&&previousScan?.dirStamp===dirStamp)return 0;
   const known=new Set();
   for(const n of await fsp.readdir(recDir)){
     if(!n.endsWith('.json'))continue;
@@ -189,6 +189,7 @@ app.whenReady().then(()=>{
   });
   ipcMain.handle('nai:getAll',(_,s,o)=>getAll(s,o));
   ipcMain.handle('nai:getOneHydrated',(_,s,id)=>getOneHydrated(s,id));
+  ipcMain.handle('nai:rescanLooseGallery',()=>importLooseGalleryFiles({force:true}));
   ipcMain.handle('nai:put',(_,s,v)=>put(s,v));
   ipcMain.handle('nai:putMany',(_,s,v)=>putMany(s,v));
   ipcMain.handle('nai:delete',(_,s,id)=>del(s,id));
