@@ -4,7 +4,7 @@
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
   <meta name="color-scheme" content="light" />
-  <title>NAI Studio Desktop v1.1.4</title>
+  <title>NAI Studio Desktop v1.1.5</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Young+Serif&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
@@ -1603,6 +1603,7 @@ body.folder-lightbox-open{overflow:hidden}
 .refresh-icon-btn.refreshing{animation:naiRefreshSpin .55s linear infinite;pointer-events:none}
 @keyframes naiRefreshSpin{to{transform:rotate(360deg)}}
 body.is-home .refresh-icon-btn{display:grid}
+.floating-menu-tools #menuBtn,.floating-menu-tools #menuBtn.menu-btn,body.is-home .floating-menu-tools #menuBtn{display:grid!important;visibility:visible!important;opacity:1!important;pointer-events:auto!important;position:static!important}
 </style></head>
 <body>
   <div class="floating-menu-tools"><button id="menuBtn" class="menu-btn" aria-label="메뉴"><span></span></button><button id="refreshBtn" class="refresh-icon-btn" aria-label="새로고침" title="새로고침">↻</button></div>
@@ -2570,6 +2571,12 @@ body.is-home .refresh-icon-btn{display:grid}
     };
     if(els.refreshBtn)els.refreshBtn.onclick=runLightRefresh;
     window.addEventListener('keydown',e=>{
+      if(e.key==='F1'||e.key==='F4'){
+        e.preventDefault();e.stopImmediatePropagation();
+        const open=els.sidebar.classList.toggle('open');
+        els.menuBtn.classList.toggle('open',open);
+        return;
+      }
       if(e.key==='F5'){
         e.preventDefault();e.stopImmediatePropagation();runLightRefresh();
       }
