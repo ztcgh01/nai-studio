@@ -39,16 +39,16 @@ function extFromMime(mime,name=''){
   if(/png/i.test(mime))return 'png'; if(/webp/i.test(mime))return 'webp'; if(/jpe?g/i.test(mime))return 'jpg';
   const e=path.extname(name).replace('.','').toLowerCase(); return ['png','jpg','jpeg','webp'].includes(e)?e:'bin';
 }
-async function materializeBinary(obj,baseParts=[]){
+async function materializeBinary(obj,baseParts=[],ctx={store:'',id:'',keyPath:[]}){
   if(!obj||typeof obj!=='object')return obj;
   if(obj.__naiBinary&&obj.bytes){
-    const ext=extFromMime(obj.mime,obj.name),rel=path.join(...baseParts)+'.'+ext,abs=path.join(root,rel);
+    const ext=extFromMime(obj.mime,obj.name),rel=path.join(...baseParts,binaryStem(ctx.store,ctx.id,obj,ctx.keyPath))+'.'+ext,abs=path.join(root,rel);
     await fsp.mkdir(path.dirname(abs),{recursive:true});
     const tmp=abs+'.tmp-'+process.pid+'-'+Date.now()+'-'+Math.random().toString(16).slice(2); await fsp.writeFile(tmp,Buffer.from(obj.bytes)); try{await fsp.rename(tmp,abs)}catch(err){try{await fsp.unlink(abs)}catch{}await fsp.rename(tmp,abs)}
     return {__naiFile:rel.replace(/\\/g,'/'),mime:obj.mime||'',name:obj.name||''};
   }
-  if(Array.isArray(obj)){const out=[];for(let i=0;i<obj.length;i++)out.push(await materializeBinary(obj[i],[...baseParts,String(i)]));return out}
-  const out={};for(const [k,v] of Object.entries(obj))out[k]=await materializeBinary(v,[...baseParts,safe(k)]);return out;
+  if(Array.isArray(obj)){const out=[];for(let i=0;i<obj.length;i++)out.push(await materializeBinary(obj[i],baseParts,{...ctx,keyPath:[...ctx.keyPath,String(i)]}));return out}
+  const out={};for(const [k,v] of Object.entries(obj))out[k]=await materializeBinary(v,baseParts,{...ctx,keyPath:[...ctx.keyPath,k]});return out;
 }
 async function hydrateBinary(obj){
   if(!obj||typeof obj!=='object')return obj;
@@ -57,7 +57,12 @@ async function hydrateBinary(obj){
   const out={};for(const [k,v] of Object.entries(obj))out[k]=await hydrateBinary(v);return out;
 }
 function recFile(store,id){return path.join(root,STORE_DIR[store],safe(id)+'.json')}
-function binBase(store,id){return store==='entries'?['images','gallery',safe(id)]:store==='atlasEntries'?['images','atlas',safe(id)]:['images','folders',safe(id)]}
+function binBase(store,id){return store==='entries'?['images','gallery']:store==='atlasEntries'?['images','atlas']:['images','folders']}
+function binaryStem(store,id,obj,keyPath=[]){
+  const original=path.basename(String(obj?.name||'')).replace(/\.[^.]+$/,'');
+  const suffix=keyPath.length?'-'+keyPath.map(safe).join('-'):'';
+  return safe((original||id)+suffix+'-'+safe(id).slice(-10));
+}
 async function getAll(store){
   if(store==='meta'){const m=await readJson(path.join(root,'meta.json'),{});return Object.entries(m).map(([key,value])=>({key,value}))}
   const dir=path.join(root,STORE_DIR[store]);let names=[];try{names=await fsp.readdir(dir)}catch{}
@@ -66,7 +71,7 @@ async function getAll(store){
 }
 async function put(store,val){
   if(store==='meta'){const file=path.join(root,'meta.json'),m=await readJson(file,{});m[val.key]=val.value;await atomicJson(file,m);return}
-  const encoded=await materializeBinary(val,binBase(store,val.id));await atomicJson(recFile(store,val.id),encoded);
+  const encoded=await materializeBinary(val,binBase(store,val.id),{store,id:val.id,keyPath:[]});await atomicJson(recFile(store,val.id),encoded);
 }
 async function del(store,id){
   if(store==='meta'){const file=path.join(root,'meta.json'),m=await readJson(file,{});delete m[id];await atomicJson(file,m);return}
