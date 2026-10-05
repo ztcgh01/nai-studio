@@ -2598,7 +2598,11 @@ body.is-home .refresh-icon-btn{display:grid}
     const runLightRefresh=async()=>{
       if(els.refreshBtn?.disabled)return;
       if(els.refreshBtn){els.refreshBtn.disabled=true;els.refreshBtn.classList.add('refreshing');}
-      try{await desktopRefreshLight();toast('새로고침 완료');}
+      try{
+        const added=DESKTOP_MODE&&window.naiDesktop?.rescanLooseGallery?await window.naiDesktop.rescanLooseGallery():0;
+        await desktopRefreshLight();
+        toast(added>0?`새 이미지 ${added}개 반영 완료`:'새로고침 완료');
+      }
       catch(err){console.error('Refresh failed',err);toast('새로고침 실패');}
       finally{if(els.refreshBtn){els.refreshBtn.disabled=false;els.refreshBtn.classList.remove('refreshing');}}
     };
