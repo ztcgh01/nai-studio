@@ -1822,6 +1822,7 @@ body.is-home .refresh-icon-btn{display:grid}
         <button id="backupBtn" class="utility-btn">Backup</button>
         <button id="restoreBtn" class="utility-btn">Merge Import</button>
         <button id="pdfBtn" class="utility-btn">Export</button>
+        <button id="rescanImagesBtn" class="utility-btn">이미지 재스캔</button>
         <button id="updateBtn" class="utility-btn">Update</button>
       </div>
     </aside>
@@ -2598,15 +2599,27 @@ body.is-home .refresh-icon-btn{display:grid}
     const runLightRefresh=async()=>{
       if(els.refreshBtn?.disabled)return;
       if(els.refreshBtn){els.refreshBtn.disabled=true;els.refreshBtn.classList.add('refreshing');}
-      try{
-        const added=DESKTOP_MODE&&window.naiDesktop?.rescanLooseGallery?await window.naiDesktop.rescanLooseGallery():0;
-        await desktopRefreshLight();
-        toast(added>0?`새 이미지 ${added}개 반영 완료`:'새로고침 완료');
-      }
+      try{await desktopRefreshLight();toast('새로고침 완료');}
       catch(err){console.error('Refresh failed',err);toast('새로고침 실패');}
       finally{if(els.refreshBtn){els.refreshBtn.disabled=false;els.refreshBtn.classList.remove('refreshing');}}
     };
     if(els.refreshBtn)els.refreshBtn.onclick=runLightRefresh;
+    const rescanBtn=document.getElementById('rescanImagesBtn');
+    if(rescanBtn){
+      if(!DESKTOP_MODE)rescanBtn.classList.add('hidden');
+      else rescanBtn.onclick=async()=>{
+        if(rescanBtn.disabled)return;
+        rescanBtn.disabled=true;
+        const original=rescanBtn.textContent;
+        rescanBtn.textContent='재스캔 중…';
+        try{
+          const added=await window.naiDesktop.rescanLooseGallery();
+          if(added>0)await desktopRefreshLight();
+          toast(added>0?`새 이미지 ${added}개 반영 완료`:'새 이미지 없음');
+        }catch(err){console.error('Image rescan failed',err);toast('이미지 재스캔 실패');}
+        finally{rescanBtn.disabled=false;rescanBtn.textContent=original;}
+      };
+    }
     window.addEventListener('keydown',e=>{
       if(e.key==='F1'||e.key==='F4'){
         e.preventDefault();e.stopImmediatePropagation();
