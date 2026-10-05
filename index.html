@@ -2534,8 +2534,17 @@ body.is-home .refresh-icon-btn{display:grid}
     }).catch(err=>console.warn('Lazy image load failed',e.id,err)).finally(()=>lazyBlobLoads.delete(loadKey));
     lazyBlobLoads.set(loadKey,job);
   }
+  function desktopDirectImageUrl(e){
+    const ref=e?.imageBlob?.__naiFile;
+    return DESKTOP_MODE&&ref&&window.naiDesktop?.imageUrl?window.naiDesktop.imageUrl(ref):'';
+  }
+  function entryImageUrl(scope,e){
+    const direct=desktopDirectImageUrl(e);if(direct)return direct;
+    return cachedThumbUrl(scope,e);
+  }
   function cachedThumbUrl(scope,e){
     if(!e?.imageBlob)return '';
+    const direct=desktopDirectImageUrl(e);if(direct)return direct;
     if(!(e.imageBlob instanceof Blob)){scheduleLazyBlob(scope,e);return ''}
     const key=`${scope}:${e.id}`,old=thumbUrlCache.get(key);
     if(old&&old.blob===e.imageBlob){old.last=Date.now();return old.url}
@@ -2607,6 +2616,7 @@ body.is-home .refresh-icon-btn{display:grid}
     },true);
     db = await openDB();if(!DESKTOP_MODE)await migrateLegacyDatabaseIfNeeded();
     await loadAll();
+    if(DESKTOP_MODE&&window.naiDesktop?.onExternalImportComplete)window.naiDesktop.onExternalImportComplete(async payload=>{if(payload?.added>0){await desktopRefreshLight();toast(`${payload.added}개 외부 이미지를 백그라운드에서 추가했습니다.`)}});
     // v2.0.1 SAFE: storage guard. Keep a tiny cross-check outside IndexedDB when possible,
     // request persistent storage, and warn if a previously populated DB suddenly opens empty.
     if(!DESKTOP_MODE)await initStorageGuard();
@@ -3237,6 +3247,7 @@ function openDB(){
     if(savedVisibleFields?.length) state.visibleFields=new Set(savedVisibleFields);
     els.fieldPanel?.querySelectorAll('[data-field]').forEach(cb=>{cb.checked=state.visibleFields.has(cb.dataset.field);});
 
+    // v1.2.0 desktop performance: first paint no longer waits for loose-file scans; on-disk images render through nai-image:// without binary IPC/Blob hydration.
     // v1.9.20: NovelAI Source hash model classification (V4.5/V5 Full/Curated), model badges/filters, and persistent Gallery/Atlas view preferences.
     // v1.7.1: Detail control visual unification + Artist Index artist:name quick copy + app/tab/Atlas/folder-lightbox browser-back history.
     // v1.9.9: 브라우저 간 백업을 안전하게 왕복할 수 있도록 필드 단위 스마트 병합 + 폴더/북마크 union 복원을 추가.
@@ -3724,7 +3735,7 @@ function openDB(){
   }
   async function openAtlasImageDetail(id){
     const e=state.atlasEntries.find(x=>x.id===id);if(!e)return;
-    if(DESKTOP_MODE&&!(e.imageBlob instanceof Blob)){await ensureEntryBlob(e,STORE_ATLAS);if(!(e.imageBlob instanceof Blob)){toast('이미지를 불러오지 못했습니다.');return}}state.atlasCurrentImageId=id;const g=atlasGroupInfo(e);state.atlasCurrentGroupKey=g.key;if(atlasDetailUrl)URL.revokeObjectURL(atlasDetailUrl);atlasDetailUrl=URL.createObjectURL(e.imageBlob);els.atlasImageDetailImg.src=atlasDetailUrl;els.atlasImageDetailTitle.textContent=g.label;els.atlasImageDetailArtists.textContent=e.artistsText||'';els.atlasImageDetailPrompt.textContent=e.prompt||'';els.atlasImageDetailCharacters.textContent=(e.characterPrompts||[]).join('\n\n');els.atlasImageDetailCharacterUc.textContent=(e.characterUc||[]).join('\n\n');els.atlasImageDetailUc.textContent=e.uc||'';els.atlasImageDetailMemo.value=e.memo||'';els.atlasImageDetailMeta.innerHTML=detailMetaHtml(e);bindSeedCopy(els.atlasImageDetailMeta);bindModelEdit(els.atlasImageDetailMeta,'atlas');els.atlasImageFavBtn.textContent=`${e.favorite?'★':'☆'} 이미지 즐겨찾기`;els.atlasImageRepBtn.textContent=state.atlasRepresentatives[g.key]===id?'대표 이미지 해제':'대표 이미지 지정';els.atlasImageCompareBtn.textContent=state.compareIds.includes(atlasCompareRef(id))?'− 비교':'＋ 비교';if(!els.atlasImageDetailDialog.open){pushAppHistory({atlasImage:true,atlasImageId:id});atlasImageHistoryActive=true;els.atlasImageDetailDialog.showModal();}
+    const directUrl=desktopDirectImageUrl(e);if(DESKTOP_MODE&&!directUrl&&!(e.imageBlob instanceof Blob)){await ensureEntryBlob(e,STORE_ATLAS);if(!(e.imageBlob instanceof Blob)){toast('이미지를 불러오지 못했습니다.');return}}state.atlasCurrentImageId=id;const g=atlasGroupInfo(e);state.atlasCurrentGroupKey=g.key;if(atlasDetailUrl?.startsWith('blob:'))URL.revokeObjectURL(atlasDetailUrl);atlasDetailUrl=directUrl||URL.createObjectURL(e.imageBlob);els.atlasImageDetailImg.src=atlasDetailUrl;els.atlasImageDetailTitle.textContent=g.label;els.atlasImageDetailArtists.textContent=e.artistsText||'';els.atlasImageDetailPrompt.textContent=e.prompt||'';els.atlasImageDetailCharacters.textContent=(e.characterPrompts||[]).join('\n\n');els.atlasImageDetailCharacterUc.textContent=(e.characterUc||[]).join('\n\n');els.atlasImageDetailUc.textContent=e.uc||'';els.atlasImageDetailMemo.value=e.memo||'';els.atlasImageDetailMeta.innerHTML=detailMetaHtml(e);bindSeedCopy(els.atlasImageDetailMeta);bindModelEdit(els.atlasImageDetailMeta,'atlas');els.atlasImageFavBtn.textContent=`${e.favorite?'★':'☆'} 이미지 즐겨찾기`;els.atlasImageRepBtn.textContent=state.atlasRepresentatives[g.key]===id?'대표 이미지 해제':'대표 이미지 지정';els.atlasImageCompareBtn.textContent=state.compareIds.includes(atlasCompareRef(id))?'− 비교':'＋ 비교';if(!els.atlasImageDetailDialog.open){pushAppHistory({atlasImage:true,atlasImageId:id});atlasImageHistoryActive=true;els.atlasImageDetailDialog.showModal();}
   }
   async function saveAtlasArtistMemo(){
     const key=state.atlasCurrentGroupKey;if(!key)return;
@@ -3801,8 +3812,8 @@ function openDB(){
     const arr=filteredGalleryForAtlasPicker();
     els.atlasGalleryPickerGrid.innerHTML='';
     for(const e of arr){
-      const u=URL.createObjectURL(e.imageBlob);
-      atlasPickerUrls.push(u);
+      const u=entryImageUrl('atlasPicker',e);
+      if(u.startsWith('blob:'))atlasPickerUrls.push(u);
       const d=document.createElement('div');
       d.className='atlas-pick-card '+(state.atlasGalleryPickerIds.includes(e.id)?'selected':'');
       d.dataset.id=e.id;
@@ -4839,9 +4850,9 @@ async function confirmAtlasGalleryPicker(){const pickerTask=taskStart('Gallery �
 
   async function openDetail(id){
     const e=state.entries.find(x=>x.id===id); if(!e)return;
-    if(DESKTOP_MODE&&!(e.imageBlob instanceof Blob)){await ensureEntryBlob(e,STORE_ENTRIES);if(!(e.imageBlob instanceof Blob)){toast('이미지를 불러오지 못했습니다.');return}}
+    const directUrl=desktopDirectImageUrl(e);if(DESKTOP_MODE&&!directUrl&&!(e.imageBlob instanceof Blob)){await ensureEntryBlob(e,STORE_ENTRIES);if(!(e.imageBlob instanceof Blob)){toast('이미지를 불러오지 못했습니다.');return}}
     state.currentId=id;
-    els.detailTitle.value=e.title||''; revokeDetailObjectUrl(); els.detailImage.src=URL.createObjectURL(e.imageBlob); els.detailImage.dataset.url=els.detailImage.src;
+    els.detailTitle.value=e.title||''; revokeDetailObjectUrl(); els.detailImage.src=directUrl||URL.createObjectURL(e.imageBlob); els.detailImage.dataset.url=els.detailImage.src;
     els.detailArtists.value=e.artistsText||''; els.detailPrompt.value=e.prompt||''; els.detailUc.value=e.uc||''; els.detailMemo.value=e.memo||'';
     const favMark=e.favorite?'★':'☆';
     els.detailFav.textContent=`${favMark} 즐겨찾기`;
