@@ -1581,6 +1581,7 @@ body.folder-lightbox-open{overflow:hidden}
     contain-intrinsic-size:320px 420px;
   }
   .atlas-artist-grid .atlas-image-card{content-visibility:visible!important;contain-intrinsic-size:none!important;overflow-anchor:none!important}
+  .atlas-artist-grid{overflow-anchor:none!important}.atlas-artist-grid .gallery-load-more{overflow-anchor:none!important}
   .image-folder-grid .image-folder-card{content-visibility:visible!important;contain-intrinsic-size:none!important}
 }
 </style>
@@ -3736,32 +3737,26 @@ function openDB(){
     return visible;
   }
   function appendAtlasArtistPage(g,visible,globalTokens,repId){
-    const grid=els.atlasArtistGrid,start=grid.querySelectorAll('.atlas-image-card').length,end=Math.min(visible.length,start+60),moreOld=grid.querySelector('.gallery-load-more');
-    if(moreOld)moreOld.remove();
-    const frag=document.createDocumentFragment();
-    for(const e of visible.slice(start,end))frag.appendChild(buildAtlasArtistCard(e,g,repId,globalTokens));
-    grid.appendChild(frag);state.atlasArtistRenderLimit=end;
-    if(end<visible.length){
-      const more=document.createElement('button');more.type='button';more.className='gallery-load-more';more.textContent=`＋ ${Math.min(60,visible.length-end)}개 더 보기`;
-      more.onclick=ev=>{
-        const sc=els.atlasArtistGrid,sr=sc.getBoundingClientRect();
-        const cards=[...sc.querySelectorAll('.atlas-image-card')];
-        const anchor=cards.find(c=>{const r=c.getBoundingClientRect();return r.bottom>sr.top+2&&r.top<sr.bottom-2})||cards[cards.length-1]||null;
-        const before=anchor?.getBoundingClientRect().top??null,top=sc.scrollTop;
-        ev.currentTarget.blur();
-        appendAtlasArtistPage(g,visible,globalTokens,repId);
-        const restore=()=>{
-          if(anchor&&before!==null&&anchor.isConnected){
-            const delta=anchor.getBoundingClientRect().top-before;
-            if(Math.abs(delta)>.25)sc.scrollTop+=delta;
-          }else sc.scrollTop=top;
-        };
-        restore();requestAnimationFrame(()=>{restore();requestAnimationFrame(restore)});
-        pruneThumbCache('atlasArtist',visible.slice(0,state.atlasArtistRenderLimit).map(e=>e.id),Math.max(180,state.atlasArtistRenderLimit+40));
-        updateAtlasSelectionUi();bindAtlasArtistSweep();
-      };
-      grid.appendChild(more);
+    const grid=els.atlasArtistGrid;
+    let more=grid.querySelector('.gallery-load-more[data-atlas-more="1"]');
+    const start=grid.querySelectorAll('.atlas-image-card').length,end=Math.min(visible.length,start+60);
+    if(!more){
+      more=document.createElement('button');more.type='button';more.className='gallery-load-more';more.dataset.atlasMore='1';
+      more.style.gridColumn='1/-1';grid.appendChild(more);
     }
+    const frag=document.createDocumentFragment();
+    for(const entry of visible.slice(start,end))frag.appendChild(buildAtlasArtistCard(entry,g,repId,globalTokens));
+    grid.insertBefore(frag,more);state.atlasArtistRenderLimit=end;
+    if(end>=visible.length){more.remove();return}
+    more.textContent=`＋ ${Math.min(60,visible.length-end)}개 더 보기`;
+    more.onclick=ev=>{
+      ev.preventDefault();ev.currentTarget.blur();
+      const sc=els.atlasArtistGrid,top=sc.scrollTop;
+      appendAtlasArtistPage(g,visible,globalTokens,repId);
+      sc.scrollTop=top;
+      pruneThumbCache('atlasArtist',visible.slice(0,state.atlasArtistRenderLimit).map(entry=>entry.id),Math.max(180,state.atlasArtistRenderLimit+40));
+      updateAtlasSelectionUi();bindAtlasArtistSweep();
+    };
   }
   function renderAtlasArtistDialog(){
     const g=atlasGroups().find(x=>x.key===state.atlasCurrentGroupKey);if(!g){els.atlasArtistDialog.close();return}
@@ -4920,11 +4915,15 @@ async function confirmAtlasGalleryPicker(){const pickerTask=taskStart('Gallery �
   function bindGlobalQuickFolderContext(){
     if(document.documentElement.dataset.quickFolderDelegated==='1')return;
     document.documentElement.dataset.quickFolderDelegated='1';
-    document.addEventListener('contextmenu',ev=>{
+    document.addEventListener('contextmenu',async ev=>{
       const payload=quickFolderPayloadFromTarget(ev.target);
       if(!payload)return;
       ev.preventDefault();ev.stopImmediatePropagation();
-      openQuickFolderContext(ev,payload.items,payload.label);
+      closeQuickFolderContext();
+      const action=DESKTOP_MODE&&window.naiDesktop?.showImageContextMenu
+        ?await window.naiDesktop.showImageContextMenu({label:`폴더에 추가 · ${payload.label}`})
+        :'addToFolder';
+      if(action==='addToFolder')openFolderPicker(payload.items);
     },true);
   }
   function renderGalleryCard(e){
