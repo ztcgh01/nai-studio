@@ -3706,32 +3706,54 @@ function openDB(){
     if(!on)state.atlasSelectedIds=state.atlasSelectedIds.filter(x=>x!==id);
     syncAtlasSelectionDom();
   }
+  function buildAtlasArtistCard(e,g,repId,globalTokens){
+    const hit=globalTokens.length&&atlasEntryMatchesSearch(e,globalTokens),u=cachedThumbUrl('atlasArtist',e);
+    const card=document.createElement('article');card.dataset.id=e.id;card.className=`atlas-image-card ${hit?'atlas-search-hit':''} ${state.atlasSelectedIds.includes(e.id)?'atlas-selected':''}`;
+    card.innerHTML=`<input class="atlas-image-check" type="checkbox" ${state.atlasSelectedIds.includes(e.id)?'checked':''}><div class="atlas-image-thumb"><img src="${u}" alt=""><button type="button" class="selection-expand-btn" aria-label="크게 보기">⛶</button>${repId===e.id?'<span class="atlas-rep-mark">REP</span>':''}</div><div class="atlas-image-title-row"><div class="atlas-image-title">${esc(displayTitle(e))}</div><span class="atlas-image-model-label">${esc(modelShortLabel(e))}</span></div><div class="atlas-image-actions"><button data-act="fav">${e.favorite?'★':'☆'} Image</button><button data-act="rep" class="${repId===e.id?'primary':''}">${repId===e.id?'대표 해제':'대표 지정'}</button><button data-act="memo">메모</button><button data-act="gallery">→ Gallery</button></div><textarea class="atlas-quick-memo" placeholder="빠른 메모 · 자동 저장">${esc(e.memo||'')}</textarea>`;
+    card.querySelector('.atlas-image-check').onchange=ev=>setAtlasSelected(e.id,ev.target.checked);
+    card.querySelector('.selection-expand-btn').onclick=ev=>{ev.stopPropagation();openSelectionPreview('atlas',e.id)};
+    card.querySelector('.atlas-image-thumb').onclick=()=>{if(state.atlasSelectMode){setAtlasSelected(e.id,!state.atlasSelectedIds.includes(e.id));return}openAtlasImageDetail(e.id)};
+    card.querySelector('[data-act="fav"]').onclick=()=>toggleAtlasImageFavorite(e.id);
+    card.querySelector('[data-act="rep"]').onclick=()=>setAtlasRepresentative(g.key,repId===e.id?null:e.id);
+    card.querySelector('[data-act="gallery"]').onclick=()=>sendAtlasToGallery(e.id);
+    const memo=card.querySelector('.atlas-quick-memo');card.querySelector('[data-act="memo"]').onclick=()=>{memo.classList.toggle('open');if(memo.classList.contains('open'))memo.focus()};
+    let mt=null;memo.oninput=()=>{clearTimeout(mt);mt=setTimeout(async()=>{e.memo=memo.value;e.updatedAt=Date.now();await txPut(STORE_ATLAS,e)},300)};
+    return card;
+  }
+  function atlasArtistVisibleEntries(g,globalTokens){
+    let visible=g.entries.filter(e=>atlasArtistEntryMatches(e));
+    if(globalTokens.length)visible=[...visible].sort((a,b)=>Number(atlasEntryMatchesSearch(b,globalTokens))-Number(atlasEntryMatchesSearch(a,globalTokens)));
+    return visible;
+  }
+  function appendAtlasArtistPage(g,visible,globalTokens,repId){
+    const grid=els.atlasArtistGrid,start=grid.querySelectorAll('.atlas-image-card').length,end=Math.min(visible.length,start+60),moreOld=grid.querySelector('.gallery-load-more');
+    if(moreOld)moreOld.remove();
+    const frag=document.createDocumentFragment();
+    for(const e of visible.slice(start,end))frag.appendChild(buildAtlasArtistCard(e,g,repId,globalTokens));
+    grid.appendChild(frag);state.atlasArtistRenderLimit=end;
+    if(end<visible.length){
+      const more=document.createElement('button');more.type='button';more.className='gallery-load-more';more.textContent=`＋ ${Math.min(60,visible.length-end)}개 더 보기`;
+      more.onclick=()=>{
+        const sc=els.atlasArtistDialog.querySelector('.atlas-artist-body')||els.atlasArtistGrid.parentElement||els.atlasArtistGrid;
+        const top=sc.scrollTop;
+        appendAtlasArtistPage(g,visible,globalTokens,repId);
+        sc.scrollTop=top;
+        pruneThumbCache('atlasArtist',visible.slice(0,state.atlasArtistRenderLimit).map(e=>e.id),Math.max(180,state.atlasArtistRenderLimit+40));
+        updateAtlasSelectionUi();bindAtlasArtistSweep();
+      };
+      grid.appendChild(more);
+    }
+  }
   function renderAtlasArtistDialog(){
     const g=atlasGroups().find(x=>x.key===state.atlasCurrentGroupKey);if(!g){els.atlasArtistDialog.close();return}
     els.atlasArtistType.textContent=g.type==='multiple'?'MULTIPLE ARTISTS':g.type==='unsorted'?'UNSORTED':'ARTIST';els.atlasArtistTitle.textContent=g.label;els.atlasArtistFavorite.textContent=state.atlasArtistFavorites.includes(g.key)?'★':'☆';els.atlasArtistMemo.value=state.atlasArtistMemos[g.key]||'';renderAtlasArtistClassification(g.key);els.atlasArtistGrid.innerHTML='';
-    const globalTokens=atlasSearchTokens(), localTokens=atlasArtistLocalTokens();
-    let visible=g.entries.filter(e=>atlasArtistEntryMatches(e));
-    if(globalTokens.length)visible=[...visible].sort((a,b)=>Number(atlasEntryMatchesSearch(b,globalTokens))-Number(atlasEntryMatchesSearch(a,globalTokens)));
+    const globalTokens=atlasSearchTokens(),localTokens=atlasArtistLocalTokens(),visible=atlasArtistVisibleEntries(g,globalTokens);
     const globalMatches=globalTokens.length?g.entries.filter(e=>atlasEntryMatchesSearch(e,globalTokens)).length:0;
     els.atlasArtistStats.textContent=localTokens.length?`${visible.length} / ${g.entries.length} images`:globalTokens.length&&globalMatches?`${g.entries.length} images · 전체 검색 일치 ${globalMatches}`:`${g.entries.length} images`;
-    const repId=state.atlasRepresentatives[g.key]||null,artistVisible=visible.slice(0,state.atlasArtistRenderLimit||60);
-    for(const e of artistVisible){
-      const hit=globalTokens.length&&atlasEntryMatchesSearch(e,globalTokens),u=cachedThumbUrl('atlasArtist',e);
-      const card=document.createElement('article');card.dataset.id=e.id;card.className=`atlas-image-card ${hit?'atlas-search-hit':''} ${state.atlasSelectedIds.includes(e.id)?'atlas-selected':''}`;
-      card.innerHTML=`<input class="atlas-image-check" type="checkbox" ${state.atlasSelectedIds.includes(e.id)?'checked':''}><div class="atlas-image-thumb"><img src="${u}" alt=""><button type="button" class="selection-expand-btn" aria-label="크게 보기">⛶</button>${repId===e.id?'<span class="atlas-rep-mark">REP</span>':''}</div><div class="atlas-image-title-row"><div class="atlas-image-title">${esc(displayTitle(e))}</div><span class="atlas-image-model-label">${esc(modelShortLabel(e))}</span></div><div class="atlas-image-actions"><button data-act="fav">${e.favorite?'★':'☆'} Image</button><button data-act="rep" class="${repId===e.id?'primary':''}">${repId===e.id?'대표 해제':'대표 지정'}</button><button data-act="memo">메모</button><button data-act="gallery">→ Gallery</button></div><textarea class="atlas-quick-memo" placeholder="빠른 메모 · 자동 저장">${esc(e.memo||'')}</textarea>`;
-      card.querySelector('.atlas-image-check').onchange=ev=>setAtlasSelected(e.id,ev.target.checked);
-      card.querySelector('.selection-expand-btn').onclick=ev=>{ev.stopPropagation();openSelectionPreview('atlas',e.id)};
-      card.querySelector('.atlas-image-thumb').onclick=()=>{if(state.atlasSelectMode){setAtlasSelected(e.id,!state.atlasSelectedIds.includes(e.id));return}openAtlasImageDetail(e.id)};
-      card.querySelector('[data-act="fav"]').onclick=()=>toggleAtlasImageFavorite(e.id);
-      card.querySelector('[data-act="rep"]').onclick=()=>setAtlasRepresentative(g.key,repId===e.id?null:e.id);
-      card.querySelector('[data-act="gallery"]').onclick=()=>sendAtlasToGallery(e.id);
-      const memo=card.querySelector('.atlas-quick-memo');
-      card.querySelector('[data-act="memo"]').onclick=()=>{memo.classList.toggle('open');if(memo.classList.contains('open'))memo.focus()};
-      let mt=null;memo.oninput=()=>{clearTimeout(mt);mt=setTimeout(async()=>{e.memo=memo.value;e.updatedAt=Date.now();await txPut(STORE_ATLAS,e)},300)};
-      els.atlasArtistGrid.appendChild(card);
-    }
-    if(artistVisible.length<visible.length){const more=document.createElement('button');more.type='button';more.className='gallery-load-more';more.textContent=`＋ ${Math.min(60,visible.length-artistVisible.length)}개 더 보기`;more.onclick=()=>{const sc=els.atlasArtistGrid,top=sc.scrollTop;state.atlasArtistRenderLimit=Math.min(visible.length,(state.atlasArtistRenderLimit||60)+60);renderAtlasArtistDialog();requestAnimationFrame(()=>{sc.scrollTop=top})};els.atlasArtistGrid.appendChild(more)}
-    pruneThumbCache('atlasArtist',artistVisible.map(e=>e.id),180);updateAtlasSelectionUi();bindAtlasArtistSweep();
+    const repId=state.atlasRepresentatives[g.key]||null,target=Math.min(visible.length,state.atlasArtistRenderLimit||60);
+    state.atlasArtistRenderLimit=0;
+    while(state.atlasArtistRenderLimit<target)appendAtlasArtistPage(g,visible,globalTokens,repId);
+    pruneThumbCache('atlasArtist',visible.slice(0,target).map(e=>e.id),Math.max(180,target+40));updateAtlasSelectionUi();bindAtlasArtistSweep();
   }
   function bindAtlasArtistSweep(){
     bindSweepSelectionGrid({
