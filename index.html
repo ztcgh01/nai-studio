@@ -1582,6 +1582,7 @@ body.folder-lightbox-open{overflow:hidden}
   }
   .atlas-artist-grid .atlas-image-card{content-visibility:visible!important;contain-intrinsic-size:none!important;overflow-anchor:none!important}
   .atlas-artist-grid{overflow-anchor:none!important}.atlas-artist-grid .gallery-load-more{overflow-anchor:none!important}
+  #atlasGrid,#atlasGrid .atlas-card,#atlasGrid .load-more-wrap{overflow-anchor:none!important}
   .image-folder-grid .image-folder-card{content-visibility:visible!important;contain-intrinsic-size:none!important}
 }
 </style>
@@ -3597,19 +3598,8 @@ function openDB(){
     const a=[...(e.artists||[])].filter(x=>x.name).sort((x,y)=>(Number(y.weight)||1)-(Number(x.weight)||1));
     const shown=a.slice(0,limit).map(x=>`${x.name} · ${x.weight??1}`);if(a.length>limit)shown.push(`+${a.length-limit}`);return shown.join(' / ');
   }
-  function renderAtlas(){
-    syncAtlasReviewUi();
-    if(!els.atlasGrid)return;
-    const all=filteredAtlasGroups();
-    const limit=Math.min(all.length,state.atlasRenderLimit||50);
-    const arr=all.slice(0,limit);
-    const matchingImages=atlasMatchingImageCount(all);
-    els.atlasCount.textContent=atlasSearchTokens().length?`${all.length} artists · ${matchingImages} matching images`:`${all.length} artists · ${state.atlasEntries.length} images`;
-    els.atlasGrid.classList.toggle('gallery-mode',state.atlasViewMode==='gallery');
-    els.atlasGrid.dataset.cols=String(state.atlasColumns);
-    els.atlasGrid.innerHTML='';
-    if(!arr.length){els.atlasGrid.innerHTML=`<div class="atlas-empty" style="grid-column:1/-1"><strong>${state.atlasEntries.length?'No artists found':'Build your Artist Atlas'}</strong><span>${state.atlasEntries.length?'검색/필터 조건을 바꿔보세요.':'이미지를 추가하면 작가태그를 읽어 자동으로 분류합니다.'}</span></div>`;updateAtlasGroupSelectionUi();return;}
-    for(const g of arr){
+  function buildAtlasGroupCard(g){
+
       const reps=state.atlasReviewMode?[g.entries[atlasReviewImageIndex(g)]]:atlasRepresentativeEntries(g), card=document.createElement('div');card.setAttribute('role','group');card.className=`atlas-card ${state.atlasViewMode==='gallery'?'gallery-card':''} ${g.entries.length>1?'is-stack':''} ${state.atlasGroupSelectedKeys.includes(g.key)?'atlas-group-selected':''}`;card.dataset.groupKey=g.key;
       const imgs=reps.map(e=>`<img src="${cachedThumbUrl('atlas',e)}" data-atlas-entry-id="${escAttr(e.id)}" alt="" loading="lazy" decoding="async">`).join('');
       const fav=state.atlasArtistFavorites.includes(g.key);const latest=g.entries[0];const classification=atlasClassification(g.key);
@@ -3628,12 +3618,50 @@ function openDB(){
         visual.addEventListener('touchend',ev=>{if(!start||!ev.changedTouches.length)return;const dx=ev.changedTouches[0].clientX-start.x,dy=ev.changedTouches[0].clientY-start.y;start=null;if(Math.abs(dx)>45&&Math.abs(dx)>Math.abs(dy)*1.4){advanceAtlasReviewImage(g,card,dx<0?1:-1);visual.dataset.swiped='1';setTimeout(()=>{delete visual.dataset.swiped},350)}},{passive:true});
       }
       card.querySelector('.atlas-group-check').onchange=ev=>{ev.stopPropagation();state.atlasGroupSelectMode=true;setAtlasGroupSelected(g.key,ev.target.checked)};const copyEl=card.querySelector('[data-atlas-copy-tag]');if(copyEl){const run=ev=>{ev.stopPropagation();copyAtlasGroupTag(g)};copyEl.onclick=run;copyEl.onkeydown=ev=>{if(ev.key==='Enter'||ev.key===' '){ev.preventDefault();run(ev)}}}card.onclick=e=>{if(e.target.closest('[data-atlas-card-fav]')){e.stopPropagation();toggleAtlasArtistFavorite(g.key);return}if(e.target.closest('[data-atlas-copy-tag]')||e.target.closest('.atlas-review-controls')||e.target.closest('.atlas-review-carousel')||e.target.closest('[data-swiped]'))return;if(state.atlasGroupSelectMode){setAtlasGroupSelected(g.key,!state.atlasGroupSelectedKeys.includes(g.key));return}openAtlasArtist(g.key)};
-      els.atlasGrid.appendChild(card);
-    }
+      return card;
+
+  }
+  function appendAtlasMainGroups(groups){
+    const frag=document.createDocumentFragment();
+    for(const g of groups)frag.appendChild(buildAtlasGroupCard(g));
+    els.atlasGrid.appendChild(frag);
+  }
+  function renderAtlas(){
+    syncAtlasReviewUi();
+    if(!els.atlasGrid)return;
+    const all=filteredAtlasGroups();
+    const limit=Math.min(all.length,state.atlasRenderLimit||50);
+    const arr=all.slice(0,limit);
+    const matchingImages=atlasMatchingImageCount(all);
+    els.atlasCount.textContent=atlasSearchTokens().length?`${all.length} artists · ${matchingImages} matching images`:`${all.length} artists · ${state.atlasEntries.length} images`;
+    els.atlasGrid.classList.toggle('gallery-mode',state.atlasViewMode==='gallery');
+    els.atlasGrid.dataset.cols=String(state.atlasColumns);
+    els.atlasGrid.innerHTML='';
+    if(!arr.length){els.atlasGrid.innerHTML=`<div class="atlas-empty" style="grid-column:1/-1"><strong>${state.atlasEntries.length?'No artists found':'Build your Artist Atlas'}</strong><span>${state.atlasEntries.length?'검색/필터 조건을 바꿔보세요.':'이미지를 추가하면 작가태그를 읽어 자동으로 분류합니다.'}</span></div>`;updateAtlasGroupSelectionUi();return;}
+    appendAtlasMainGroups(arr);
     if(state.atlasPageSize!=='infinite'&&arr.length<all.length){
       const step=Number(state.atlasPageSize)||50,left=all.length-arr.length,more=Math.min(step,left),wrap=document.createElement('div');
       wrap.className='load-more-wrap';wrap.innerHTML=`<span>${arr.length} / ${all.length} 표시</span><button type="button" class="load-more-btn">+ ${more}개 더 불러오기</button>`;
-      wrap.querySelector('button').onclick=ev=>{const btn=ev.currentTarget;state.atlasRenderLimit=Math.min(all.length,(state.atlasRenderLimit||step)+step);preserveWindowAnchor(btn,renderAtlas);};els.atlasGrid.appendChild(wrap);
+      wrap.querySelector('button').onclick=ev=>{
+        ev.preventDefault();
+        const oldLimit=state.atlasRenderLimit||step,newLimit=Math.min(all.length,oldLimit+step);
+        const next=all.slice(oldLimit,newLimit);
+        ev.currentTarget.blur();
+        wrap.remove();
+        appendAtlasMainGroups(next);
+        state.atlasRenderLimit=newLimit;
+        if(newLimit<all.length){
+          const nextWrap=document.createElement('div'),nextMore=Math.min(step,all.length-newLimit);
+          nextWrap.className='load-more-wrap';
+          nextWrap.innerHTML=`<span>${newLimit} / ${all.length} 표시</span><button type="button" class="load-more-btn">+ ${nextMore}개 더 불러오기</button>`;
+          const nextBtn=nextWrap.querySelector('button');
+          nextBtn.onclick=wrap.querySelector('button').onclick;
+          els.atlasGrid.appendChild(nextWrap);
+        }
+        pruneThumbCache('atlas',all.slice(0,newLimit).flatMap(g=>(state.atlasReviewMode?[g.entries[atlasReviewImageIndex(g)]]:atlasRepresentativeEntries(g)).map(e=>e.id)),Math.max(160,newLimit*2));
+        updateAtlasGroupSelectionUi();bindAtlasGroupSweep();
+      };
+      els.atlasGrid.appendChild(wrap);
     }
     pruneThumbCache('atlas',arr.flatMap(g=>(state.atlasReviewMode?[g.entries[atlasReviewImageIndex(g)]]:atlasRepresentativeEntries(g)).map(e=>e.id)),160);
     updateAtlasGroupSelectionUi();bindAtlasGroupSweep();
