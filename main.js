@@ -1,4 +1,4 @@
-const { app, BrowserWindow, ipcMain, shell, dialog, protocol, net } = require('electron');
+const { app, BrowserWindow, ipcMain, shell, dialog, protocol, net, Menu } = require('electron');
 const { autoUpdater } = require('electron-updater');
 const fs = require('fs');
 const fsp = fs.promises;
@@ -235,6 +235,12 @@ app.whenReady().then(()=>{
       return net.fetch(pathToFileURL(abs).href);
     }catch(err){console.error('nai-image protocol failed',err);return new Response('Not found',{status:404})}
   });
+  ipcMain.handle('nai:showImageContextMenu',async(event,payload={})=>new Promise(resolve=>{
+    const win=BrowserWindow.fromWebContents(event.sender);if(!win){resolve(null);return}
+    let settled=false;const done=value=>{if(settled)return;settled=true;resolve(value)};
+    const menu=Menu.buildFromTemplate([{label:payload.label||'폴더에 추가',click:()=>done('addToFolder')}]);
+    menu.popup({window:win,callback:()=>done(null)});
+  }));
   ipcMain.handle('nai:getAll',(_,s,o)=>getAll(s,o));
   ipcMain.handle('nai:findInPage',(event,text,options={})=>event.sender.findInPage(String(text||''),options||{}));
   ipcMain.handle('nai:stopFind',(event,action='clearSelection')=>{event.sender.stopFind(action);return true});
