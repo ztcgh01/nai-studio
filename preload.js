@@ -1,6 +1,7 @@
 const { contextBridge, ipcRenderer } = require('electron');
 contextBridge.exposeInMainWorld('naiDesktop',{
   getAll:(s,o)=>ipcRenderer.invoke('nai:getAll',s,o),
+  showImageContextMenu:(payload)=>ipcRenderer.invoke('nai:showImageContextMenu',payload),
   getOneHydrated:(s,id)=>ipcRenderer.invoke('nai:getOneHydrated',s,id),
   getFolderSummaries:()=>ipcRenderer.invoke('nai:getFolderSummaries'),
   findInPage:(text,options)=>ipcRenderer.invoke('nai:findInPage',text,options),
