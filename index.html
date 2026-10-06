@@ -1510,7 +1510,7 @@ body.folder-lightbox-open{overflow:hidden}
 .atlas-artist-dialog .modal-shell{display:flex!important;flex-direction:column!important;overflow:hidden!important;max-height:96dvh!important;min-height:0!important}
 .atlas-artist-dialog .atlas-artist-head,.atlas-artist-dialog .atlas-artist-classification,.atlas-artist-dialog .atlas-artist-memo-box,.atlas-artist-dialog .atlas-artist-tools{flex:0 0 auto!important}
 .atlas-artist-dialog .atlas-artist-head,.atlas-artist-dialog .atlas-artist-tools{position:relative!important;top:auto!important}
-.atlas-artist-dialog .atlas-artist-grid{flex:1 1 auto!important;min-height:0!important;overflow-y:auto!important;overflow-x:hidden!important;overscroll-behavior:contain;-webkit-overflow-scrolling:touch;touch-action:pan-y}
+.atlas-artist-dialog .atlas-artist-grid{flex:1 1 auto!important;min-height:0!important;overflow-y:auto!important;overflow-x:hidden!important;overscroll-behavior:contain;overflow-anchor:none;-webkit-overflow-scrolling:touch;touch-action:pan-y}
 .atlas-image-detail-dialog .modal-shell{display:flex!important;flex-direction:column!important;overflow:hidden!important;max-height:96dvh!important;min-height:0!important}
 .atlas-image-detail-dialog .modal-head{flex:0 0 auto!important}
 .atlas-image-detail-dialog .atlas-image-detail-top{flex:1 1 auto!important;min-height:0!important;overflow-y:auto!important;overflow-x:hidden!important;overscroll-behavior:contain;-webkit-overflow-scrolling:touch;touch-action:pan-y}
@@ -2778,8 +2778,8 @@ body.is-home .refresh-icon-btn{display:grid}
   }
 
   function bind(){
-    els.quickFolderContextAdd.onclick=()=>{const items=[...quickFolderContextItems];closeQuickFolderContext();openFolderPicker(items)};
-    document.addEventListener('pointerdown',ev=>{if(!els.quickFolderContext?.classList.contains('hidden')&&!els.quickFolderContext.contains(ev.target))closeQuickFolderContext()},{capture:true});
+    ensureQuickFolderContext();
+    document.addEventListener('pointerdown',ev=>{const menu=document.getElementById('quickFolderContext');if(menu&&!menu.classList.contains('hidden')&&!menu.contains(ev.target))closeQuickFolderContext()},{capture:true});
     window.addEventListener('blur',closeQuickFolderContext);
     window.addEventListener('scroll',closeQuickFolderContext,{passive:true});
     els.selectionPreviewClose.onclick=closeSelectionPreview;
@@ -3742,11 +3742,12 @@ function openDB(){
     grid.appendChild(frag);state.atlasArtistRenderLimit=end;
     if(end<visible.length){
       const more=document.createElement('button');more.type='button';more.className='gallery-load-more';more.textContent=`＋ ${Math.min(60,visible.length-end)}개 더 보기`;
-      more.onclick=()=>{
-        const sc=els.atlasArtistDialog.querySelector('.atlas-artist-body')||els.atlasArtistGrid.parentElement||els.atlasArtistGrid;
-        const top=sc.scrollTop;
+      more.onclick=ev=>{
+        const sc=els.atlasArtistGrid,top=sc.scrollTop;
+        ev.currentTarget.blur();
         appendAtlasArtistPage(g,visible,globalTokens,repId);
         sc.scrollTop=top;
+        requestAnimationFrame(()=>{sc.scrollTop=top});
         pruneThumbCache('atlasArtist',visible.slice(0,state.atlasArtistRenderLimit).map(e=>e.id),Math.max(180,state.atlasArtistRenderLimit+40));
         updateAtlasSelectionUi();bindAtlasArtistSweep();
       };
@@ -4842,28 +4843,42 @@ async function confirmAtlasGalleryPicker(){const pickerTask=taskStart('Gallery �
     if(state.tab==='gallery') renderGallery(arr); else renderList(arr);
   }
   let quickFolderContextItems=[];
-  function closeQuickFolderContext(){els.quickFolderContext?.classList.add('hidden');quickFolderContextItems=[]}
+  function ensureQuickFolderContext(){
+    let menu=document.getElementById('quickFolderContext');
+    if(!menu){
+      menu=document.createElement('div');menu.id='quickFolderContext';menu.className='quick-folder-context hidden';
+      menu.innerHTML='<button type="button" id="quickFolderContextAdd"><strong>폴더에 추가</strong><small id="quickFolderContextMeta"></small></button>';
+      document.body.appendChild(menu);
+    }
+    els.quickFolderContext=menu;els.quickFolderContextAdd=menu.querySelector('#quickFolderContextAdd');els.quickFolderContextMeta=menu.querySelector('#quickFolderContextMeta');
+    if(menu.dataset.bound!=='1'){
+      menu.dataset.bound='1';
+      els.quickFolderContextAdd.onclick=()=>{const items=[...quickFolderContextItems];closeQuickFolderContext();openFolderPicker(items)};
+    }
+    return menu;
+  }
+  function closeQuickFolderContext(){const menu=document.getElementById('quickFolderContext');menu?.classList.add('hidden');quickFolderContextItems=[]}
   function openQuickFolderContext(ev,items,label){
     ev.preventDefault();ev.stopPropagation();items=(items||[]).filter(Boolean);if(!items.length)return;
-    quickFolderContextItems=items;els.quickFolderContextMeta.textContent=label||`${items.length}개 이미지`;
-    els.quickFolderContext.classList.remove('hidden');
-    const r=els.quickFolderContext.getBoundingClientRect(),pad=8;
-    els.quickFolderContext.style.left=Math.max(pad,Math.min(ev.clientX,window.innerWidth-r.width-pad))+'px';
-    els.quickFolderContext.style.top=Math.max(pad,Math.min(ev.clientY,window.innerHeight-r.height-pad))+'px';
+    const menu=ensureQuickFolderContext();quickFolderContextItems=items;els.quickFolderContextMeta.textContent=label||`${items.length}개 이미지`;
+    menu.classList.remove('hidden');
+    const r=menu.getBoundingClientRect(),pad=8;
+    menu.style.left=Math.max(pad,Math.min(ev.clientX,window.innerWidth-r.width-pad))+'px';
+    menu.style.top=Math.max(pad,Math.min(ev.clientY,window.innerHeight-r.height-pad))+'px';
   }
   function bindGalleryQuickFolder(card,e){
-    card.oncontextmenu=ev=>{
+    card.addEventListener('contextmenu',ev=>{
       const useSelection=state.selectMode&&state.selectedIds.includes(e.id)&&state.selectedIds.length>0;
       const ids=useSelection?[...state.selectedIds]:[e.id];
       openQuickFolderContext(ev,ids.map(id=>({type:'image',entryId:id})),useSelection?`선택한 ${ids.length}개 이미지`:'이 이미지');
-    };
+    },true);
   }
   function bindAtlasQuickFolder(card,e){
-    card.oncontextmenu=ev=>{
+    card.addEventListener('contextmenu',ev=>{
       const useSelection=state.atlasSelectMode&&state.atlasSelectedIds.includes(e.id)&&state.atlasSelectedIds.length>0;
       const entries=useSelection?atlasSelectedEntries():[e];
       openQuickFolderContext(ev,entries.map(atlasFolderAttachment),useSelection?`선택한 ${entries.length}개 이미지`:'이 Atlas 이미지');
-    };
+    },true);
   }
   function renderGalleryCard(e){
     const card=document.createElement('article');card.className='card';card.dataset.id=e.id;const url=cachedThumbUrl('gallery',e),checked=state.selectedIds.includes(e.id);card.classList.toggle('selection-mode',state.selectMode);
@@ -7415,7 +7430,6 @@ async function confirmAtlasGalleryPicker(){const pickerTask=taskStart('Gallery �
 .folder-card.dragging{opacity:.45}.folder-card.drop-target,.collection-breadcrumb .drop-target{outline:2px solid #111;outline-offset:2px}.folder-card[draggable="true"]{cursor:grab}.folder-card[draggable="true"]:active{cursor:grabbing}
 </style>
 <aside id="taskProgressPanel" hidden role="status" aria-live="polite" aria-atomic="true"><div class="task-head"><span class="task-title" id="taskProgressTitle">작업 준비 중</span><button type="button" class="task-close" id="taskProgressClose" aria-label="진행 상황 닫기">×</button></div><div class="task-stage" id="taskProgressStage">준비 중…</div><div class="task-track" role="progressbar" aria-label="작업 진행률" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0" id="taskProgressTrack"><div class="task-fill" id="taskProgressFill"></div></div><div class="task-footer"><span id="taskProgressCount">0 / 0</span><span id="taskProgressPercent">0%</span></div></aside>
-<div id="quickFolderContext" class="quick-folder-context hidden"><button type="button" id="quickFolderContextAdd"><strong>폴더에 추가</strong><small id="quickFolderContextMeta"></small></button></div>
 </body>
 </html>
 
