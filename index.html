@@ -1583,6 +1583,7 @@ body.folder-lightbox-open{overflow:hidden}
   .atlas-artist-grid .atlas-image-card{content-visibility:visible!important;contain-intrinsic-size:none!important;overflow-anchor:none!important}
   .atlas-artist-grid{overflow-anchor:none!important}.atlas-artist-grid .gallery-load-more{overflow-anchor:none!important}
   #atlasGrid,#atlasGrid .atlas-card,#atlasGrid .load-more-wrap{overflow-anchor:none!important}
+  #atlasGrid .load-more-btn{overflow-anchor:none!important}
   .image-folder-grid .image-folder-card{content-visibility:visible!important;contain-intrinsic-size:none!important}
 }
 </style>
@@ -3644,8 +3645,11 @@ function openDB(){
       wrap.className='load-more-wrap';wrap.innerHTML=`<span>${arr.length} / ${all.length} 표시</span><button type="button" class="load-more-btn">+ ${more}개 더 불러오기</button>`;
       wrap.querySelector('button').onclick=ev=>{
         ev.preventDefault();
-        const oldLimit=state.atlasRenderLimit||step,newLimit=Math.min(all.length,oldLimit+step);
-        const next=all.slice(oldLimit,newLimit);
+        const cards=[...els.atlasGrid.querySelectorAll('.atlas-card[data-group-key]')],vh=window.innerHeight;
+        const visible=cards.filter(card=>{const r=card.getBoundingClientRect();return r.bottom>0&&r.top<vh});
+        const anchor=visible[Math.floor((visible.length-1)/2)]||visible[0]||cards[cards.length-1]||null;
+        const anchorKey=anchor?.dataset.groupKey||'',anchorTop=anchor?.getBoundingClientRect().top??null;
+        const oldLimit=state.atlasRenderLimit||step,newLimit=Math.min(all.length,oldLimit+step),next=all.slice(oldLimit,newLimit);
         ev.currentTarget.blur();
         wrap.remove();
         appendAtlasMainGroups(next);
@@ -3658,6 +3662,15 @@ function openDB(){
           nextBtn.onclick=wrap.querySelector('button').onclick;
           els.atlasGrid.appendChild(nextWrap);
         }
+        const restore=()=>{
+          if(!anchorKey||anchorTop===null)return;
+          const same=[...els.atlasGrid.querySelectorAll('.atlas-card[data-group-key]')].find(card=>card.dataset.groupKey===anchorKey);
+          if(!same)return;
+          const delta=same.getBoundingClientRect().top-anchorTop;
+          if(Math.abs(delta)>.25)window.scrollBy({top:delta,left:0,behavior:'instant'});
+        };
+        restore();requestAnimationFrame(()=>{restore();requestAnimationFrame(restore)});
+        setTimeout(restore,80);setTimeout(restore,220);
         pruneThumbCache('atlas',all.slice(0,newLimit).flatMap(g=>(state.atlasReviewMode?[g.entries[atlasReviewImageIndex(g)]]:atlasRepresentativeEntries(g)).map(e=>e.id)),Math.max(160,newLimit*2));
         updateAtlasGroupSelectionUi();bindAtlasGroupSweep();
       };
