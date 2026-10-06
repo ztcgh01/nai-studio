@@ -3622,7 +3622,7 @@ function openDB(){
     if(state.atlasPageSize!=='infinite'&&arr.length<all.length){
       const step=Number(state.atlasPageSize)||50,left=all.length-arr.length,more=Math.min(step,left),wrap=document.createElement('div');
       wrap.className='load-more-wrap';wrap.innerHTML=`<span>${arr.length} / ${all.length} 표시</span><button type="button" class="load-more-btn">+ ${more}개 더 불러오기</button>`;
-      wrap.querySelector('button').onclick=()=>{const y=window.scrollY;state.atlasRenderLimit=Math.min(all.length,(state.atlasRenderLimit||step)+step);renderAtlas();requestAnimationFrame(()=>window.scrollTo({top:y,left:window.scrollX,behavior:'instant'}));};els.atlasGrid.appendChild(wrap);
+      wrap.querySelector('button').onclick=ev=>{const btn=ev.currentTarget;btn.dataset.loadMoreAnchor='active';state.atlasRenderLimit=Math.min(all.length,(state.atlasRenderLimit||step)+step);preserveWindowAnchor(btn,renderAtlas);};els.atlasGrid.appendChild(wrap);
     }
     pruneThumbCache('atlas',arr.flatMap(g=>(state.atlasReviewMode?[g.entries[atlasReviewImageIndex(g)]]:atlasRepresentativeEntries(g)).map(e=>e.id)),160);
     updateAtlasGroupSelectionUi();bindAtlasGroupSweep();
@@ -3730,7 +3730,7 @@ function openDB(){
       let mt=null;memo.oninput=()=>{clearTimeout(mt);mt=setTimeout(async()=>{e.memo=memo.value;e.updatedAt=Date.now();await txPut(STORE_ATLAS,e)},300)};
       els.atlasArtistGrid.appendChild(card);
     }
-    if(artistVisible.length<visible.length){const more=document.createElement('button');more.type='button';more.className='gallery-load-more';more.textContent=`＋ ${Math.min(60,visible.length-artistVisible.length)}개 더 보기`;more.onclick=()=>{state.atlasArtistRenderLimit=Math.min(visible.length,(state.atlasArtistRenderLimit||60)+60);renderAtlasArtistDialog()};els.atlasArtistGrid.appendChild(more)}
+    if(artistVisible.length<visible.length){const more=document.createElement('button');more.type='button';more.className='gallery-load-more';more.textContent=`＋ ${Math.min(60,visible.length-artistVisible.length)}개 더 보기`;more.onclick=()=>{const sc=els.atlasArtistGrid,top=sc.scrollTop;state.atlasArtistRenderLimit=Math.min(visible.length,(state.atlasArtistRenderLimit||60)+60);renderAtlasArtistDialog();requestAnimationFrame(()=>{sc.scrollTop=top})};els.atlasArtistGrid.appendChild(more)}
     pruneThumbCache('atlasArtist',artistVisible.map(e=>e.id),180);updateAtlasSelectionUi();bindAtlasArtistSweep();
   }
   function bindAtlasArtistSweep(){
@@ -4816,9 +4816,19 @@ async function confirmAtlasGalleryPicker(){const pickerTask=taskStart('Gallery �
     card.draggable=true;card.addEventListener('dragstart',ev=>{ev.dataTransfer.effectAllowed='copy';ev.dataTransfer.setData('application/x-nai-image',e.id);});
     card.querySelector('img').onclick=()=>state.selectMode?toggleSelected(e.id):openDetail(e.id);card.querySelector('.card-body').onclick=()=>state.selectMode?toggleSelected(e.id):openDetail(e.id);card.querySelector('.selection-expand-btn').onclick=ev=>{ev.stopPropagation();openSelectionPreview('gallery',e.id)};card.querySelector('.fav').onclick=ev=>{ev.stopPropagation();toggleFavorite(e.id)};const cb=card.querySelector('.card-check');if(cb)cb.onchange=ev=>{ev.stopPropagation();toggleSelected(e.id,ev.target.checked)};return card;
   }
+  function preserveWindowAnchor(node,rerender){
+    const before=node?.getBoundingClientRect?.().top??null;
+    rerender();
+    requestAnimationFrame(()=>{if(before===null)return;const next=document.querySelector('[data-load-more-anchor="active"]');if(!next)return;const after=next.getBoundingClientRect().top;window.scrollBy(0,after-before);next.removeAttribute('data-load-more-anchor')});
+  }
+  function preserveScrollerAnchor(scroller,node,rerender,selector){
+    const beforeTop=scroller?.scrollTop||0,before=node?.getBoundingClientRect?.().top??null;
+    rerender();
+    requestAnimationFrame(()=>{const next=selector?scroller?.querySelector(selector):null;if(scroller&&next&&before!==null){const after=next.getBoundingClientRect().top;scroller.scrollTop=beforeTop+(after-before)}else if(scroller)scroller.scrollTop=beforeTop});
+  }
   function renderGallery(arr){
     els.gallery.innerHTML='';const limit=Math.min(arr.length,state.galleryRenderLimit||50),frag=document.createDocumentFragment();for(const e of arr.slice(0,limit))frag.appendChild(renderGalleryCard(e));els.gallery.appendChild(frag);
-    if(state.galleryPageSize!=='infinite'&&limit<arr.length){const step=Number(state.galleryPageSize)||50,left=arr.length-limit,more=Math.min(step,left),wrap=document.createElement('div');wrap.className='load-more-wrap';wrap.innerHTML=`<span>${limit} / ${arr.length} 표시</span><button type="button" class="load-more-btn">+ ${more}개 더 불러오기</button>`;wrap.querySelector('button').onclick=()=>{const y=window.scrollY;state.galleryRenderLimit=Math.min(arr.length,(state.galleryRenderLimit||step)+step);renderLibrary();requestAnimationFrame(()=>window.scrollTo({top:y,left:window.scrollX,behavior:'instant'}));};els.gallery.appendChild(wrap)}
+    if(state.galleryPageSize!=='infinite'&&limit<arr.length){const step=Number(state.galleryPageSize)||50,left=arr.length-limit,more=Math.min(step,left),wrap=document.createElement('div');wrap.className='load-more-wrap';wrap.innerHTML=`<span>${limit} / ${arr.length} 표시</span><button type="button" class="load-more-btn">+ ${more}개 더 불러오기</button>`;wrap.querySelector('button').onclick=ev=>{const btn=ev.currentTarget;btn.dataset.loadMoreAnchor='active';state.galleryRenderLimit=Math.min(arr.length,(state.galleryRenderLimit||step)+step);preserveWindowAnchor(btn,renderLibrary);};els.gallery.appendChild(wrap)}
     pruneThumbCache('gallery',arr.slice(0,limit).map(e=>e.id),Math.max(180,limit+40));bindGallerySweepSelection();bindLongPressSelectionEntry(els.gallery,'.card');
   }
 
@@ -4890,7 +4900,7 @@ async function confirmAtlasGalleryPicker(){const pickerTask=taskStart('Gallery �
       for(const f of fields){ if(f==='image'){const url=cachedThumbUrl('gallery',e);html+=`<td class="field-image"><img class="table-thumb open" src="${url}" loading="lazy" decoding="async"></td>`;} else if(f==='artists')html+=`<td class="field-artists"><div class="clamp open">${esc(e.artistsText)}</div></td>`; else if(f==='memo')html+=`<td class="field-memo"><div class="clamp open">${esc(e.memo||'')}</div></td>`; else if(f==='prompt')html+=`<td class="field-prompt"><div class="clamp open">${esc(e.prompt||'')}</div></td>`; else if(f==='characters')html+=`<td class="field-characters"><div class="clamp open">${esc((e.characterPrompts||[]).join('\n---\n'))}</div></td>`; else if(f==='charuc')html+=`<td class="field-charuc"><div class="clamp open">${esc((e.characterUc||[]).join('\n---\n'))}</div></td>`; else if(f==='uc')html+=`<td class="field-uc"><div class="clamp open">${esc(e.uc||'')}</div></td>`; else if(f==='model')html+=`<td class="field-model">${esc(modelLabel(e)||e.model||'')}</td>`; else if(f==='seed')html+=`<td class="field-seed"><div class="clamp open">${e.seed!=null?esc(String(e.seed)):''}</div></td>`; else if(f==='created')html+=`<td class="field-created">${new Date(e.createdAt).toLocaleString()}</td>`; }
       tr.innerHTML=html; tr.querySelectorAll('.open').forEach(x=>x.onclick=()=>state.selectMode?toggleSelected(e.id):openDetail(e.id)); const cb=tr.querySelector('.row-check');if(cb)cb.onchange=ev=>toggleSelected(e.id,ev.target.checked); els.listBody.appendChild(tr);
     });
-    if(state.galleryPageSize!=='infinite'&&visibleList.length<listArr.length){const step=Number(state.galleryPageSize)||50,left=listArr.length-visibleList.length,more=Math.min(step,left),tr=document.createElement('tr');tr.innerHTML=`<td colspan="${fields.length+1}"><div class="gallery-list-page-note"><div>${visibleList.length} / ${listArr.length} 표시</div><button type="button" class="load-more-btn">+ ${more}개 더 불러오기</button></div></td>`;tr.querySelector('button').onclick=()=>{const y=window.scrollY;state.galleryRenderLimit=Math.min(listArr.length,(state.galleryRenderLimit||step)+step);renderList(filteredEntries());requestAnimationFrame(()=>window.scrollTo({top:y,left:window.scrollX,behavior:'instant'}));};els.listBody.appendChild(tr)}
+    if(state.galleryPageSize!=='infinite'&&visibleList.length<listArr.length){const step=Number(state.galleryPageSize)||50,left=listArr.length-visibleList.length,more=Math.min(step,left),tr=document.createElement('tr');tr.innerHTML=`<td colspan="${fields.length+1}"><div class="gallery-list-page-note"><div>${visibleList.length} / ${listArr.length} 표시</div><button type="button" class="load-more-btn">+ ${more}개 더 불러오기</button></div></td>`;tr.querySelector('button').onclick=ev=>{const btn=ev.currentTarget;btn.dataset.loadMoreAnchor='active';state.galleryRenderLimit=Math.min(listArr.length,(state.galleryRenderLimit||step)+step);preserveWindowAnchor(btn,()=>renderList(filteredEntries()));};els.listBody.appendChild(tr)}
     pruneThumbCache('gallery',visibleList.map(e=>e.id),180);
     els.listWrap.classList.toggle('selection-mode',state.selectMode);
     bindListSweepSelection();
@@ -5386,7 +5396,7 @@ async function confirmAtlasGalleryPicker(){const pickerTask=taskStart('Gallery �
     els.archiveMultiView.querySelector('[data-collapse-all]').onclick=()=>{archiveMulti.ids.forEach(id=>archiveMulti.collapsed.add(id));renderArchiveMultiView()};
     els.archiveMultiView.querySelectorAll('[data-collapse]').forEach(b=>b.onclick=()=>{const id=b.dataset.collapse;archiveMulti.collapsed.has(id)?archiveMulti.collapsed.delete(id):archiveMulti.collapsed.add(id);renderArchiveMultiView()});
     els.archiveMultiView.querySelectorAll('[data-full]').forEach(b=>b.onclick=()=>{const f=folderById(b.dataset.full);if(f)openImageFolder(f)});
-    els.archiveMultiView.querySelectorAll('[data-more]').forEach(b=>b.onclick=()=>{const y=window.scrollY,id=b.dataset.more;archiveMulti.limits.set(id,(archiveMulti.limits.get(id)||30)+30);renderArchiveMultiView();requestAnimationFrame(()=>window.scrollTo({top:y,left:window.scrollX,behavior:'instant'}))});
+    els.archiveMultiView.querySelectorAll('[data-more]').forEach(b=>b.onclick=()=>{const id=b.dataset.more,section=b.closest('.archive-multi-section'),top=section?.getBoundingClientRect().top??null;archiveMulti.limits.set(id,(archiveMulti.limits.get(id)||30)+30);renderArchiveMultiView();requestAnimationFrame(()=>{const next=els.archiveMultiView.querySelector(`.archive-multi-section[data-section="${CSS.escape(id)}"]`);if(next&&top!==null)window.scrollBy(0,next.getBoundingClientRect().top-top)})});
     els.archiveMultiView.querySelectorAll('.archive-multi-thumb').forEach(b=>b.onclick=()=>{const f=folderById(b.dataset.folder);if(!f)return;openImageFolder(f);requestAnimationFrame(()=>openSelectionPreview('folder',b.dataset.item))});
   }
   function updateFolderBulkUi(folders=visibleArchiveFolders()){
