@@ -1,7 +1,7 @@
 {
   "name": "nai-studio-desktop",
   "productName": "NAI Studio",
-  "version": "1.2.19",
+  "version": "1.2.20",
   "private": true,
   "description": "NAI Studio Windows desktop edition with filesystem-backed storage",
   "main": "main.js",
