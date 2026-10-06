@@ -3611,7 +3611,7 @@ function openDB(){
     if(!arr.length){els.atlasGrid.innerHTML=`<div class="atlas-empty" style="grid-column:1/-1"><strong>${state.atlasEntries.length?'No artists found':'Build your Artist Atlas'}</strong><span>${state.atlasEntries.length?'검색/필터 조건을 바꿔보세요.':'이미지를 추가하면 작가태그를 읽어 자동으로 분류합니다.'}</span></div>`;updateAtlasGroupSelectionUi();return;}
     for(const g of arr){
       const reps=state.atlasReviewMode?[g.entries[atlasReviewImageIndex(g)]]:atlasRepresentativeEntries(g), card=document.createElement('div');card.setAttribute('role','group');card.className=`atlas-card ${state.atlasViewMode==='gallery'?'gallery-card':''} ${g.entries.length>1?'is-stack':''} ${state.atlasGroupSelectedKeys.includes(g.key)?'atlas-group-selected':''}`;card.dataset.groupKey=g.key;
-      const imgs=reps.map(e=>`<img src="${cachedThumbUrl('atlas',e)}" alt="" loading="lazy" decoding="async">`).join('');
+      const imgs=reps.map(e=>`<img src="${cachedThumbUrl('atlas',e)}" data-atlas-entry-id="${escAttr(e.id)}" alt="" loading="lazy" decoding="async">`).join('');
       const fav=state.atlasArtistFavorites.includes(g.key);const latest=g.entries[0];const classification=atlasClassification(g.key);
       const carousel=state.atlasReviewMode&&g.entries.length>1?`<div class="atlas-review-carousel"><button type="button" data-review-prev aria-label="이전 이미지">‹</button><span data-review-image-count>${atlasReviewImageIndex(g)+1} / ${g.entries.length}</span><button type="button" data-review-next aria-label="다음 이미지">›</button></div>`:'';
       const multi=g.type==='multiple'?`<div class="atlas-multi-tags">${esc(atlasWeightsSummary(latest,3))}</div>`:'';
@@ -3633,7 +3633,7 @@ function openDB(){
     if(state.atlasPageSize!=='infinite'&&arr.length<all.length){
       const step=Number(state.atlasPageSize)||50,left=all.length-arr.length,more=Math.min(step,left),wrap=document.createElement('div');
       wrap.className='load-more-wrap';wrap.innerHTML=`<span>${arr.length} / ${all.length} 표시</span><button type="button" class="load-more-btn">+ ${more}개 더 불러오기</button>`;
-      wrap.querySelector('button').onclick=ev=>{const btn=ev.currentTarget;btn.dataset.loadMoreAnchor='active';state.atlasRenderLimit=Math.min(all.length,(state.atlasRenderLimit||step)+step);preserveWindowAnchor(btn,renderAtlas);};els.atlasGrid.appendChild(wrap);
+      wrap.querySelector('button').onclick=ev=>{const btn=ev.currentTarget;state.atlasRenderLimit=Math.min(all.length,(state.atlasRenderLimit||step)+step);preserveWindowAnchor(btn,renderAtlas);};els.atlasGrid.appendChild(wrap);
     }
     pruneThumbCache('atlas',arr.flatMap(g=>(state.atlasReviewMode?[g.entries[atlasReviewImageIndex(g)]]:atlasRepresentativeEntries(g)).map(e=>e.id)),160);
     updateAtlasGroupSelectionUi();bindAtlasGroupSweep();
@@ -4891,6 +4891,14 @@ async function confirmAtlasGalleryPicker(){const pickerTask=taskStart('Gallery �
       const ids=useSelection?[...state.selectedIds]:[id];
       return {items:ids.map(entryId=>({type:'image',entryId})),label:useSelection?`선택한 ${ids.length}개 이미지`:'이 Gallery 이미지'};
     }
+    const atlasMainImg=target.closest?.('.atlas-card img[data-atlas-entry-id]');
+    if(atlasMainImg){
+      const e=atlasEntry(atlasMainImg.dataset.atlasEntryId);if(!e)return null;
+      const groupCard=atlasMainImg.closest('.atlas-card[data-group-key]');
+      const groupSelected=groupCard&&state.atlasGroupSelectMode&&state.atlasGroupSelectedKeys.includes(groupCard.dataset.groupKey);
+      const entries=groupSelected?atlasGroupEntriesForSelection(false):[e];
+      return {items:entries.map(atlasFolderAttachment),label:groupSelected?`선택한 작가의 ${entries.length}개 이미지`:'이 Atlas 이미지'};
+    }
     const atlasCard=target.closest?.('.atlas-image-card[data-id]');
     if(atlasCard){
       const id=atlasCard.dataset.id,e=atlasEntry(id);if(!e)return null;
@@ -4905,6 +4913,10 @@ async function confirmAtlasGalleryPicker(){const pickerTask=taskStart('Gallery �
       const raws=useSelection?all.filter(it=>state.imageFolderSelected.includes(it.id)):all.filter(it=>it.id===id);
       return {items:raws.map(it=>it.type==='image'?{type:'image',entryId:it.entryId}:({...it,id:undefined})),label:useSelection?`선택한 ${raws.length}개 이미지`:'이 폴더 이미지'};
     }
+    const galleryDetail=target.closest?.('#detailImage');
+    if(galleryDetail&&state.currentId)return {items:[{type:'image',entryId:state.currentId}],label:'이 Gallery 이미지'};
+    const atlasDetail=target.closest?.('#atlasImageDetailImg');
+    if(atlasDetail&&state.atlasCurrentImageId){const e=atlasEntry(state.atlasCurrentImageId);if(e)return {items:[atlasFolderAttachment(e)],label:'이 Atlas 이미지'}}
     const notebook=target.closest?.('.notebook-image');
     if(notebook){
       if(notebook.dataset.entryId)return {items:[{type:'image',entryId:notebook.dataset.entryId}],label:'이 Gallery 이미지'};
@@ -4932,10 +4944,12 @@ async function confirmAtlasGalleryPicker(){const pickerTask=taskStart('Gallery �
     card.draggable=true;card.addEventListener('dragstart',ev=>{ev.dataTransfer.effectAllowed='copy';ev.dataTransfer.setData('application/x-nai-image',e.id);});
     card.querySelector('img').onclick=()=>state.selectMode?toggleSelected(e.id):openDetail(e.id);card.querySelector('.card-body').onclick=()=>state.selectMode?toggleSelected(e.id):openDetail(e.id);card.querySelector('.selection-expand-btn').onclick=ev=>{ev.stopPropagation();openSelectionPreview('gallery',e.id)};card.querySelector('.fav').onclick=ev=>{ev.stopPropagation();toggleFavorite(e.id)};const cb=card.querySelector('.card-check');if(cb)cb.onchange=ev=>{ev.stopPropagation();toggleSelected(e.id,ev.target.checked)};return card;
   }
-  function preserveWindowAnchor(node,rerender){
-    const before=node?.getBoundingClientRect?.().top??null;
+  function preserveWindowAnchor(_node,rerender){
+    const y=window.scrollY,x=window.scrollX,active=document.activeElement;
+    try{active?.blur?.()}catch(_){}
     rerender();
-    requestAnimationFrame(()=>{if(before===null)return;const next=document.querySelector('[data-load-more-anchor="active"]');if(!next)return;const after=next.getBoundingClientRect().top;window.scrollBy(0,after-before);next.removeAttribute('data-load-more-anchor')});
+    const restore=()=>window.scrollTo({top:y,left:x,behavior:'instant'});
+    restore();requestAnimationFrame(()=>{restore();requestAnimationFrame(restore)});
   }
   function preserveScrollerAnchor(scroller,node,rerender,selector){
     const beforeTop=scroller?.scrollTop||0,before=node?.getBoundingClientRect?.().top??null;
@@ -4944,7 +4958,7 @@ async function confirmAtlasGalleryPicker(){const pickerTask=taskStart('Gallery �
   }
   function renderGallery(arr){
     els.gallery.innerHTML='';const limit=Math.min(arr.length,state.galleryRenderLimit||50),frag=document.createDocumentFragment();for(const e of arr.slice(0,limit))frag.appendChild(renderGalleryCard(e));els.gallery.appendChild(frag);
-    if(state.galleryPageSize!=='infinite'&&limit<arr.length){const step=Number(state.galleryPageSize)||50,left=arr.length-limit,more=Math.min(step,left),wrap=document.createElement('div');wrap.className='load-more-wrap';wrap.innerHTML=`<span>${limit} / ${arr.length} 표시</span><button type="button" class="load-more-btn">+ ${more}개 더 불러오기</button>`;wrap.querySelector('button').onclick=ev=>{const btn=ev.currentTarget;btn.dataset.loadMoreAnchor='active';state.galleryRenderLimit=Math.min(arr.length,(state.galleryRenderLimit||step)+step);preserveWindowAnchor(btn,renderLibrary);};els.gallery.appendChild(wrap)}
+    if(state.galleryPageSize!=='infinite'&&limit<arr.length){const step=Number(state.galleryPageSize)||50,left=arr.length-limit,more=Math.min(step,left),wrap=document.createElement('div');wrap.className='load-more-wrap';wrap.innerHTML=`<span>${limit} / ${arr.length} 표시</span><button type="button" class="load-more-btn">+ ${more}개 더 불러오기</button>`;wrap.querySelector('button').onclick=ev=>{const btn=ev.currentTarget;state.galleryRenderLimit=Math.min(arr.length,(state.galleryRenderLimit||step)+step);preserveWindowAnchor(btn,renderLibrary);};els.gallery.appendChild(wrap)}
     pruneThumbCache('gallery',arr.slice(0,limit).map(e=>e.id),Math.max(180,limit+40));bindGallerySweepSelection();bindLongPressSelectionEntry(els.gallery,'.card');
   }
 
