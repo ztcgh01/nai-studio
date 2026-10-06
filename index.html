@@ -1576,10 +1576,12 @@ body.folder-lightbox-open{overflow:hidden}
 
 <style id="desktop-performance-pass">
 @media (min-width:761px){
-  .gallery .card,.atlas-grid .atlas-card,.atlas-artist-grid .atlas-image-card,.image-folder-grid .image-folder-card{
+  .gallery .card,.atlas-grid .atlas-card,.image-folder-grid .image-folder-card{
     content-visibility:auto;
     contain-intrinsic-size:320px 420px;
   }
+  .atlas-artist-grid .atlas-image-card{content-visibility:visible!important;contain-intrinsic-size:none!important;overflow-anchor:none!important}
+  .image-folder-grid .image-folder-card{content-visibility:visible!important;contain-intrinsic-size:none!important}
 }
 </style>
 <style id="collection-v1">
@@ -2778,7 +2780,7 @@ body.is-home .refresh-icon-btn{display:grid}
   }
 
   function bind(){
-    ensureQuickFolderContext();
+    ensureQuickFolderContext();bindGlobalQuickFolderContext();
     document.addEventListener('pointerdown',ev=>{const menu=document.getElementById('quickFolderContext');if(menu&&!menu.classList.contains('hidden')&&!menu.contains(ev.target))closeQuickFolderContext()},{capture:true});
     window.addEventListener('blur',closeQuickFolderContext);
     window.addEventListener('scroll',closeQuickFolderContext,{passive:true});
@@ -3726,7 +3728,6 @@ function openDB(){
     card.querySelector('[data-act="gallery"]').onclick=()=>sendAtlasToGallery(e.id);
     const memo=card.querySelector('.atlas-quick-memo');card.querySelector('[data-act="memo"]').onclick=()=>{memo.classList.toggle('open');if(memo.classList.contains('open'))memo.focus()};
     let mt=null;memo.oninput=()=>{clearTimeout(mt);mt=setTimeout(async()=>{e.memo=memo.value;e.updatedAt=Date.now();await txPut(STORE_ATLAS,e)},300)};
-    bindAtlasQuickFolder(card,e);
     return card;
   }
   function atlasArtistVisibleEntries(g,globalTokens){
@@ -3743,11 +3744,19 @@ function openDB(){
     if(end<visible.length){
       const more=document.createElement('button');more.type='button';more.className='gallery-load-more';more.textContent=`＋ ${Math.min(60,visible.length-end)}개 더 보기`;
       more.onclick=ev=>{
-        const sc=els.atlasArtistGrid,top=sc.scrollTop;
+        const sc=els.atlasArtistGrid,sr=sc.getBoundingClientRect();
+        const cards=[...sc.querySelectorAll('.atlas-image-card')];
+        const anchor=cards.find(c=>{const r=c.getBoundingClientRect();return r.bottom>sr.top+2&&r.top<sr.bottom-2})||cards[cards.length-1]||null;
+        const before=anchor?.getBoundingClientRect().top??null,top=sc.scrollTop;
         ev.currentTarget.blur();
         appendAtlasArtistPage(g,visible,globalTokens,repId);
-        sc.scrollTop=top;
-        requestAnimationFrame(()=>{sc.scrollTop=top});
+        const restore=()=>{
+          if(anchor&&before!==null&&anchor.isConnected){
+            const delta=anchor.getBoundingClientRect().top-before;
+            if(Math.abs(delta)>.25)sc.scrollTop+=delta;
+          }else sc.scrollTop=top;
+        };
+        restore();requestAnimationFrame(()=>{restore();requestAnimationFrame(restore)});
         pruneThumbCache('atlasArtist',visible.slice(0,state.atlasArtistRenderLimit).map(e=>e.id),Math.max(180,state.atlasArtistRenderLimit+40));
         updateAtlasSelectionUi();bindAtlasArtistSweep();
       };
@@ -4880,11 +4889,49 @@ async function confirmAtlasGalleryPicker(){const pickerTask=taskStart('Gallery �
       openQuickFolderContext(ev,entries.map(atlasFolderAttachment),useSelection?`선택한 ${entries.length}개 이미지`:'이 Atlas 이미지');
     },true);
   }
+  function quickFolderPayloadFromTarget(target){
+    const galleryCard=target.closest?.('.gallery .card[data-id], #listBody tr[data-id]');
+    if(galleryCard){
+      const id=galleryCard.dataset.id,useSelection=state.selectMode&&state.selectedIds.includes(id)&&state.selectedIds.length;
+      const ids=useSelection?[...state.selectedIds]:[id];
+      return {items:ids.map(entryId=>({type:'image',entryId})),label:useSelection?`선택한 ${ids.length}개 이미지`:'이 Gallery 이미지'};
+    }
+    const atlasCard=target.closest?.('.atlas-image-card[data-id]');
+    if(atlasCard){
+      const id=atlasCard.dataset.id,e=atlasEntry(id);if(!e)return null;
+      const useSelection=state.atlasSelectMode&&state.atlasSelectedIds.includes(id)&&state.atlasSelectedIds.length;
+      const entries=useSelection?atlasSelectedEntries():[e];
+      return {items:entries.map(atlasFolderAttachment),label:useSelection?`선택한 ${entries.length}개 이미지`:'이 Atlas 이미지'};
+    }
+    const folderCard=target.closest?.('.image-folder-card[data-item-id]');
+    if(folderCard){
+      const f=folderById(state.currentFolderId),id=folderCard.dataset.itemId;if(!f)return null;
+      const all=folderImageItems(f),useSelection=state.imageFolderSelectMode&&state.imageFolderSelected.includes(id)&&state.imageFolderSelected.length;
+      const raws=useSelection?all.filter(it=>state.imageFolderSelected.includes(it.id)):all.filter(it=>it.id===id);
+      return {items:raws.map(it=>it.type==='image'?{type:'image',entryId:it.entryId}:({...it,id:undefined})),label:useSelection?`선택한 ${raws.length}개 이미지`:'이 폴더 이미지'};
+    }
+    const notebook=target.closest?.('.notebook-image');
+    if(notebook){
+      if(notebook.dataset.entryId)return {items:[{type:'image',entryId:notebook.dataset.entryId}],label:'이 Gallery 이미지'};
+      if(notebook.dataset.atlasEntryId){const e=atlasEntry(notebook.dataset.atlasEntryId);if(e)return {items:[atlasFolderAttachment(e)],label:'이 Atlas 이미지'}}
+    }
+    return null;
+  }
+  function bindGlobalQuickFolderContext(){
+    if(document.documentElement.dataset.quickFolderDelegated==='1')return;
+    document.documentElement.dataset.quickFolderDelegated='1';
+    document.addEventListener('contextmenu',ev=>{
+      const payload=quickFolderPayloadFromTarget(ev.target);
+      if(!payload)return;
+      ev.preventDefault();ev.stopImmediatePropagation();
+      openQuickFolderContext(ev,payload.items,payload.label);
+    },true);
+  }
   function renderGalleryCard(e){
     const card=document.createElement('article');card.className='card';card.dataset.id=e.id;const url=cachedThumbUrl('gallery',e),checked=state.selectedIds.includes(e.id);card.classList.toggle('selection-mode',state.selectMode);
     card.innerHTML=`<div class="thumb"><img src="${url}" alt="" loading="lazy" decoding="async"><label class="check-badge"><input class="card-check" type="checkbox" ${checked?'checked':''}><span>선택</span></label><button type="button" class="selection-expand-btn" aria-label="크게 보기">⛶</button><div class="card-controls"><button class="round fav">${e.favorite?'★':'☆'}</button></div></div><div class="card-body"><div class="card-title-row"><div class="card-title">${esc(displayTitle(e))}</div><span class="card-model-label">${esc(modelShortLabel(e))}</span></div><div class="card-sub">${esc(artistSummary(e))}</div></div>`;
     card.draggable=true;card.addEventListener('dragstart',ev=>{ev.dataTransfer.effectAllowed='copy';ev.dataTransfer.setData('application/x-nai-image',e.id);});
-    card.querySelector('img').onclick=()=>state.selectMode?toggleSelected(e.id):openDetail(e.id);card.querySelector('.card-body').onclick=()=>state.selectMode?toggleSelected(e.id):openDetail(e.id);card.querySelector('.selection-expand-btn').onclick=ev=>{ev.stopPropagation();openSelectionPreview('gallery',e.id)};card.querySelector('.fav').onclick=ev=>{ev.stopPropagation();toggleFavorite(e.id)};const cb=card.querySelector('.card-check');if(cb)cb.onchange=ev=>{ev.stopPropagation();toggleSelected(e.id,ev.target.checked)};bindGalleryQuickFolder(card,e);return card;
+    card.querySelector('img').onclick=()=>state.selectMode?toggleSelected(e.id):openDetail(e.id);card.querySelector('.card-body').onclick=()=>state.selectMode?toggleSelected(e.id):openDetail(e.id);card.querySelector('.selection-expand-btn').onclick=ev=>{ev.stopPropagation();openSelectionPreview('gallery',e.id)};card.querySelector('.fav').onclick=ev=>{ev.stopPropagation();toggleFavorite(e.id)};const cb=card.querySelector('.card-check');if(cb)cb.onchange=ev=>{ev.stopPropagation();toggleSelected(e.id,ev.target.checked)};return card;
   }
   function preserveWindowAnchor(node,rerender){
     const before=node?.getBoundingClientRect?.().top??null;
