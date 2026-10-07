@@ -3462,13 +3462,20 @@ function openDB(){
     const text=[e.title||'',e.artistsText||'',e.prompt||'',(e.characterPrompts||[]).join(' '),(e.characterUc||[]).join(' '),e.uc||'',e.memo||'',e.model||'',modelLabel(e),e.seed!=null?String(e.seed):'',e.fileName||''].join(' ').toLowerCase();
     atlasSearchCache.set(e,{stamp,text});return text;
   }
-  function atlasSearchTokens(){return String(state.atlasSearch||'').toLowerCase().split(/\s+/).map(x=>x.trim()).filter(Boolean)}
+  function atlasSearchTokens(){return multiArtistSearchNames(state.atlasSearch)?[]:String(state.atlasSearch||'').toLowerCase().split(/\s+/).map(x=>x.trim()).filter(Boolean)}
   function atlasEntryMatchesSearch(e,tokens=atlasSearchTokens()){
+    const multi=multiArtistSearchNames(state.atlasSearch);
+    if(multi)return entryHasAnyArtist(e,multi);
     if(!tokens.length)return true;
     const hay=atlasEntrySearchText(e);
     return tokens.every(t=>hay.includes(t));
   }
   function atlasGroupMatchesSearch(g,tokens=atlasSearchTokens()){
+    const multi=multiArtistSearchNames(state.atlasSearch);
+    if(multi){
+      const groupNames=(g.names||[]).map(norm);
+      return multi.some(name=>groupNames.includes(name));
+    }
     if(!tokens.length)return true;
     const groupHay=[g.label,g.names.join(' '),state.atlasArtistMemos[g.key]||'',...g.entries.map(atlasEntrySearchText)].join(' ').toLowerCase();
     return tokens.every(t=>groupHay.includes(t));
@@ -3493,7 +3500,7 @@ function openDB(){
     return g.label;
   }
   function atlasMatchingImageCount(groups){
-    const tokens=atlasSearchTokens(); if(!tokens.length)return state.atlasEntries.length;
+    const tokens=atlasSearchTokens(); const multi=multiArtistSearchNames(state.atlasSearch); if(!tokens.length&&!multi)return state.atlasEntries.length;
     const ids=new Set();
     for(const g of groups)for(const e of g.entries)if(atlasEntryMatchesSearch(e,tokens))ids.add(e.id);
     return ids.size;
@@ -3619,7 +3626,7 @@ function openDB(){
       const multi=g.type==='multiple'?`<div class="atlas-multi-tags">${esc(atlasWeightsSummary(latest,3))}</div>`:'';
       const artistMemo=(state.atlasArtistMemos[g.key]||'').trim();
       const memoPreview=artistMemo?`<div class="atlas-artist-memo-preview">${esc(artistMemo)}</div>`:'';
-      const matchPreview=atlasSearchTokens().length?`<div class="atlas-match-preview">${esc(atlasSearchMatchPreview(g))}</div>`:'';const quickCopy=g.names.length?`<span class="atlas-copy-tag" data-atlas-copy-tag role="button" tabindex="0" title="artist:작가명 복사">COPY</span>`:'';
+      const matchPreview=(atlasSearchTokens().length||multiArtistSearchNames(state.atlasSearch))?`<div class="atlas-match-preview">${esc(atlasSearchMatchPreview(g))}</div>`:'';const quickCopy=g.names.length?`<span class="atlas-copy-tag" data-atlas-copy-tag role="button" tabindex="0" title="artist:작가명 복사">COPY</span>`:'';
       card.innerHTML=`<input class="atlas-group-check" type="checkbox" ${state.atlasGroupSelectedKeys.includes(g.key)?'checked':''}><div class="atlas-card-visual"><div class="atlas-samples ${reps.length>1?'two':''}">${imgs}</div></div><div class="atlas-card-topline"><div class="atlas-card-name">${esc(g.label)}</div><span class="atlas-card-tools"><span class="atlas-card-fav" data-atlas-card-fav>${fav?'★':'☆'}</span></span></div><div class="atlas-card-meta"><span class="atlas-badge">${g.type==='multiple'?'MULTI':g.type==='unsorted'?'UNSORTED':'SINGLE'}</span><span class="atlas-count-label">${g.entries.length} IMG</span><span class="atlas-model-badge">${esc((()=>{const labels=[...new Set(g.entries.map(modelShortLabel))];return labels.length===1?labels[0]:'MIXED'})())}</span>${quickCopy}</div>${multi}${carousel}${atlasReviewCard(g.key)}${!state.atlasReviewMode&&classification.rating?`<div class="atlas-review-badge">${esc(ATLAS_RATINGS.find(([v])=>v===classification.rating)?.[1]||'')}</div>`:''}${!state.atlasReviewMode&&classification.tags.length?`<div class="atlas-usage-pills">${classification.tags.map(t=>`<span>${esc(t)}</span>`).join('')}</div>`:''}${memoPreview}${matchPreview}`;
       card.querySelectorAll('[data-review-rating]').forEach(b=>b.onclick=ev=>{ev.stopPropagation();stageAtlasReview(g.key,b.dataset.reviewRating)});
       card.querySelector('[data-review-prev]')?.addEventListener('click',ev=>{ev.stopPropagation();advanceAtlasReviewImage(g,card,-1)});
@@ -3645,7 +3652,7 @@ function openDB(){
     const limit=Math.min(all.length,state.atlasRenderLimit||50);
     const arr=all.slice(0,limit);
     const matchingImages=atlasMatchingImageCount(all);
-    els.atlasCount.textContent=atlasSearchTokens().length?`${all.length} artists · ${matchingImages} matching images`:`${all.length} artists · ${state.atlasEntries.length} images`;
+    els.atlasCount.textContent=(atlasSearchTokens().length||multiArtistSearchNames(state.atlasSearch))?`${all.length} artists · ${matchingImages} matching images`:`${all.length} artists · ${state.atlasEntries.length} images`;
     els.atlasGrid.classList.toggle('gallery-mode',state.atlasViewMode==='gallery');
     els.atlasGrid.dataset.cols=String(state.atlasColumns);
     els.atlasGrid.innerHTML='';
@@ -4468,8 +4475,20 @@ async function confirmAtlasGalleryPicker(){const pickerTask=taskStart('Gallery �
     const stamp=`${e.updatedAt||e.createdAt||0}:${e.modelLabel||''}`,cached=gallerySearchCache.get(e);if(cached?.stamp===stamp)return cached.text;
     const text=[e.title,e.artistsText,e.prompt,(e.characterPrompts||[]).join('\n'),(e.characterUc||[]).join('\n'),e.uc,e.memo,e.model,modelLabel(e),e.seed!=null?String(e.seed):'',e.fileName||''].join('\n').toLowerCase();gallerySearchCache.set(e,{stamp,text});return text;
   }
+  function multiArtistSearchNames(query){
+    const parts=String(query||'').split(',').map(x=>x.trim()).filter(Boolean);
+    if(parts.length<2||!parts.every(x=>/^artist\s*:/i.test(x)))return null;
+    const names=parts.map(x=>norm(x.replace(/^artist\s*:/i,''))).filter(Boolean);
+    return names.length===parts.length?names:null;
+  }
+  function entryHasAnyArtist(e,names){
+    if(!names?.length)return false;
+    const entryNames=(e.artists||[]).map(a=>norm(a.name));
+    return names.some(name=>entryNames.includes(name));
+  }
   function filteredEntries(){
-    const tokens=state.search?String(state.search).toLowerCase().split(/\s+/).map(x=>x.trim()).filter(Boolean):[];const artistNeedles=state.artistFilters.map(norm);
+    const multiArtistNames=multiArtistSearchNames(state.search);
+    const tokens=!multiArtistNames&&state.search?String(state.search).toLowerCase().split(/\s+/).map(x=>x.trim()).filter(Boolean):[];const artistNeedles=state.artistFilters.map(norm);
     let arr=state.entries.filter(e=>{
       if(state.favOnly&&!e.favorite)return false;if(state.memoOnly&&!e.memo?.trim())return false;if(!modelMatches(e,state.modelFilter))return false;
       if(state.galleryFilter==='favorite'&&!e.favorite)return false;
@@ -4477,6 +4496,7 @@ async function confirmAtlasGalleryPicker(){const pickerTask=taskStart('Gallery �
       if(state.galleryFilter==='character'&&!(e.characterPrompts||[]).some(x=>String(x||'').trim()))return false;
       if(state.galleryFilter==='charuc'&&!(e.characterUc||[]).some(x=>String(x||'').trim()))return false;
       if(artistNeedles.length){const names=(e.artists||[]).map(a=>norm(a.name));const tests=artistNeedles.map(f=>names.includes(f));if(state.logic==='AND'?!tests.every(Boolean):!tests.some(Boolean))return false}
+      if(multiArtistNames&&!entryHasAnyArtist(e,multiArtistNames))return false;
       if(tokens.length&&!tokens.every(t=>galleryEntrySearchText(e).includes(t)))return false;
       return true;
     });
