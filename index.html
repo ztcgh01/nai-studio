@@ -2040,7 +2040,7 @@ body.is-home .refresh-icon-btn{display:grid}
           <div id="atlasReviewBatchBar" class="atlas-review-batch-bar hidden" role="group" aria-label="평가 변경사항 일괄 저장"><span id="atlasReviewStatus" class="atlas-review-status" role="status" aria-live="polite">변경사항 0개</span><button id="atlasReviewSaveAllBtn" class="btn primary" type="button" disabled>전체 저장</button></div>
           <div id="atlasGroupSelectionBar" class="atlas-group-selection-bar hidden">
             <div class="bulk-left"><span id="atlasGroupSelectedCount">0개 작가 선택</span><button id="atlasGroupSelectAllBtn" class="text-btn">전체 선택</button><span class="sweep-hint">꾹 눌러 쓸어 선택</span></div>
-            <div class="bulk-actions"><select id="atlasBulkRating" class="atlas-bulk-rating" aria-label="선택 작가 일괄 평가"><option value="">평가…</option><option value="good">♥ BEST</option><option value="liked">♡ GOOD</option><option value="maybe">△ MAYBE</option><option value="mediocre">◇ MEDIOCRE</option><option value="retest">↻ RETEST</option><option value="bad">✕ BAD</option><option value="parts">▽ PARTS</option><option value="untested">○ 미평가</option></select><button id="atlasGroupFolderBtn" class="btn small">폴더로 보내기</button><button id="atlasGroupArtistCopyBtn" class="btn small">작가명 복사</button><button id="atlasGroupGalleryBtn" class="btn small primary">→ Gallery</button><button id="atlasGroupRepPdfBtn" class="btn small">대표 PDF</button><button id="atlasGroupAllPdfBtn" class="btn small">전체 이미지 PDF</button><button id="atlasGroupDeleteBtn" class="btn small danger">선택 삭제</button><button id="atlasGroupCancelBtn" class="btn small">선택 취소</button><span id="atlasGroupReviewStatus" class="atlas-group-review-status hidden" role="status" aria-live="polite">변경사항 0개</span><button id="atlasGroupReviewSaveBtn" class="btn small primary hidden" type="button" disabled>전체 저장</button></div>
+            <div class="bulk-actions"><select id="atlasBulkRating" class="atlas-bulk-rating" aria-label="선택 작가 일괄 평가"><option value="">평가…</option><option value="good">♥ BEST</option><option value="liked">♡ GOOD</option><option value="maybe">△ MAYBE</option><option value="mediocre">◇ MEDIOCRE</option><option value="retest">↻ RETEST</option><option value="bad">✕ BAD</option><option value="parts">▽ PARTS</option><option value="untested">○ 미평가</option></select><button id="atlasGroupFolderBtn" class="btn small">폴더로 보내기</button><button id="atlasGroupArtistCopyBtn" class="btn small">작가명 복사</button><button id="atlasGroupGalleryBtn" class="btn small primary">→ Gallery</button><div class="atlas-export-menu-wrap"><button id="atlasGroupExportBtn" class="btn small" type="button" aria-haspopup="menu" aria-expanded="false">내보내기 ▾</button><div id="atlasGroupExportMenu" class="atlas-export-menu hidden" role="menu"><button id="atlasGroupRepPdfBtn" type="button" role="menuitem">대표 이미지 PDF</button><button id="atlasGroupAllPdfBtn" type="button" role="menuitem">전체 이미지 PDF</button></div></div><button id="atlasGroupDeleteBtn" class="btn small danger">선택 삭제</button><button id="atlasGroupCancelBtn" class="btn small">선택 취소</button><span id="atlasGroupReviewStatus" class="atlas-group-review-status hidden" role="status" aria-live="polite">변경사항 0개</span><button id="atlasGroupReviewSaveBtn" class="btn small primary hidden" type="button" disabled>전체 저장</button></div>
           </div>
         </div>
       </section>
@@ -2874,6 +2874,13 @@ body.is-home .refresh-icon-btn{display:grid}
       openFolderPicker(entries.map(atlasFolderAttachment));
     };
     els.atlasGroupArtistCopyBtn.onclick=()=>copyArtistTagsFromEntries(atlasGroupEntriesForSelection(false));
+    const atlasExportBtn=document.getElementById('atlasGroupExportBtn');
+    const atlasExportMenu=document.getElementById('atlasGroupExportMenu');
+    if(atlasExportBtn&&atlasExportMenu){
+      atlasExportBtn.onclick=e=>{e.stopPropagation();const opening=atlasExportMenu.classList.contains('hidden');atlasExportMenu.classList.toggle('hidden',!opening);atlasExportBtn.setAttribute('aria-expanded',opening?'true':'false');};
+      atlasExportMenu.onclick=e=>e.stopPropagation();
+      document.addEventListener('click',()=>{atlasExportMenu.classList.add('hidden');atlasExportBtn.setAttribute('aria-expanded','false');});
+    }
     els.atlasGroupGalleryBtn.onclick=()=>atlasEntriesToGallery(atlasGroupEntriesForSelection(false));
     els.atlasGroupRepPdfBtn.onclick=()=>openExportDialog({entries:atlasGroupEntriesForSelection(true),label:'선택 작가 대표 이미지',preset:'atlas',output:'pdf'});
     els.atlasGroupAllPdfBtn.onclick=()=>openExportDialog({entries:atlasGroupEntriesForSelection(false),label:'선택 작가 전체 이미지',preset:'full',output:'pdf'});
@@ -7610,6 +7617,57 @@ async function confirmAtlasGalleryPicker(){const pickerTask=taskStart('Gallery �
     border:1px solid #555!important;
     box-shadow:inset 0 0 0 1px rgba(255,255,255,.08)!important;
   }
+}
+</style>
+
+<style id="v124-atlas-selection-compact">
+/* v1.2.24: compact one-row Atlas selection bar + grouped PDF export. */
+@media(min-width:701px){
+  .atlas-group-selection-bar{
+    width:min(1180px,calc(100vw - 28px))!important;
+    flex-wrap:nowrap!important;
+    gap:8px!important;
+    padding:7px 10px!important;
+    border-radius:11px!important;
+    overflow:visible!important;
+  }
+  .atlas-group-selection-bar .bulk-left{
+    flex:0 0 auto!important;
+    flex-wrap:nowrap!important;
+    gap:7px!important;
+    white-space:nowrap!important;
+  }
+  .atlas-group-selection-bar .bulk-actions{
+    flex:1 1 auto!important;
+    min-width:0!important;
+    display:flex!important;
+    flex-wrap:nowrap!important;
+    justify-content:flex-end!important;
+    gap:5px!important;
+    overflow:visible!important;
+  }
+  .atlas-group-selection-bar .bulk-actions>.btn,
+  .atlas-group-selection-bar .bulk-actions>select,
+  .atlas-group-selection-bar .atlas-export-menu-wrap{
+    flex:0 0 auto!important;
+  }
+  .atlas-group-selection-bar .btn,
+  .atlas-group-selection-bar .atlas-bulk-rating{
+    min-height:32px!important;
+    height:32px!important;
+    padding-top:0!important;
+    padding-bottom:0!important;
+    white-space:nowrap!important;
+  }
+  #atlasView.atlas-group-selecting{padding-bottom:82px!important}
+}
+.atlas-export-menu-wrap{position:relative;display:inline-flex}
+.atlas-export-menu{position:absolute;right:0;bottom:calc(100% + 7px);z-index:50;min-width:156px;padding:5px;background:#fff;color:#111;border:1px solid #ccc;border-radius:8px;box-shadow:0 10px 28px rgba(0,0,0,.18)}
+.atlas-export-menu.hidden{display:none!important}
+.atlas-export-menu button{display:block;width:100%;height:34px;padding:0 9px;border:0;background:#fff;color:#111;text-align:left;border-radius:6px;font-size:10px;white-space:nowrap}
+.atlas-export-menu button:hover{background:#f1f1f1}
+@media(max-width:700px){
+  .atlas-export-menu{bottom:calc(100% + 6px);right:0}
 }
 </style>
 </body>
