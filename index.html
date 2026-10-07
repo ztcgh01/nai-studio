@@ -7553,6 +7553,65 @@ async function confirmAtlasGalleryPicker(){const pickerTask=taskStart('Gallery �
 .folder-card.dragging{opacity:.45}.folder-card.drop-target,.collection-breadcrumb .drop-target{outline:2px solid #111;outline-offset:2px}.folder-card[draggable="true"]{cursor:grab}.folder-card[draggable="true"]:active{cursor:grabbing}
 </style>
 <aside id="taskProgressPanel" hidden role="status" aria-live="polite" aria-atomic="true"><div class="task-head"><span class="task-title" id="taskProgressTitle">작업 준비 중</span><button type="button" class="task-close" id="taskProgressClose" aria-label="진행 상황 닫기">×</button></div><div class="task-stage" id="taskProgressStage">준비 중…</div><div class="task-track" role="progressbar" aria-label="작업 진행률" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0" id="taskProgressTrack"><div class="task-fill" id="taskProgressFill"></div></div><div class="task-footer"><span id="taskProgressCount">0 / 0</span><span id="taskProgressPercent">0%</span></div></aside>
+
+<style id="v123-selection-bar-compact">
+/* v1.2.23: keep selection actions in one compact row on desktop. */
+@media(min-width:561px){
+  .bulk-bar{
+    display:flex!important;
+    align-items:center!important;
+    flex-wrap:nowrap!important;
+    gap:10px!important;
+    min-height:0!important;
+    padding:7px 10px!important;
+    margin-bottom:10px!important;
+  }
+  .bulk-left{
+    display:flex!important;
+    align-items:center!important;
+    flex:0 0 auto!important;
+    flex-wrap:nowrap!important;
+    gap:9px!important;
+    min-width:0!important;
+    white-space:nowrap!important;
+  }
+  .bulk-left>*,
+  .bulk-left strong,
+  .bulk-left span,
+  .bulk-left .text-btn{
+    white-space:nowrap!important;
+    word-break:keep-all!important;
+  }
+  .bulk-actions{
+    display:flex!important;
+    align-items:center!important;
+    justify-content:flex-end!important;
+    flex:1 1 auto!important;
+    flex-wrap:nowrap!important;
+    gap:6px!important;
+    min-width:0!important;
+    overflow-x:auto!important;
+    overflow-y:hidden!important;
+    scrollbar-width:none;
+  }
+  .bulk-actions::-webkit-scrollbar{display:none}
+  .bulk-actions .btn,
+  .bulk-actions .select,
+  .bulk-actions button,
+  .bulk-actions select{
+    flex:0 0 auto!important;
+    white-space:nowrap!important;
+  }
+  .bulk-actions .btn{
+    padding:7px 10px!important;
+    line-height:1.2!important;
+  }
+  .bulk-actions .btn.primary{
+    border:1px solid #555!important;
+    box-shadow:inset 0 0 0 1px rgba(255,255,255,.08)!important;
+  }
+}
+</style>
 </body>
 </html>
 
