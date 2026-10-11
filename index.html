@@ -1925,7 +1925,7 @@ body.is-home .refresh-icon-btn{display:grid}
         </div>
         <div id="importProgress" class="import-progress hidden"><div class="import-progress-top"><span id="importProgressText">이미지 가져오는 중…</span><span id="importProgressCount">0 / 0</span></div><div class="import-progress-track"><i id="importProgressBar"></i></div></div>
 
-        <div id="bulkBar" class="bulk-bar hidden">
+        <div id="bulkBar" class="bulk-bar hidden" style="display:none!important">
           <div class="bulk-left"><span id="selectedCount">0개 선택</span><button id="selectAllBtn" class="text-btn">전체 선택</button><span class="sweep-hint">꾹 눌러 쓸어 선택</span></div>
           <div class="bulk-actions">
             <button id="selectedToFolderBtn" class="btn small">컬렉션</button>
@@ -4708,6 +4708,7 @@ async function confirmAtlasGalleryPicker(){const pickerTask=taskStart('Gallery �
     els.selectModeBtn.classList.toggle('active',state.selectMode);
     els.selectModeBtn.textContent=state.selectMode?'선택 중':'선택';
     els.bulkBar.classList.toggle('hidden',!state.selectMode);
+    els.bulkBar.style.setProperty('display',state.selectMode?'flex':'none','important');
     if(!state.selectMode)els.bulkMoreMenu?.classList.add('hidden');
     els.selectedCount.textContent=`${state.selectedIds.length}개 선택`;
     const disabled=!state.selectedIds.length;
