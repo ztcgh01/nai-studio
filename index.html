@@ -2616,7 +2616,7 @@ body.is-home .refresh-icon-btn{display:grid}
 
   document.addEventListener('DOMContentLoaded', init);
 
-  async async function init(){
+  async function init(){
     mapEls();
     bind();
     bindPageFind();
@@ -5220,10 +5220,9 @@ async function confirmAtlasGalleryPicker(){const pickerTask=taskStart('Gallery �
     render();toast(clear?'자동 모델 판별로 되돌렸습니다.':'모델을 직접 지정했습니다.');
   }
 
-  async async function openDetail(id){
+  async function openDetail(id){
     const e=galleryEntry(id); if(!e)return;
     const directUrl=desktopDirectImageUrl(e);if(DESKTOP_MODE&&!directUrl&&!(e.imageBlob instanceof Blob)){await ensureEntryBlob(e,STORE_ENTRIES);if(!(e.imageBlob instanceof Blob)){toast('이미지를 불러오지 못했습니다.');return}}
-    if(!els.detailDialog.open){window.__galleryDetailReturn={id,scrollY:window.scrollY,view:state.view}}
     state.currentId=id;
     els.detailTitle.value=e.title||''; revokeDetailObjectUrl(); els.detailImage.src=directUrl||URL.createObjectURL(e.imageBlob); els.detailImage.dataset.url=els.detailImage.src;
     els.detailArtists.value=e.artistsText||''; els.detailPrompt.value=e.prompt||''; els.detailUc.value=e.uc||''; els.detailMemo.value=e.memo||'';
@@ -5248,9 +5247,6 @@ async function confirmAtlasGalleryPicker(){const pickerTask=taskStart('Gallery �
     detailHistoryActive=false;
     closingDetailFromHistory=true;
     els.detailDialog.close();
-    const saved=window.__galleryDetailReturn;
-    window.__galleryDetailReturn=null;
-    if(saved&&state.view===saved.view)requestAnimationFrame(()=>window.scrollTo(0,saved.scrollY));
     if(hadHistory&&history.state?.naiDetail)history.back();
   }
 
