@@ -1876,6 +1876,7 @@ body.is-home .refresh-icon-btn{display:grid}
             <span class="gallery-tool-label">SORT</span>
             <select id="sortSelect" class="atlas-select gallery-sort-select" aria-label="정렬">
               <option value="newest">Recent</option>
+              <option value="recent-group">Recent + Artist Group</option>
               <option value="oldest">Oldest</option>
               <option value="artist">Artist</option>
               <option value="favorite">Favourites first</option>
@@ -2464,7 +2465,7 @@ body.is-home .refresh-icon-btn{display:grid}
     galleryDisplayMode:savedViewPrefs.gallery?.displayMode==='group'?'group':'normal',
     galleryColumns: Math.max(1,Math.min(4,Number(savedViewPrefs.gallery?.columns)||Number(localStorage.getItem('nai-studio-gallery-columns'))||((window.innerWidth||0)<=560?2:4))),
     view: 'library',
-    sort: ['newest','oldest','artist','favorite','seed','model'].includes(savedViewPrefs.gallery?.sort)?savedViewPrefs.gallery.sort:'newest',
+    sort: ['newest','recent-group','oldest','artist','favorite','seed','model'].includes(savedViewPrefs.gallery?.sort)?savedViewPrefs.gallery.sort:'newest',
     modelFilter: ['all','v4.5-full','v4.5-curated','v5-full','v5-curated','unknown'].includes(savedViewPrefs.gallery?.modelFilter)?savedViewPrefs.gallery.modelFilter:'all',
     listSortField: null,
     listSortDir: 'desc',
@@ -4512,7 +4513,12 @@ async function confirmAtlasGalleryPicker(){const pickerTask=taskStart('Gallery �
       if(tokens.length&&!tokens.every(t=>galleryEntrySearchText(e).includes(t)))return false;
       return true;
     });
-    arr.sort((a,b)=>state.sort==='oldest'?a.createdAt-b.createdAt:state.sort==='artist'?(a.artistsText||'').localeCompare(b.artistsText||''):state.sort==='favorite'?(Number(b.favorite)-Number(a.favorite)||b.createdAt-a.createdAt):state.sort==='seed'?((Number(a.seed)||0)-(Number(b.seed)||0)):state.sort==='model'?modelLabel(a).localeCompare(modelLabel(b)):(b.lastImportAt||b.createdAt)-(a.lastImportAt||a.createdAt));
+    if(state.sort==='recent-group'){
+      const groupLatest=new Map(),keys=new Map();
+      const time=e=>Number(e.lastImportAt||e.createdAt||0);
+      for(const e of arr){const key=galleryGroupKey(e);keys.set(e.id,key);const t=time(e);if(t>(groupLatest.get(key)||0))groupLatest.set(key,t)}
+      arr.sort((a,b)=>(groupLatest.get(keys.get(b.id))||0)-(groupLatest.get(keys.get(a.id))||0)||keys.get(a.id).localeCompare(keys.get(b.id))||time(b)-time(a)||String(a.id).localeCompare(String(b.id)));
+    }else arr.sort((a,b)=>state.sort==='oldest'?a.createdAt-b.createdAt:state.sort==='artist'?(a.artistsText||'').localeCompare(b.artistsText||''):state.sort==='favorite'?(Number(b.favorite)-Number(a.favorite)||b.createdAt-a.createdAt):state.sort==='seed'?((Number(a.seed)||0)-(Number(b.seed)||0)):state.sort==='model'?modelLabel(a).localeCompare(modelLabel(b)):(b.lastImportAt||b.createdAt)-(a.lastImportAt||a.createdAt));
     return arr;
   }
 
