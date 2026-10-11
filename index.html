@@ -1436,9 +1436,14 @@ body.folder-lightbox-open{overflow:hidden}
 </style>
 
 <style id="v1914-selection-preview">
-.selection-preview{position:fixed;inset:0;z-index:9999;background:rgba(10,10,10,.96);display:flex;flex-direction:column;color:#fff}
+.selection-preview{position:fixed;inset:0;z-index:2147483647;background:rgba(10,10,10,.96);display:flex;flex-direction:column;color:#fff}
 .selection-preview.hidden{display:none!important}
-.selection-preview-head{display:flex;align-items:center;gap:10px;padding:max(10px,env(safe-area-inset-top)) 12px 10px}
+.selection-preview-head{display:flex;align-items:center;gap:10px;padding:max(10px,env(safe-area-inset-top)) 12px 10px;position:relative;z-index:2}
+.selection-preview-head .selection-preview-close{order:3;margin-left:auto;position:relative;z-index:3;cursor:pointer;flex-shrink:0}
+.selection-preview-head .selection-preview-count{order:1;margin-right:0}
+.selection-preview-head #selectionPreviewInfo{order:2;margin-left:auto;cursor:pointer}
+.selection-preview-details{max-height:35dvh;overflow:auto;padding:12px 18px;background:#1b1b1b;border-top:1px solid #555;font-size:12px;white-space:pre-wrap;overflow-wrap:anywhere;flex-shrink:0}
+.selection-preview-details.hidden{display:none!important}
 .selection-preview-close,.selection-preview-nav,.selection-preview-pick{border:1px solid rgba(255,255,255,.34);background:rgba(255,255,255,.08);color:#fff;border-radius:999px;height:42px;min-width:42px;padding:0 14px;font:inherit;font-size:12px}
 .selection-preview-close{font-size:25px;line-height:1;padding:0;width:42px}
 .selection-preview-count{font-size:12px;font-weight:700;margin-right:auto}
@@ -2363,13 +2368,14 @@ body.is-home .refresh-icon-btn{display:grid}
   <div id="selectionPreview" class="selection-preview hidden" aria-hidden="true">
     <div class="selection-preview-head">
       <button type="button" id="selectionPreviewClose" class="selection-preview-close" aria-label="닫기">×</button>
-      <span id="selectionPreviewCount" class="selection-preview-count">0 / 0</span>
+      <span id="selectionPreviewCount" class="selection-preview-count">0 / 0</span><button type="button" id="selectionPreviewInfo" class="selection-preview-pick" aria-expanded="false">상세 정보</button>
     </div>
     <div id="selectionPreviewStage" class="selection-preview-stage">
       <button type="button" id="selectionPreviewPrev" class="selection-preview-nav selection-preview-prev" aria-label="이전 이미지">‹</button>
       <img id="selectionPreviewImg" class="selection-preview-img" alt="선택 이미지 확대">
       <button type="button" id="selectionPreviewNext" class="selection-preview-nav selection-preview-next" aria-label="다음 이미지">›</button>
     </div>
+    <div id="selectionPreviewDetails" class="selection-preview-details hidden" aria-label="이미지 메타데이터"></div>
     <div class="selection-preview-foot">
       <span id="selectionPreviewTitle" class="selection-preview-title"></span>
       <button type="button" id="selectionPreviewPick" class="selection-preview-pick">선택</button>
@@ -2606,6 +2612,7 @@ body.is-home .refresh-icon-btn{display:grid}
   function closeSelectionPreviewRaw(){
     if(selectionPreviewUrl){try{URL.revokeObjectURL(selectionPreviewUrl)}catch{}selectionPreviewUrl=null}
     selectionPreviewCtx=null;selectionPreviewPointerStart=null;
+    document.getElementById("selectionPreviewDetails")?.classList.add("hidden");document.getElementById("selectionPreviewInfo")?.setAttribute("aria-expanded","false");
     els.selectionPreview?.classList.add('hidden');els.selectionPreview?.setAttribute('aria-hidden','true');
     // A modal dialog occupies the browser top layer. Return preview to body after closing.
     if(els.selectionPreview?.parentElement!==document.body)document.body.appendChild(els.selectionPreview);
@@ -2794,6 +2801,7 @@ body.is-home .refresh-icon-btn{display:grid}
     window.addEventListener('blur',closeQuickFolderContext);
     window.addEventListener('scroll',closeQuickFolderContext,{passive:true});
     els.selectionPreviewClose.onclick=closeSelectionPreview;
+    document.getElementById("selectionPreviewInfo").onclick=()=>{const panel=document.getElementById("selectionPreviewDetails");panel.classList.toggle("hidden");document.getElementById("selectionPreviewInfo").setAttribute("aria-expanded",String(!panel.classList.contains("hidden")))};
     els.selectionPreviewPrev.onclick=()=>moveSelectionPreview(-1);
     els.selectionPreviewNext.onclick=()=>moveSelectionPreview(1);
     els.selectionPreviewPick.onclick=toggleSelectionPreviewCurrent;
@@ -4911,6 +4919,8 @@ async function confirmAtlasGalleryPicker(){const pickerTask=taskStart('Gallery �
     const c=selectionPreviewCtx;if(!c||!c.items.length)return closeSelectionPreviewRaw();
     c.index=(c.index+c.items.length)%c.items.length;const item=c.items[c.index],e=item.entry;if(!e?.imageBlob)return;
     if(selectionPreviewUrl?.startsWith('blob:')){try{URL.revokeObjectURL(selectionPreviewUrl)}catch{}}selectionPreviewUrl=entryImageUrl('preview',e);
+    const details=document.getElementById('selectionPreviewDetails');
+    if(details){const values=[['작가',e.artistsText],['Seed',e.seed],['모델',e.modelLabel||e.model],['파일명',e.fileName],['Prompt',e.prompt],['UC',e.uc],['메모',e.memo]];details.textContent=values.filter(([,v])=>v!==undefined&&v!==null&&String(v).trim()).map(([k,v])=>k+'\n'+String(v)).join('\n\n')||'저장된 메타데이터가 없습니다.'}
     els.selectionPreviewImg.src=selectionPreviewUrl;els.selectionPreviewTitle.textContent=item.title||e.fileName||'';els.selectionPreviewCount.textContent=`${c.index+1} / ${c.items.length}`;
     const on=isSelectionPreviewSelected(c.source,item.key);els.selectionPreviewPick.textContent=on?'✓ 선택됨':'선택';els.selectionPreviewPick.classList.toggle('selected',on);
     const disabled=c.items.length<2;els.selectionPreviewPrev.disabled=disabled;els.selectionPreviewNext.disabled=disabled;
