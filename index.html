@@ -1891,7 +1891,7 @@ body.is-home .refresh-icon-btn{display:grid}
               <option value="v5-curated">V5 CURATED</option>
               <option value="unknown">UNKNOWN</option>
             </select>
-            <span class="gallery-tool-label">ARTISTS</span><select id="galleryArtistCountFilter" class="atlas-select" aria-label="갤러리 이미지 아티스트 수 필터"><option value="all">전체</option><option value="1">1개</option><option value="2">2개</option><option value="3">3개</option><option value="4">4개</option><option value="5">5개</option><option value="6">6개</option><option value="7">7개</option><option value="8">8개</option><option value="9">9개</option><option value="10">10개</option><option value="11">11개</option><option value="12">12개</option><option value="13">13개</option><option value="14">14개</option><option value="15">15개</option><option value="16">16개</option><option value="17">17개</option><option value="18">18개</option><option value="19">19개</option><option value="20">20개</option></select><span class="gallery-tool-label">PER PAGE</span>
+            <span class="gallery-tool-label">ARTISTS N</span><select id="galleryArtistCountFilter" class="atlas-select" aria-label="갤러리 이미지 아티스트 수 필터"><option value="all">전체</option><option value="1">1개</option><option value="2">2개</option><option value="3">3개</option><option value="4">4개</option><option value="5">5개</option><option value="6">6개</option><option value="7">7개</option><option value="8">8개</option><option value="9">9개</option><option value="10">10개</option><option value="11">11개</option><option value="12">12개</option><option value="13">13개</option><option value="14">14개</option><option value="15">15개</option><option value="16">16개</option><option value="17">17개</option><option value="18">18개</option><option value="19">19개</option><option value="20">20개</option></select><span class="gallery-tool-label">PER PAGE</span>
             <select id="galleryPageSize" class="atlas-select" aria-label="갤러리 표시 개수">
               <option value="50" selected>50</option>
               <option value="100">100</option>
@@ -2011,7 +2011,7 @@ body.is-home .refresh-icon-btn{display:grid}
               <select id="atlasModelFilter" class="atlas-select" aria-label="모델 필터"><option value="all">All</option><option value="v4.5-full">V4.5 FULL</option><option value="v4.5-curated">V4.5 CURATED</option><option value="v5-full">V5 FULL</option><option value="v5-curated">V5 CURATED</option><option value="unknown">Unknown</option></select>
             </div>
             <div class="atlas-tool-row">
-              <span class="atlas-tool-label">Artists</span><select id="atlasArtistCountFilter" class="atlas-select" aria-label="도감 이미지 아티스트 수 필터"><option value="all">전체</option><option value="1">1개</option><option value="2">2개</option><option value="3">3개</option><option value="4">4개</option><option value="5">5개</option><option value="6">6개</option><option value="7">7개</option><option value="8">8개</option><option value="9">9개</option><option value="10">10개</option><option value="11">11개</option><option value="12">12개</option><option value="13">13개</option><option value="14">14개</option><option value="15">15개</option><option value="16">16개</option><option value="17">17개</option><option value="18">18개</option><option value="19">19개</option><option value="20">20개</option></select><span class="atlas-tool-label">Posts</span>
+              <span class="atlas-tool-label">ARTISTS N</span><select id="atlasArtistCountFilter" class="atlas-select" aria-label="도감 이미지 아티스트 수 필터"><option value="all">전체</option><option value="1">1개</option><option value="2">2개</option><option value="3">3개</option><option value="4">4개</option><option value="5">5개</option><option value="6">6개</option><option value="7">7개</option><option value="8">8개</option><option value="9">9개</option><option value="10">10개</option><option value="11">11개</option><option value="12">12개</option><option value="13">13개</option><option value="14">14개</option><option value="15">15개</option><option value="16">16개</option><option value="17">17개</option><option value="18">18개</option><option value="19">19개</option><option value="20">20개</option></select><span class="atlas-tool-label">Posts</span>
               <select id="atlasMinPosts" class="atlas-select"><option value="0">All</option><option value="5">&gt; 5</option><option value="20">&gt; 20</option><option value="50">&gt; 50</option></select>
               <span class="atlas-tool-label">View</span>
               <div id="atlasViewMode" class="atlas-seg"><button data-atlas-view="gallery">Gallery</button><button class="active" data-atlas-view="index">Index</button></div>
@@ -7732,6 +7732,14 @@ async function confirmAtlasGalleryPicker(){const pickerTask=taskStart('Gallery �
 .image-folder-atlas-samples[style*="--folder-atlas-reps:3"] img:first-child{grid-row:span 2}
 .image-folder-atlas-samples[style*="--folder-atlas-reps:3"]{grid-template-rows:1fr 1fr}
 .image-folder-atlas-samples[style*="--folder-atlas-reps:4"]{grid-template-rows:1fr 1fr}
+</style>
+<style id="v133-gallery-filter-alignment">
+.gallery-tool-row-wrap{display:flex;align-items:center;justify-content:flex-start;gap:0 10px;flex-wrap:wrap;row-gap:10px}
+.gallery-tool-row-wrap>.gallery-tool-label{display:inline-flex;align-items:center;min-height:36px;margin:0 0 0 10px;line-height:1;flex:0 0 auto}
+.gallery-tool-row-wrap>.gallery-tool-label:first-child{margin-left:0}
+.gallery-tool-row-wrap>select.atlas-select{height:36px;min-height:36px;box-sizing:border-box;margin:0;padding-top:0;padding-bottom:0;line-height:normal;flex:0 1 180px;min-width:110px}
+.gallery-tool-row-wrap>#galleryArtistCountFilter{flex-basis:120px;min-width:100px}
+@media(max-width:640px){.gallery-tool-row-wrap{column-gap:7px;row-gap:8px}.gallery-tool-row-wrap>.gallery-tool-label{margin-left:4px}.gallery-tool-row-wrap>select.atlas-select{flex-basis:130px;min-width:100px;max-width:46vw}}
 </style>
 </body>
 </html>
