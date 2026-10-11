@@ -5388,7 +5388,21 @@ async function confirmAtlasGalleryPicker(){const pickerTask=taskStart('Gallery �
 
   // v1.9.39: Gallery selection -> Artist Atlas. An IndexedDB transaction keeps
   // each move atomic: never delete a Gallery image unless its Atlas copy exists.
-  function commitGalleryAtlasTransfer(src,atlasEntry,move){
+  async function commitGalleryAtlasTransfer(src,atlasEntry,move){
+    if(DESKTOP_MODE){
+      // Desktop records live in the filesystem, not the browser IndexedDB.
+      // Persist and verify the destination before removing the Gallery record.
+      if(atlasEntry){
+        const blob=await ensureEntryBlob(src,STORE_ENTRIES);
+        if(!(blob instanceof Blob)||!blob.size)throw new Error('Gallery 원본 이미지 데이터를 읽을 수 없습니다.');
+        atlasEntry.imageBlob=blob;
+        await txPut(STORE_ATLAS,atlasEntry);
+        const stored=await window.naiDesktop.getOneHydrated(STORE_ATLAS,atlasEntry.id);
+        if(!stored||!stored.imageBlob)throw new Error('Atlas 저장 확인에 실패했습니다.');
+      }
+      if(move)await window.naiDesktop.del(STORE_ENTRIES,src.id);
+      return;
+    }
     return new Promise((resolve,reject)=>{
       const tx=db.transaction([STORE_ENTRIES,STORE_ATLAS],'readwrite');
       if(atlasEntry)tx.objectStore(STORE_ATLAS).put(atlasEntry);
@@ -5417,7 +5431,7 @@ async function confirmAtlasGalleryPicker(){const pickerTask=taskStart('Gallery �
           await commitGalleryAtlasTransfer(src,entry,move);
           if(entry){state.atlasEntries.push(entry);added++}else already++;
           if(move){movedIds.add(src.id);moved++}
-        }catch(err){console.error('Gallery → Atlas transfer failed:',src.id,err);failed++}
+        }catch(err){console.error('Gallery → Atlas transfer failed:',src.id,err);failed++;if(failed===1)toast(`이동 실패: ${err?.message||String(err)}`)}
         taskUpdate(`도감 ${move?'이동':'복사'} 중 · ${transferIndex+1}/${entries.length}`,transferIndex+1,entries.length,transferTask);
       }
       if(movedIds.size){
