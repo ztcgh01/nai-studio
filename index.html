@@ -1963,7 +1963,7 @@ body.is-home .refresh-icon-btn{display:grid}
           <label><input type="checkbox" data-field="created" /> 등록일</label>
         </div>
 
-        <div id="galleryGroupTools" class="gallery-group-tools hidden"><button id="galleryExpandAllBtn" class="btn small" type="button">전체 펼치기</button><button id="galleryCollapseAllBtn" class="btn small" type="button">전체 접기</button><span id="galleryGroupSummary" class="muted-note"></span></div><div id="gallery" class="gallery"></div>
+        <div id="galleryGroupTools" class="gallery-group-tools hidden"><span id="galleryGroupSummary" class="muted-note"></span></div><div id="gallery" class="gallery"></div>
         <div id="listWrap" class="list-wrap hidden">
           <table class="data-table"><thead id="listHead"></thead><tbody id="listBody"></tbody></table>
         </div>
@@ -2967,9 +2967,7 @@ body.is-home .refresh-icon-btn{display:grid}
     els.favOnly.onchange = e => {state.favOnly=e.target.checked;resetGalleryPaging();renderLibrary();};
     els.memoOnly.onchange = e => {state.memoOnly=e.target.checked;resetGalleryPaging();renderLibrary();};
     els.displayTabs.onclick = e => { if(!e.target.dataset.tab) return;state.tab=e.target.dataset.tab;saveViewPrefs();resetGalleryPaging();$$('.tab').forEach(x=>x.classList.toggle('active',x.dataset.tab===state.tab));renderLibrary(); };
-    els.galleryDisplayMode.onchange=e=>{state.galleryDisplayMode=e.target.value==='group'?'group':'normal';saveViewPrefs();renderLibrary()};
-    els.galleryExpandAllBtn.onclick=()=>{galleryGroupDefaultExpanded=true;galleryCollapsedGroups.clear();renderGallery(filteredEntries())};
-    els.galleryCollapseAllBtn.onclick=()=>{galleryGroupDefaultExpanded=false;galleryCollapsedGroups.clear();renderGallery(filteredEntries())};
+    els.galleryDisplayMode.onchange=e=>{state.galleryDisplayMode=e.target.value==='group'?'group':'normal';galleryGroupRenderLimit=36;saveViewPrefs();renderLibrary()};
     els.galleryColumnCount.onclick=e=>{
       const b=e.target.closest('[data-gallery-cols]'); if(!b)return;
       state.galleryColumns=Math.max(1,Math.min(4,Number(b.dataset.galleryCols)||2));
@@ -5044,32 +5042,42 @@ async function confirmAtlasGalleryPicker(){const pickerTask=taskStart('Gallery �
     rerender();
     requestAnimationFrame(()=>{const next=selector?scroller?.querySelector(selector):null;if(scroller&&next&&before!==null){const after=next.getBoundingClientRect().top;scroller.scrollTop=beforeTop+(after-before)}else if(scroller)scroller.scrollTop=beforeTop});
   }
-  let galleryGroupDefaultExpanded=false;
-  const galleryCollapsedGroups=new Set();
+  const galleryGroupFavorites=new Set(JSON.parse(localStorage.getItem('nai-gallery-group-favorites')||'[]'));
+  let galleryGroupRenderLimit=36;
+  const galleryGroupImageLimits=new Map();
   function galleryGroupKey(e){const names=[...new Set((e.artists||[]).map(a=>normalizeArtistName(a.name||'')).filter(Boolean))].sort();return names.length?names.join('||'):'__unclassified__'}
   function renderGalleryGroups(arr){
     const groups=new Map();
-    for(const e of arr){const key=galleryGroupKey(e);if(!groups.has(key))groups.set(key,[]);groups.get(key).push(e)}
+    for(const e of arr){const key=galleryGroupKey(e);let g=groups.get(key);if(!g){g=[];groups.set(key,g)}g.push(e)}
+    const ordered=[...groups.entries()].sort((a,b)=>Number(galleryGroupFavorites.has(b[0]))-Number(galleryGroupFavorites.has(a[0])));
     els.gallery.innerHTML='';
     els.galleryGroupSummary.textContent=`${groups.size}개 그룹 · ${arr.length}장`;
-    const frag=document.createDocumentFragment();
-    for(const [key,items] of groups){
-      const expanded=galleryCollapsedGroups.has(key)?!galleryGroupDefaultExpanded:galleryGroupDefaultExpanded;
-      const section=document.createElement('section');section.className='gallery-artist-group';section.dataset.groupKey=key;
-      const head=document.createElement('button');head.type='button';head.className='gallery-group-head';head.setAttribute('aria-expanded',String(expanded));
+    const frag=document.createDocumentFragment(),visible=ordered.slice(0,galleryGroupRenderLimit),visibleIds=[];
+    for(const [key,items] of visible){
+      const section=document.createElement('section');section.className='gallery-combo-card';
       const names=[...new Set((items[0].artists||[]).map(a=>String(a.name||'').trim()).filter(Boolean))].sort((a,b)=>normalizeArtistName(a).localeCompare(normalizeArtistName(b)));
-      head.textContent=`${names.length?names.join(' + '):'미분류'} · ${items.length}장 ${expanded?'▴':'▾'}`;
-      section.appendChild(head);
-      const grid=document.createElement('div');grid.className='gallery gallery-group-grid';grid.dataset.cols=String(state.galleryColumns);
+      const tags=names.map(n=>'artist:'+n).join(', ');
+      const grid=document.createElement('div');grid.className='gallery-combo-images';
       let shown=0;
-      const append=()=>{const n=Math.min(items.length,shown+50);const f=document.createDocumentFragment();for(let i=shown;i<n;i++)f.appendChild(renderGalleryCard(items[i]));grid.appendChild(f);shown=n;more.textContent=`+ ${Math.min(50,items.length-shown)}장 더 불러오기`;more.hidden=shown>=items.length;bindLongPressSelectionEntry(grid,'.card')};
-      const more=document.createElement('button');more.type='button';more.className='load-more-btn';more.onclick=()=>preserveWindowAnchor(more,append);
-      if(expanded){append();section.appendChild(grid);section.appendChild(more)}
-      head.onclick=()=>{const was=head.getBoundingClientRect().top;const now=!head.getAttribute('aria-expanded').includes('true');if(now===galleryGroupDefaultExpanded)galleryCollapsedGroups.delete(key);else galleryCollapsedGroups.add(key);head.setAttribute('aria-expanded',String(now));head.textContent=`${names.length?names.join(' + '):'미분류'} · ${items.length}장 ${now?'▴':'▾'}`;if(now){append();section.appendChild(grid);section.appendChild(more)}else{grid.remove();more.remove()}const delta=head.getBoundingClientRect().top-was;if(Math.abs(delta)>0.5)window.scrollBy(0,delta)};
+      const addImages=()=>{
+        const n=Math.min(items.length,galleryGroupImageLimits.get(key)||2);
+        const f=document.createDocumentFragment();
+        for(let i=shown;i<n;i++){const e=items[i];visibleIds.push(e.id);const tile=document.createElement('div');tile.className='gallery-combo-image';tile.dataset.id=e.id;const img=document.createElement('img');img.src=cachedThumbUrl('gallery',e);img.loading='lazy';img.decoding='async';img.alt='';img.onclick=()=>state.selectMode?toggleSelected(e.id):openDetail(e.id);tile.appendChild(img);f.appendChild(tile)}
+        grid.appendChild(f);shown=n;
+      };
+      addImages();section.appendChild(grid);
+      const footer=document.createElement('div');footer.className='gallery-combo-footer';
+      const label=document.createElement('span');label.className='gallery-combo-tags';label.textContent=tags||'미분류';
+      const count=document.createElement('span');count.className='gallery-combo-count';count.textContent=`${items.length}장`;
+      const fav=document.createElement('button');fav.type='button';fav.className='btn small';fav.textContent=galleryGroupFavorites.has(key)?'★':'☆';fav.title='그룹 즐겨찾기';fav.onclick=()=>{if(galleryGroupFavorites.has(key))galleryGroupFavorites.delete(key);else galleryGroupFavorites.add(key);localStorage.setItem('nai-gallery-group-favorites',JSON.stringify([...galleryGroupFavorites]));fav.textContent=galleryGroupFavorites.has(key)?'★':'☆'};
+      const copy=document.createElement('button');copy.type='button';copy.className='btn small';copy.textContent='COPY';copy.onclick=()=>{navigator.clipboard.writeText(tags).then(()=>toast('작가 태그 복사 완료')).catch(()=>toast('복사 실패'))};
+      footer.append(label,count,fav,copy);section.appendChild(footer);
+      if(items.length>shown){const more=document.createElement('button');more.type='button';more.className='gallery-combo-more';const sync=()=>{more.textContent=`+ ${Math.min(20,items.length-shown)}장 더 보기 (${shown}/${items.length})`;more.hidden=shown>=items.length};sync();more.onclick=()=>{galleryGroupImageLimits.set(key,shown+20);addImages();sync()};section.appendChild(more)}
       frag.appendChild(section);
     }
     els.gallery.appendChild(frag);
-    bindGallerySweepSelection();updateGallerySelectionControls();
+    if(visible.length<ordered.length){const more=document.createElement('button');more.type='button';more.className='gallery-combo-next';more.textContent=`+ ${Math.min(36,ordered.length-visible.length)}개 그룹 더 보기 (${visible.length}/${ordered.length})`;more.onclick=()=>{galleryGroupRenderLimit+=36;preserveWindowAnchor(more,()=>renderGalleryGroups(arr))};els.gallery.appendChild(more)}
+    pruneThumbCache('gallery',visibleIds,Math.max(180,visibleIds.length+40));
   }
   function renderGallery(arr){
     if(state.galleryDisplayMode==='group'){renderGalleryGroups(arr);return}
@@ -7795,6 +7803,18 @@ async function confirmAtlasGalleryPicker(){const pickerTask=taskStart('Gallery �
 .gallery-group-grid{padding:10px;display:grid;gap:10px}
 .gallery-artist-group>.load-more-btn{display:block;margin:12px auto}
 .gallery-artist-group>.load-more-btn[hidden]{display:none}
+</style><style id="v136-gallery-combo">
+#gallery:has(.gallery-combo-card){display:grid!important;grid-template-columns:repeat(auto-fill,minmax(min(100%,340px),1fr));gap:14px;align-items:start}
+.gallery-combo-card{min-width:0;border:1px solid var(--hair);border-radius:9px;overflow:hidden;background:var(--panel,#fff)}
+.gallery-combo-images{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:5px;padding:9px}
+.gallery-combo-image{aspect-ratio:3/4;min-width:0;background:#eee;overflow:hidden;border-radius:5px}
+.gallery-combo-image img{width:100%;height:100%;object-fit:cover;cursor:pointer}
+.gallery-combo-footer{display:flex;align-items:center;gap:6px;padding:4px 9px 10px}
+.gallery-combo-tags{flex:1;min-width:0;overflow:hidden;display:-webkit-box;-webkit-box-orient:vertical;-webkit-line-clamp:2;overflow-wrap:anywhere;font-size:12px}
+.gallery-combo-count{flex:none;font-size:11px;color:#888;white-space:nowrap}
+.gallery-combo-footer>.btn{flex:none}
+.gallery-combo-more,.gallery-combo-next{display:block;margin:0 auto 12px;padding:9px 16px;border:1px solid var(--hair);border-radius:6px;background:transparent;cursor:pointer}
+.gallery-combo-next{grid-column:1/-1;margin:15px auto}
 </style></body>
 </html>
 
