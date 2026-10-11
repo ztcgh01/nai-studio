@@ -2602,9 +2602,9 @@ body.is-home .refresh-icon-btn{display:grid}
     if(!view||view===state.view){setView(view||state.view);return}
     pushAppHistory({view});setView(view);
   }
-  function closeAtlasImageHistory(){if(!els.atlasImageDetailDialog?.open)return;if(atlasImageHistoryActive)history.back();else els.atlasImageDetailDialog.close()}
-  function closeAtlasArtistHistory(){if(!els.atlasArtistDialog?.open)return;if(atlasArtistHistoryActive)history.back();else els.atlasArtistDialog.close()}
-  function closeFolderLightboxHistory(){if(els.folderImageLightbox?.classList.contains('hidden'))return;if(folderLightboxHistoryActive)history.back();else closeFolderImageLightboxRaw()}
+  function closeAtlasImageHistory(){if(!els.atlasImageDetailDialog?.open)return;const active=atlasImageHistoryActive;atlasImageHistoryActive=false;els.atlasImageDetailDialog.close();if(active&&history.state?.naiApp)history.back()}
+  function closeAtlasArtistHistory(){if(!els.atlasArtistDialog?.open)return;const active=atlasArtistHistoryActive;atlasArtistHistoryActive=false;els.atlasArtistDialog.close();if(active&&history.state?.naiApp)history.back()}
+  function closeFolderLightboxHistory(){if(els.folderImageLightbox?.classList.contains('hidden'))return;const active=folderLightboxHistoryActive;folderLightboxHistoryActive=false;closeFolderImageLightboxRaw();if(active&&history.state?.naiApp)history.back()}
   function closeFolderImageLightboxRaw(){
     els.folderImageLightbox.classList.add('hidden');els.folderImageLightbox.setAttribute('aria-hidden','true');els.folderImageLightboxImg.removeAttribute('src');els.folderImageLightboxDetails.innerHTML='';els.folderImageLightboxDetails.classList.add('hidden');document.body.classList.remove('folder-lightbox-open');
   }
@@ -2620,7 +2620,7 @@ body.is-home .refresh-icon-btn{display:grid}
   }
   function closeSelectionPreview(){
     if(els.selectionPreview?.classList.contains('hidden'))return;
-    if(selectionPreviewHistoryActive)history.back();else closeSelectionPreviewRaw();
+    const active=selectionPreviewHistoryActive;selectionPreviewHistoryActive=false;closeSelectionPreviewRaw();if(active&&history.state?.naiApp)history.back();
   }
 
   document.addEventListener('DOMContentLoaded', init);
