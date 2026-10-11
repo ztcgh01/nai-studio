@@ -2509,6 +2509,7 @@ body.is-home .refresh-icon-btn{display:grid}
   let db;
   let saveTimer;
   let artistClassifyTarget=null;
+  let detailReturnAnchor=null;
   let detailHistoryActive=false;
   let closingDetailFromHistory=false;
   let folderHistoryActive=false;
@@ -2701,7 +2702,7 @@ body.is-home .refresh-icon-btn{display:grid}
         if(atlasImageHistoryActive&&els.atlasImageDetailDialog?.open){atlasImageHistoryActive=false;els.atlasImageDetailDialog.close();return}
         if(atlasArtistHistoryActive&&els.atlasArtistDialog?.open){atlasArtistHistoryActive=false;els.atlasArtistDialog.close();return}
         if(folderLightboxHistoryActive&&!els.folderImageLightbox?.classList.contains('hidden')){folderLightboxHistoryActive=false;closeFolderImageLightboxRaw();return}
-        if(detailHistoryActive&&els.detailDialog?.open){detailHistoryActive=false;closingDetailFromHistory=true;els.detailDialog.close();return}
+        if(detailHistoryActive&&els.detailDialog?.open){detailHistoryActive=false;closingDetailFromHistory=true;els.detailDialog.close();restoreDetailReturnPosition();return}
         if(folderHistoryActive&&els.folderDialog?.open){folderHistoryActive=false;closingFolderFromHistory=true;els.folderDialog.close();return}
         if(ev.state?.naiApp&&ev.state.view&&ev.state.view!==state.view){setView(ev.state.view)}
       }finally{applyingAppHistory=false}
@@ -3105,8 +3106,9 @@ body.is-home .refresh-icon-btn{display:grid}
         history.back();
       }
       closingDetailFromHistory=false;
+      restoreDetailReturnPosition();
     });
-    $$('.save-folder-btn').forEach(b=>b.onclick=()=>saveCurrentFieldToFolder(b.dataset.folderSource));
+    $('.save-folder-btn').forEach(b=>b.onclick=()=>saveCurrentFieldToFolder(b.dataset.folderSource));
     els.selectModeBtn.onclick = () => setGallerySelectionMode(!state.selectMode);
     els.cancelSelectBtn.onclick = () => setGallerySelectionMode(false);
     els.selectAllBtn.onclick = () => {
@@ -5223,6 +5225,10 @@ async function confirmAtlasGalleryPicker(){const pickerTask=taskStart('Gallery �
   async function openDetail(id){
     const e=galleryEntry(id); if(!e)return;
     const directUrl=desktopDirectImageUrl(e);if(DESKTOP_MODE&&!directUrl&&!(e.imageBlob instanceof Blob)){await ensureEntryBlob(e,STORE_ENTRIES);if(!(e.imageBlob instanceof Blob)){toast('이미지를 불러오지 못했습니다.');return}}
+    if(!els.detailDialog.open){
+      const card=[...els.gallery.querySelectorAll('.card[data-id]')].find(c=>c.dataset.id===id);
+      detailReturnAnchor={id,top:card?.getBoundingClientRect().top??null,scrollY:window.scrollY,view:state.view};
+    }
     state.currentId=id;
     els.detailTitle.value=e.title||''; revokeDetailObjectUrl(); els.detailImage.src=directUrl||URL.createObjectURL(e.imageBlob); els.detailImage.dataset.url=els.detailImage.src;
     els.detailArtists.value=e.artistsText||''; els.detailPrompt.value=e.prompt||''; els.detailUc.value=e.uc||''; els.detailMemo.value=e.memo||'';
@@ -5241,14 +5247,24 @@ async function confirmAtlasGalleryPicker(){const pickerTask=taskStart('Gallery �
     requestAnimationFrame(()=>{const shell=els.detailDialog.querySelector('.modal-shell'); if(shell) shell.scrollTop=0;});
   }
 
+  function restoreDetailReturnPosition(){
+    const anchor=detailReturnAnchor;detailReturnAnchor=null;
+    if(!anchor||state.view!==anchor.view)return;
+    const restore=()=>{
+      const card=[...els.gallery.querySelectorAll('.card[data-id]')].find(c=>c.dataset.id===anchor.id);
+      if(card&&Number.isFinite(anchor.top)){const delta=card.getBoundingClientRect().top-anchor.top;if(Math.abs(delta)>0.5)window.scrollBy(0,delta)}
+      else if(Number.isFinite(anchor.scrollY))window.scrollTo(0,anchor.scrollY);
+    };
+    requestAnimationFrame(()=>{restore();requestAnimationFrame(restore)});
+  }
   function closeDetailDialog(){
     if(!els.detailDialog?.open)return;
-    if(detailHistoryActive){
-      history.back();
-    }else{
-      closingDetailFromHistory=true;
-      els.detailDialog.close();
-    }
+    const hadHistory=detailHistoryActive;
+    detailHistoryActive=false;
+    closingDetailFromHistory=true;
+    els.detailDialog.close();
+    restoreDetailReturnPosition();
+    if(hadHistory&&history.state?.naiDetail)history.back();
   }
 
   function openArtistClassificationEditor(kind){
