@@ -2149,7 +2149,7 @@ body.is-home .refresh-icon-btn{display:grid}
       <div id="imageFolderGrid" class="image-folder-grid"></div>
       <div id="imageFolderBulkBar" class="image-folder-bulk hidden">
         <span id="imageFolderSelectedCount">0개 선택</span>
-        <div><button id="imageFolderSelectAllBtn" class="btn small">전체 선택</button><button id="imageFolderCompareBtn" class="btn small">Compare</button><button id="imageFolderArtistCopyBtn" class="btn small">작가명 복사</button><button id="imageFolderAddCollectionBtn" class="btn small">다른 컬렉션에 추가</button><button id="imageFolderExportSelectedBtn" class="btn small">내보내기</button><button id="imageFolderRemoveBtn" class="btn small danger">현재 컬렉션에서 제거</button><button id="imageFolderCancelBtn" class="btn small">취소</button></div>
+        <div><button id="imageFolderSelectAllBtn" class="btn small">전체 선택</button><button id="imageFolderCompareBtn" class="btn small">Compare</button><button id="imageFolderArtistCopyBtn" class="btn small">작가명 복사</button><button id="imageFolderAddCollectionBtn" class="btn small">다른 컬렉션에 추가</button><button id="imageFolderSaveSelectedBtn" class="btn small">이미지 저장</button><button id="imageFolderZipSelectedBtn" class="btn small">ZIP 다운로드</button><button id="imageFolderExportSelectedBtn" class="btn small">내보내기</button><button id="imageFolderRemoveBtn" class="btn small danger">현재 컬렉션에서 제거</button><button id="imageFolderCancelBtn" class="btn small">취소</button></div>
       </div>
     </div>
   </dialog>
@@ -2606,17 +2606,20 @@ body.is-home .refresh-icon-btn{display:grid}
   function closeAtlasArtistHistory(){if(!els.atlasArtistDialog?.open)return;const active=atlasArtistHistoryActive;atlasArtistHistoryActive=false;els.atlasArtistDialog.close();if(active&&history.state?.naiApp)history.back()}
   function closeFolderLightboxHistory(){if(els.folderImageLightbox?.classList.contains('hidden'))return;const active=folderLightboxHistoryActive;folderLightboxHistoryActive=false;closeFolderImageLightboxRaw();if(active&&history.state?.naiApp)history.back()}
   function closeFolderImageLightboxRaw(){
-    els.folderImageLightbox.classList.add('hidden');els.folderImageLightbox.setAttribute('aria-hidden','true');els.folderImageLightboxImg.removeAttribute('src');els.folderImageLightboxDetails.innerHTML='';els.folderImageLightboxDetails.classList.add('hidden');document.body.classList.remove('folder-lightbox-open');
+    const saved=folderReturnScroll;folderReturnScroll=null;
+    els.folderImageLightbox.classList.add('hidden');els.folderImageLightbox.setAttribute('aria-hidden','true');els.folderImageLightboxImg.removeAttribute('src');els.folderImageLightboxDetails.innerHTML='';els.folderImageLightboxDetails.classList.add('hidden');document.body.classList.remove('folder-lightbox-open');if(saved&&saved.id===state.currentFolderId)requestAnimationFrame(()=>{if(els.imageFolderGrid)els.imageFolderGrid.scrollTop=saved.top;if(els.folderItems)els.folderItems.scrollTop=saved.other});
   }
 
   function closeSelectionPreviewRaw(){
     if(selectionPreviewUrl){try{URL.revokeObjectURL(selectionPreviewUrl)}catch{}selectionPreviewUrl=null}
+    const saved=selectionFolderScroll;selectionFolderScroll=null;
     selectionPreviewCtx=null;selectionPreviewPointerStart=null;
     document.getElementById("selectionPreviewDetails")?.classList.add("hidden");document.getElementById("selectionPreviewInfo")?.setAttribute("aria-expanded","false");
     els.selectionPreview?.classList.add('hidden');els.selectionPreview?.setAttribute('aria-hidden','true');
     // A modal dialog occupies the browser top layer. Return preview to body after closing.
     if(els.selectionPreview?.parentElement!==document.body)document.body.appendChild(els.selectionPreview);
     if(els.selectionPreviewImg)els.selectionPreviewImg.removeAttribute('src');
+    if(saved&&saved.id===state.currentFolderId)requestAnimationFrame(()=>{if(els.imageFolderGrid)els.imageFolderGrid.scrollTop=saved.top});
   }
   function closeSelectionPreview(){
     if(els.selectionPreview?.classList.contains('hidden'))return;
@@ -3021,6 +3024,8 @@ body.is-home .refresh-icon-btn{display:grid}
     els.imageFolderSelectAllBtn.onclick=()=>{const f=folderById(state.currentFolderId),ids=folderImageItems(f).map(x=>x.id);state.imageFolderSelected=state.imageFolderSelected.length===ids.length?[]:ids;renderImageFolder()};
     els.imageFolderExportBtn.onclick=()=>openExportDialog({entries:imageFolderEntries(),label:'이미지 폴더',preset:'atlas',output:'pdf'});
     els.imageFolderExportSelectedBtn.onclick=()=>openExportDialog({entries:selectedImageFolderEntries(),label:'폴더 선택 이미지',preset:'atlas',output:'pdf'});
+    document.getElementById('imageFolderSaveSelectedBtn').onclick=()=>downloadSelectedFolderImages(false);
+    document.getElementById('imageFolderZipSelectedBtn').onclick=()=>downloadSelectedFolderImages(true);
     els.imageFolderArtistCopyBtn.onclick=()=>copyArtistTagsFromEntries(selectedImageFolderEntries());
     els.imageFolderCompareBtn.onclick=()=>{const arr=selectedImageFolderEntries();for(const e of arr){if(String(e.id).startsWith('folder:'))continue;if(!state.compareIds.includes(e.id))state.compareIds.push(e.id)}saveCompareIds();renderCompare();toast(`${arr.length}개 중 Gallery 원본을 Compare에 추가했습니다.`)};
     els.imageFolderAddCollectionBtn.onclick=()=>{
@@ -4905,7 +4910,9 @@ async function confirmAtlasGalleryPicker(){const pickerTask=taskStart('Gallery �
     else if(source==='atlas'){state.atlasSelectMode=true;setAtlasSelected(key,on);updateAtlasSelectionUi();}
     else if(source==='folder'){state.imageFolderSelectMode=true;state.imageFolderSelected=on?[...new Set([...state.imageFolderSelected,key])]:state.imageFolderSelected.filter(x=>x!==key);const c=els.imageFolderGrid.querySelector(`[data-item-id="${CSS.escape(key)}"]`);c?.classList.toggle('selected',on);const cb=c?.querySelector('.pick-check');if(cb)cb.checked=on;els.imageFolderSelectedCount.textContent=`${state.imageFolderSelected.length}개 선택`;els.imageFolderBulkBar.classList.remove('hidden');els.imageFolderDialog.classList.add('selecting');}
   }
+  let selectionFolderScroll=null;
   function openSelectionPreview(source,key){
+    if(source==='folder')selectionFolderScroll={id:state.currentFolderId,top:els.imageFolderGrid?.scrollTop||0};
     const items=selectionPreviewItems(source),idx=items.findIndex(x=>x.key===key);if(idx<0)return;
     // Fixed-position elements outside an open <dialog> appear BEHIND its top layer.
     // Mount the preview inside the active folder dialog while viewing folder selections.
@@ -5834,6 +5841,31 @@ async function confirmAtlasGalleryPicker(){const pickerTask=taskStart('Gallery �
   function selectedImageFolderEntries(){
     const f=folderById(state.currentFolderId);return folderImageItems(f).filter(it=>state.imageFolderSelected.includes(it.id)).map(imageFolderEntryFromItem).filter(Boolean)
   }
+  async function downloadSelectedFolderImages(asZip){
+    const f=folderById(state.currentFolderId),items=folderImageItems(f).filter(it=>state.imageFolderSelected.includes(it.id));
+    if(!items.length){toast('이미지를 먼저 선택해주세요.');return}
+    if(asZip&&!window.JSZip){toast('ZIP 모듈을 불러오지 못했습니다.');return}
+    const task=taskStart(asZip?'ZIP 다운로드':'이미지 저장','원본 준비 중',items.length),zip=asZip?new JSZip():null,used=new Set();
+    try{
+      for(let i=0;i<items.length;i++){
+        const it=items[i],e=imageFolderEntryFromItem(it);if(!e)throw Error('이미지 항목을 찾을 수 없습니다');
+        let blob=e.imageBlob;
+        if(!(blob instanceof Blob)){
+          if(it.type==='image')blob=await ensureEntryBlob(e,STORE_ENTRIES);
+          else if(it.atlasEntryId)blob=await ensureEntryBlob(atlasEntry(it.atlasEntryId),STORE_ATLAS);
+        }
+        if(!(blob instanceof Blob))throw Error('원본 파일을 읽을 수 없습니다: '+(e.fileName||it.id));
+        const raw=String(e.fileName||it.name||('image_'+(i+1)+'.png')).replace(/[\\/:*?"<>|]/g,'_');
+        const ext=extOf(raw),base=raw.replace(/\.[^.]+$/,'')||('image_'+(i+1));let name=base+'.'+ext,n=2;
+        while(used.has(name))name=base+'_'+n++ +'.'+ext;
+        used.add(name);
+        if(zip)zip.file(name,blob,{compression:'STORE'});else downloadBlob(blob,name);
+        taskUpdate('원본 준비 중 · '+(i+1)+'/'+items.length,i+1,items.length,task);
+      }
+      if(zip){taskUpdate('ZIP 생성 중',null,null,task);const blob=await zip.generateAsync({type:'blob',compression:'STORE'},m=>taskUpdate('ZIP 생성 · '+Math.round(m.percent)+'%',Math.round(m.percent),100,task));downloadBlob(blob,'nai-studio-folder-'+dateStamp()+'.zip')}
+      taskEnd(asZip?'ZIP 다운로드 요청 완료':'이미지 저장 요청 완료',false,task);
+    }catch(err){console.error(err);taskEnd('다운로드 실패: '+(err?.message||'오류'),true,task);toast('다운로드 실패: '+(err?.message||'오류'))}
+  }
   async function saveImageFolderTitle(){const f=folderById(state.currentFolderId);if(!f)return;f.name=els.imageFolderTitleInput.value.trim()||'Untitled';f.updatedAt=Date.now();await persistFolder(f);renderFolders();renderBookmarks()}
   async function toggleImageFolderBookmark(){if(!state.currentFolderId)return;await setFolderBookmark(state.currentFolderId)}
   async function removeSelectedFromImageFolder(){const f=folderById(state.currentFolderId);if(!f||!state.imageFolderSelected.length)return;f.items=f.items.filter(it=>!state.imageFolderSelected.includes(it.id));f.updatedAt=Date.now();state.imageFolderSelected=[];await persistFolder(f);renderImageFolder();renderFolders();toast('컬렉션에서 제거했습니다. 원본은 그대로입니다.')}
@@ -6010,8 +6042,10 @@ async function confirmAtlasGalleryPicker(){const pickerTask=taskStart('Gallery �
     });
   }
 
+  let folderReturnScroll=null;
   function openFolderImageLightbox(src,entryId=null,atlasEntryId=null){
-    if(!src)return;buildFolderLightboxNav(src,entryId,atlasEntryId);renderFolderImageLightbox(src,entryId,atlasEntryId,true);
+    if(!src)return;
+    folderReturnScroll={id:state.currentFolderId,top:els.imageFolderGrid?.scrollTop||0,other:els.folderItems?.scrollTop||0};buildFolderLightboxNav(src,entryId,atlasEntryId);renderFolderImageLightbox(src,entryId,atlasEntryId,true);
   }
   function renderFolderImageLightbox(src,entryId=null,atlasEntryId=null,pushHistory=false){
     if(!src)return;
