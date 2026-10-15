@@ -3508,14 +3508,15 @@ function openDB(){
   function releaseUrlList(list){for(const u of list.splice(0))try{URL.revokeObjectURL(u)}catch{}}
   function normalizeArtistName(name){return String(name||'').trim().toLowerCase().replace(/\s+/g,' ')}
   function atlasGroupInfo(entry){
-    const raw=(entry.artists||[]).filter(a=>String(a.name||'').trim());
+    const raw=orderedArtistNames(entry).map(name=>({name}));
     const seen=new Map();
     for(const a of raw){const n=normalizeArtistName(a.name);if(n&&!seen.has(n))seen.set(n,{name:String(a.name).trim(),norm:n});}
     const artists=[...seen.values()];
     if(!artists.length)return {key:'unsorted',label:'Unsorted',type:'unsorted',names:[]};
     if(artists.length===1)return {key:'artist:'+artists[0].norm,label:artists[0].name,type:'single',names:[artists[0].name]};
-    artists.sort((a,b)=>a.norm.localeCompare(b.norm));
-    return {key:'multi:'+artists.map(a=>a.norm).join('|'),label:artists.map(a=>a.name).join(' + '),type:'multiple',names:artists.map(a=>a.name)};
+    // Group identity is order-independent; display/copy order follows the original metadata.
+    const groupKey=[...artists].sort((a,b)=>a.norm.localeCompare(b.norm)).map(a=>a.norm).join('|');
+    return {key:'multi:'+groupKey,label:artists.map(a=>a.name).join(' + '),type:'multiple',names:artists.map(a=>a.name)};
   }
   function atlasGroups(){
     let tick=0;for(const e of state.atlasEntries)tick=(tick+(Number(e.updatedAt||e.createdAt||0)%1000000007))%1000000007;
@@ -3807,7 +3808,7 @@ function openDB(){
   }
   async function copyAtlasGroupTag(g){
     const names=(g?.names||[]).filter(Boolean);if(!names.length){toast('복사할 작가태그가 없습니다.');return}
-    const txt=artistCopyText(names.map(n=>`artist:${n}`).join(', '));
+    const txt=artistCopyText(names.map(n=>`artist:${n}`).join(artistCopySeparator()));
     const ok=await copyTextSafe(txt);
     toast(ok?(names.length>1?'작가태그 조합을 복사했습니다.':'작가태그를 복사했습니다.'):'복사하지 못했습니다.');
   }
@@ -5126,7 +5127,7 @@ async function confirmAtlasGalleryPicker(){const pickerTask=taskStart('Gallery �
     const frag=document.createDocumentFragment(),visible=ordered.slice(0,galleryGroupRenderLimit),visibleIds=[];
     for(const [key,items] of visible){
       const section=document.createElement('section');section.className='gallery-combo-card';
-      const names=[...new Set((items[0].artists||[]).map(a=>String(a.name||'').trim()).filter(Boolean))].sort((a,b)=>normalizeArtistName(a).localeCompare(normalizeArtistName(b)));
+      const names=orderedArtistNames(items[0]);
       const tags=names.map(n=>'artist:'+n).join(', ');
       const grid=document.createElement('div');grid.className='gallery-combo-images';
       let shown=0;
@@ -5877,12 +5878,23 @@ async function confirmAtlasGalleryPicker(){const pickerTask=taskStart('Gallery �
   const ARTIST_COPY_FORMAT_KEY='nai-artist-copy-format-v1';
   function artistCopySeparator(){try{return localStorage.getItem(ARTIST_COPY_FORMAT_KEY)==='lines'?',\n':', '}catch{return ', '}}
   function saveArtistCopyFormat(value){try{localStorage.setItem(ARTIST_COPY_FORMAT_KEY,value==='lines'?'lines':'inline')}catch{}}
+  function orderedArtistNames(entry){
+    const text=String(entry?.artistsText||'').trim();
+    const parsed=text?(splitArtistTags(text).artists||[]):[];
+    const source=parsed.length?parsed:(entry?.artists||[]);
+    const seen=new Set(),out=[];
+    for(const a of source){
+      const name=String(a?.name||'').trim(),key=normalizeArtistName(name);
+      if(!name||!key||seen.has(key))continue;
+      seen.add(key);out.push(name);
+    }
+    return out;
+  }
   function artistTagsFromEntries(entries){
     const out=[],seen=new Set();
     for(const e of entries||[]){
-      const names=(e?.artists||[]).map(a=>String(a?.name||'').trim()).filter(Boolean);
-      const fallback=!names.length?String(e?.artistsText||'').split(',').map(s=>s.trim().replace(/^artist\s*:\s*/i,'')).filter(Boolean):[];
-      for(const name of [...names,...fallback]){const key=name.toLowerCase();if(seen.has(key))continue;seen.add(key);out.push(`artist:${name}`)}
+      const names=orderedArtistNames(e);
+      for(const name of names){const key=name.toLowerCase();if(seen.has(key))continue;seen.add(key);out.push(`artist:${name}`)}
     }
     return out.join(artistCopySeparator());
   }
