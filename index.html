@@ -1625,6 +1625,23 @@ body.is-home .refresh-icon-btn{display:grid}
 .quick-folder-context{position:fixed;z-index:10050;min-width:190px;padding:5px;background:#fff;border:1px solid #bbb;border-radius:8px;box-shadow:0 10px 32px rgba(0,0,0,.18)}
 .quick-folder-context.hidden{display:none}.quick-folder-context button{display:block;width:100%;border:0;background:transparent;text-align:left;padding:9px 10px;border-radius:5px;font:inherit;cursor:pointer}.quick-folder-context button:hover{background:#f1f1f1}.quick-folder-context small{display:block;color:#777;margin-top:2px}
 </style>
+<style id="desktop-selection-floating-v1246">
+/* Keep selection actions reachable without obscuring the image grid. */
+#bulkBar:not(.hidden),#atlasGroupSelectionBar:not(.hidden),#atlasSelectionBar:not(.hidden),
+#folderBulkBar:not(.hidden),#imageFolderBulkBar:not(.hidden){
+ position:fixed!important;left:max(12px,calc(50% - 550px))!important;right:12px!important;
+ bottom:calc(10px + env(safe-area-inset-bottom,0px))!important;top:auto!important;
+ width:auto!important;max-width:1100px!important;max-height:94px!important;
+ overflow-x:auto!important;overflow-y:visible!important;z-index:850!important;
+ padding:6px 10px!important;border:1px solid #bbb!important;border-radius:10px!important;
+ background:rgba(255,255,255,.97)!important;box-shadow:0 3px 16px rgba(0,0,0,.12)!important;
+ align-items:center!important;gap:7px!important;
+}
+#bulkBar:not(.hidden){display:flex!important}
+#atlasGroupSelectionBar:not(.hidden),#atlasSelectionBar:not(.hidden),#folderBulkBar:not(.hidden),#imageFolderBulkBar:not(.hidden){display:flex!important}
+#bulkBar button,#atlasGroupSelectionBar button,#atlasSelectionBar button,#folderBulkBar button,#imageFolderBulkBar button{white-space:nowrap!important}
+@media(max-width:720px){#bulkBar:not(.hidden),#atlasGroupSelectionBar:not(.hidden),#atlasSelectionBar:not(.hidden),#folderBulkBar:not(.hidden),#imageFolderBulkBar:not(.hidden){left:6px!important;right:6px!important;max-height:86px!important}}
+</style>
 </head>
 <body><div id="pageFindBar" class="hidden" role="search"><input id="pageFindInput" type="text" autocomplete="off" spellcheck="false" placeholder="이 화면에서 찾기"><span id="pageFindCount"></span><button id="pageFindPrev" type="button">↑</button><button id="pageFindNext" type="button">↓</button><button id="pageFindClose" type="button">×</button></div>
   <div class="floating-menu-tools"><button id="menuBtn" class="menu-btn" aria-label="메뉴"><span></span></button><button id="refreshBtn" class="refresh-icon-btn" aria-label="새로고침" title="새로고침">↻</button></div>
@@ -1830,6 +1847,7 @@ body.is-home .refresh-icon-btn{display:grid}
         <button class="nav-item" data-view="folders"><span>Archive</span><span class="nav-index">04</span></button>
         <button class="nav-item" data-view="add"><span>Add New</span><span class="nav-index">05</span></button>
         <button class="nav-item" data-view="bookmarks"><span>Bookmark</span><span class="nav-index">06</span></button>
+        <button class="nav-item" data-view="settings"><span>Settings</span><span class="nav-index">07</span></button>
       </nav>
 
       <div class="side-section library-filter">
@@ -1851,6 +1869,15 @@ body.is-home .refresh-icon-btn{display:grid}
     </aside>
 
     <main class="main">
+      <section id="settingsView" class="view">
+        <div class="sect-head"><h2>설정</h2></div>
+        <div class="card" style="max-width:560px;padding:20px">
+          <h3>아티스트 복사 형식</h3>
+          <p class="muted-note">갤러리 · 도감 · 폴더에서 작가명 복사 시 공통 적용됩니다.</p>
+          <label class="check-line"><input type="radio" name="artistCopyFormat" value="inline"> 한 줄: artist:a, artist:b, artist:c</label>
+          <label class="check-line"><input type="radio" name="artistCopyFormat" value="lines"> 줄바꿈: 각 아티스트를 별도 줄에 표시</label>
+        </div>
+      </section>
       <section id="homeView" class="view active">
         <div class="portal">
           <button class="portal-card" data-go="library" aria-label="Gallery"><span class="portal-icon-wrap" aria-hidden="true"><svg class="portal-icon" viewBox="0 0 64 64"><rect x="9" y="9" width="46" height="46" rx="1"/><path d="M24.3 9v46M39.7 9v46M9 24.3h46M9 39.7h46"/></svg></span><span class="portal-label"><span class="portal-title">Gallery</span><span class="portal-sub">BROWSE / SEARCH</span></span></button>
@@ -3457,6 +3484,10 @@ function openDB(){
     if(state.view==='atlas'){renderAtlas();return}
   }
 
+  document.querySelectorAll('input[name="artistCopyFormat"]').forEach(r=>{
+    r.checked=r.value===(artistCopySeparator()===',\\n'?'lines':'inline');
+    r.addEventListener('change',()=>{if(r.checked)saveArtistCopyFormat(r.value)});
+  });
   function setView(view){
     state.view=view;
     document.body.classList.toggle('is-home',view==='home');
@@ -4515,9 +4546,11 @@ async function confirmAtlasGalleryPicker(){const pickerTask=taskStart('Gallery �
     const text=[e.title,e.artistsText,e.prompt,(e.characterPrompts||[]).join('\n'),(e.characterUc||[]).join('\n'),e.uc,e.memo,e.model,modelLabel(e),e.seed!=null?String(e.seed):'',e.fileName||''].join('\n').toLowerCase();gallerySearchCache.set(e,{stamp,text});return text;
   }
   function multiArtistSearchNames(query){
-    const parts=String(query||'').split(',').map(x=>x.trim()).filter(Boolean);
-    if(parts.length<2||!parts.every(x=>/^artist\s*:/i.test(x)))return null;
-    const names=parts.map(x=>norm(x.replace(/^artist\s*:/i,''))).filter(Boolean);
+    const raw=String(query||'').trim();
+    if(!raw)return null;
+    const parts=raw.split(/[,\n\r]+/).map(x=>x.trim()).filter(Boolean);
+    if(!parts.length||!parts.every(x=>/^(?:(?:\d+(?:\.\d+)?|\.\d+)\s*::\s*)?artist\s*:/i.test(x)))return null;
+    const names=parts.map(x=>norm(x.replace(/^(?:(?:\d+(?:\.\d+)?|\.\d+)\s*::\s*)?artist\s*:/i,'').replace(/::\s*$/,'').trim())).filter(Boolean);
     return names.length===parts.length?names:null;
   }
   function entryHasAnyArtist(e,names){
@@ -5841,6 +5874,9 @@ async function confirmAtlasGalleryPicker(){const pickerTask=taskStart('Gallery �
     els.imageFolderGrid.querySelectorAll('.image-folder-card').forEach(card=>{const cb=card.querySelector('.pick-check'),id=card.dataset.itemId;const expand=card.querySelector('.selection-expand-btn');if(expand)expand.onclick=ev=>{ev.stopPropagation();openSelectionPreview('folder',id)};cb.onchange=()=>{state.imageFolderSelected=cb.checked?[...new Set([...state.imageFolderSelected,id])]:state.imageFolderSelected.filter(x=>x!==id);card.classList.toggle('selected',cb.checked);els.imageFolderSelectedCount.textContent=`${state.imageFolderSelected.length}개 선택`};card.onclick=ev=>{if(ev.target.closest('.selection-expand-btn'))return;if(Date.now()<(els.imageFolderGrid._suppressUntil||0))return;if(state.imageFolderSelectMode){if(ev.target===cb)return;cb.checked=!cb.checked;cb.dispatchEvent(new Event('change'));return}const it=folderImageItems(f).find(x=>x.id===id),e=imageFolderEntryFromItem(it);if(it?.type==='image'&&e)openDetail(e.id);else if(it?.blob)openFolderImageLightbox(it.blob,it.name||'image',e)}});
     bindSweepSelectionGrid({grid:els.imageFolderGrid,cardSelector:'.image-folder-card',checkboxSelector:'.pick-check',getKey:c=>c.dataset.itemId,isSelected:id=>state.imageFolderSelected.includes(id),setSelected:(id,on)=>{if(!state.imageFolderSelectMode)state.imageFolderSelectMode=true;state.imageFolderSelected=on?[...new Set([...state.imageFolderSelected,id])]:state.imageFolderSelected.filter(x=>x!==id);els.imageFolderDialog.classList.add('selecting');els.imageFolderBulkBar.classList.remove('hidden');const c=els.imageFolderGrid.querySelector(`[data-item-id="${CSS.escape(id)}"]`);c?.classList.toggle('selected',on)},updateCount:()=>{els.imageFolderSelectedCount.textContent=`${state.imageFolderSelected.length}개 선택`},enabled:()=>mode==='images'});
   }
+  const ARTIST_COPY_FORMAT_KEY='nai-artist-copy-format-v1';
+  function artistCopySeparator(){try{return localStorage.getItem(ARTIST_COPY_FORMAT_KEY)==='lines'?',\n':', '}catch{return ', '}}
+  function saveArtistCopyFormat(value){try{localStorage.setItem(ARTIST_COPY_FORMAT_KEY,value==='lines'?'lines':'inline')}catch{}}
   function artistTagsFromEntries(entries){
     const out=[],seen=new Set();
     for(const e of entries||[]){
@@ -5848,9 +5884,9 @@ async function confirmAtlasGalleryPicker(){const pickerTask=taskStart('Gallery �
       const fallback=!names.length?String(e?.artistsText||'').split(',').map(s=>s.trim().replace(/^artist\s*:\s*/i,'')).filter(Boolean):[];
       for(const name of [...names,...fallback]){const key=name.toLowerCase();if(seen.has(key))continue;seen.add(key);out.push(`artist:${name}`)}
     }
-    return out.join(', ');
+    return out.join(artistCopySeparator());
   }
-  async function copyArtistTagsFromEntries(entries){const txt=artistTagsFromEntries(entries);if(!txt){toast('복사할 작가명이 없습니다.');return}toast(await copyTextSafe(txt)?`${txt.split(', ').length}개 작가명을 복사했습니다.`:'작가명 복사에 실패했습니다.')}
+  async function copyArtistTagsFromEntries(entries){const txt=artistTagsFromEntries(entries);if(!txt){toast('복사할 작가명이 없습니다.');return}toast(await copyTextSafe(txt)?`${txt.split(/,\s*/).length}개 작가명을 복사했습니다.`:'작가명 복사에 실패했습니다.')}
   function selectedImageFolderEntries(){
     const f=folderById(state.currentFolderId);return folderImageItems(f).filter(it=>state.imageFolderSelected.includes(it.id)).map(imageFolderEntryFromItem).filter(Boolean)
   }
