@@ -3485,7 +3485,7 @@ function openDB(){
   }
 
   document.querySelectorAll('input[name="artistCopyFormat"]').forEach(r=>{
-    r.checked=r.value===(artistCopySeparator()===',\\n'?'lines':'inline');
+    r.checked=r.value===(artistCopySeparator()===',\n'?'lines':'inline');
     r.addEventListener('change',()=>{if(r.checked)saveArtistCopyFormat(r.value)});
   });
   function setView(view){
