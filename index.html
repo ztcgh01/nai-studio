@@ -3518,12 +3518,17 @@ function openDB(){
     const groupKey=[...artists].sort((a,b)=>a.norm.localeCompare(b.norm)).map(a=>a.norm).join('|');
     return {key:'multi:'+groupKey,label:artists.map(a=>a.name).join(' + '),type:'multiple',names:artists.map(a=>a.name)};
   }
+  // Recent means the latest NEW Atlas registration, not a metadata refresh.
+  function atlasRegisteredAt(e){
+    const value=Number(e?.createdAt);
+    return Number.isFinite(value)&&value>0?value:0;
+  }
   function atlasGroups(){
     let tick=0;for(const e of state.atlasEntries)tick=(tick+(Number(e.updatedAt||e.createdAt||0)%1000000007))%1000000007;
     const stamp=`${state.atlasEntries.length}:${tick}`;if(atlasGroupsMemo.stamp===stamp)return atlasGroupsMemo.groups;
     const map=new Map();
-    for(const e of state.atlasEntries){const info=atlasGroupInfo(e);let g=map.get(info.key);if(!g){g={...info,entries:[],latest:0};map.set(info.key,g)}g.entries.push(e);g.latest=Math.max(g.latest,e.lastImportAt||e.createdAt||0)}
-    for(const g of map.values())g.entries.sort((a,b)=>(b.lastImportAt||b.createdAt||0)-(a.lastImportAt||a.createdAt||0));
+    for(const e of state.atlasEntries){const info=atlasGroupInfo(e);let g=map.get(info.key);if(!g){g={...info,entries:[],latest:0};map.set(info.key,g)}g.entries.push(e);g.latest=Math.max(g.latest,atlasRegisteredAt(e));g.latestOrder=Math.max(g.latestOrder||0,Number(e.atlasImportOrder)||0)}
+    for(const g of map.values())g.entries.sort((a,b)=>atlasRegisteredAt(b)-atlasRegisteredAt(a)||(Number(b.atlasImportOrder)||0)-(Number(a.atlasImportOrder)||0));
     const groups=[...map.values()];atlasGroupsMemo={stamp,groups};return groups;
   }
   function atlasEntrySearchText(e){
@@ -3671,7 +3676,7 @@ function openDB(){
     const sign=state.atlasDir==='max'?-1:1;
     arr.sort((a,b)=>{
       if(state.atlasSort==='name')return a.label.localeCompare(b.label,'ko',{numeric:true,sensitivity:'base'})*(state.atlasDir==='max'?1:-1);
-      if(state.atlasSort==='recent')return (a.latest-b.latest)*sign;
+      if(state.atlasSort==='recent')return ((a.latest-b.latest)||(a.latestOrder-b.latestOrder)||a.key.localeCompare(b.key))*sign;
       return (a.entries.length-b.entries.length)*sign || (b.latest-a.latest);
     });
     return arr;
@@ -4042,18 +4047,19 @@ function openDB(){
       if(known.has(hash)){
         const ex=state.atlasEntries.find(e=>e.hash===hash);
         if(ex){
-          const now=Date.now();ex.lastImportAt=now;ex.updatedAt=now;
+          const now=Date.now();ex.updatedAt=now;
           if(metadataScore(parsed)>metadataScore(ex)){Object.assign(ex,parsed,{rawMetadata:meta,fileName:ex.fileName||file.name});refreshed++}else skipped++;
           if(!DESKTOP_MODE||!ex.imageBlob)ex.imageBlob=file;
           writes.push(ex);
         }else skipped++;
       }else{
-        const now=Date.now(),e={id:crypto.randomUUID(),hash,fileName:file.name,imageBlob:file,createdAt:now,updatedAt:now,lastImportAt:now,favorite:false,memo:'',title:'',atlasOnly:true,...parsed,rawMetadata:meta};
+        const now=Date.now(),e={id:crypto.randomUUID(),hash,fileName:file.name,imageBlob:file,createdAt:now,updatedAt:now,lastImportAt:now,atlasImportOrder:state.atlasEntries.length+1,favorite:false,memo:'',title:'',atlasOnly:true,...parsed,rawMetadata:meta};
         state.atlasEntries.push(e);known.add(hash);writes.push(e);added++;
       }
     }
     if(writes.length){if(els.importProgress){els.importProgressText.textContent='Atlas 이미지 저장 중…';els.importProgressBar.style.width='75%'}await txPutMany(STORE_ATLAS,writes)}
     if(els.importProgress){els.importProgressCount.textContent=`${total} / ${total}`;els.importProgressBar.style.width='100%'}
+    atlasGroupsMemo.stamp=null;
     renderAtlas();
     const parts=[`${added}개 Atlas 등록`];if(refreshed)parts.push(`메타데이터 갱신 ${refreshed}개`);if(skipped)parts.push(`중복 ${skipped}개`);if(failed)parts.push(`실패 ${failed}개`);const msg=parts.join(' · ');
     if(!options.quiet){taskEnd(msg,!!failed,atlasTask);toast(msg);if(els.importProgress){els.importProgressText.textContent=msg;setTimeout(()=>els.importProgress.classList.add('hidden'),1200)}}
