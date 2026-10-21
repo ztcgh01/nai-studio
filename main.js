@@ -123,7 +123,7 @@ async function putMany(store,vals){
 }
 async function put(store,val){
   if(store==='meta'){const file=path.join(root,'meta.json'),m=await readJson(file,{});m[val.key]=val.value;await atomicJson(file,m);return}
-  const encoded=await materializeBinary(val,binBase(store,val.id),{store,id:val.id,keyPath:[]});await atomicJson(recFile(store,val.id),encoded);
+  const encoded=await materializeBinary(val,binBase(store,val.id),{store,id:val.id,keyPath:[]});await atomicJson(recFile(store,val.id),encoded);if(store==='foldersV2')return encoded;
 }
 async function del(store,id){
   if(store==='meta'){const file=path.join(root,'meta.json'),m=await readJson(file,{});delete m[id];await atomicJson(file,m);return}
