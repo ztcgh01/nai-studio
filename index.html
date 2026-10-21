@@ -3051,21 +3051,41 @@ body.is-home .refresh-icon-btn{display:grid}
       const files=[...e.target.files];e.target.value='';
       const folderId=state.currentFolderId,f=folderById(folderId);
       if(!f||!files.length)return;
-      const valid=files.filter(file=>/\.(png|jpe?g|webp)$/i.test(file.name)||/^image\/(png|jpeg|webp)$/i.test(file.type));
+      const valid=files.filter(file=>/\\.(png|jpe?g|webp)$/i.test(file.name)||/^image\\/(png|jpeg|webp)$/i.test(file.type));
       if(!valid.length){toast('PNG, JPG, WEBP 이미지를 선택해주세요.');return}
-      const task=taskStart('폴더에 파일 추가','메타데이터 분석 중',valid.length);
-      try{
-        const analyzed=await analyzeImportFiles(valid,(done,total)=>taskUpdate('파일 분석 중',done,total,task));
-        const items=[];
-        for(const a of analyzed){
-          if(a.error)continue;
-          const meta=a.parsed||{};
-          items.push({id:crypto.randomUUID(),type:'attachment',name:a.file.name,mime:a.file.type||'image/png',blob:a.file,sourceLabel:'DIRECT',atlasMeta:{title:'',artistsText:meta.artistsText||'',artists:meta.artists||[],prompt:meta.prompt||'',characterPrompts:meta.characterPrompts||[],characterUc:meta.characterUc||[],uc:meta.uc||'',memo:'',seed:meta.seed,model:meta.model||'',modelSource:meta.modelSource||'',modelHash:meta.modelHash||'',modelVersion:meta.modelVersion||'',modelVariant:meta.modelVariant||'',modelKey:meta.modelKey||'',modelLabel:meta.modelLabel||''}});
+      const task=taskStart('폴더에 파일 추가','파일 저장 준비 중',valid.length);
+      let added=0,failed=0;
+      for(const [index,file] of valid.entries()){
+        taskUpdate(`파일 저장 중 · ${index+1}/${valid.length}`,index,valid.length,task);
+        const item={id:crypto.randomUUID(),type:'attachment',name:file.name,mime:file.type||'image/png',blob:file,sourceLabel:'DIRECT'};
+        // Save one file at a time. Keep the saved filesystem reference rather than
+        // repeatedly sending every preceding image's binary data through IPC.
+        f.items.push(item);
+        const previousUpdatedAt=f.updatedAt;
+        f.updatedAt=Date.now();
+        try{
+          if(DESKTOP_MODE){
+            const saved=await window.naiDesktop.put(STORE_FOLDERS,await desktopEncode(f));
+            const persisted=saved?.items?.find(it=>it.id===item.id);
+            if(!desktopFileRef(persisted?.blob))throw new Error('이미지 파일 저장 확인 실패');
+            item.blob=persisted.blob;
+          }else{
+            await persistFolders();
+          }
+          added++;
+        }catch(err){
+          console.error('Direct folder image save failed',file.name,err);
+          f.items=f.items.filter(it=>it.id!==item.id);
+          f.updatedAt=previousUpdatedAt;
+          failed++;
         }
-        if(items.length){f.items.push(...items);f.updatedAt=Date.now();await persistFolder(f);if(state.currentFolderId===folderId)renderImageFolder();renderFolders()}
-        taskEnd(`${items.length}개 이미지 추가 완료`,false,task);
-        toast(`${items.length}개 이미지가 폴더에 추가되었습니다.`);
-      }catch(err){console.error(err);taskEnd('파일 추가 실패',true,task);toast('파일 추가에 실패했습니다.')}
+        taskUpdate(`파일 저장 중 · ${index+1}/${valid.length}`,index+1,valid.length,task);
+        await new Promise(resolve=>setTimeout(resolve,0));
+      }
+      if(state.currentFolderId===folderId)renderImageFolder();
+      renderFolders();
+      taskEnd(`${added}개 저장 완료${failed?` · ${failed}개 실패`:''}`,failed>0,task);
+      toast(`${added}개 이미지 저장 완료${failed?` · ${failed}개 실패`:''}`);
     };
     document.getElementById('imageFolderImageCols').onchange=async e=>{
       const f=folderById(state.currentFolderId);if(!f)return;
