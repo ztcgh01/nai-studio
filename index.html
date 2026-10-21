@@ -3488,6 +3488,7 @@ function openDB(){
     releaseThumbCache();atlasGroupsMemo={stamp:null,groups:[]};displayTitleStamp='';resetGalleryPaging();resetAtlasPaging();render();if(archiveMulti.ids.length)renderArchiveMultiView();
   }
   const txDel = (store,key) => DESKTOP_MODE ? window.naiDesktop.del(store,key) : new Promise((res,rej)=>{const r=db.transaction(store,'readwrite').objectStore(store).delete(key);r.onsuccess=()=>res();r.onerror=()=>rej(r.error)});
+  const txDelMany = async (store,ids) => {if(DESKTOP_MODE)return window.naiDesktop.deleteMany(store,ids);for(const id of ids)await txDel(store,id);};
 
   async function loadAll(){
     state.entries = DESKTOP_MODE ? await window.naiDesktop.getAll(STORE_ENTRIES,{metadataOnly:true}) : await txGetAll(STORE_ENTRIES);
@@ -4040,7 +4041,7 @@ function openDB(){
     if(!confirm(`선택한 ${keys.length}개 작가 항목과 Atlas 이미지 ${entries.length}개를 삭제할까요?\nGallery 이미지는 삭제되지 않습니다.`))return;
 
     const ids=new Set(entries.map(e=>e.id));
-    for(const id of ids)await txDel(STORE_ATLAS,id);
+    await txDelMany(STORE_ATLAS,[...ids]);
     state.atlasEntries=state.atlasEntries.filter(e=>!ids.has(e.id));
     state.compareIds=state.compareIds.filter(ref=>!(String(ref).startsWith('atlas:')&&ids.has(String(ref).slice(6))));
     for(const key of keys){
@@ -5754,7 +5755,7 @@ async function confirmAtlasGalleryPicker(){const pickerTask=taskStart('Gallery �
   async function deleteSelected(){
     const ids=[...state.selectedIds]; if(!ids.length)return;
     if(!confirm(`갤러리에서 선택한 ${ids.length}개 이미지와 NAI Studio에 저장된 해당 로컬 파일을 삭제할까요?\n이 작업은 백업이 없다면 되돌릴 수 없습니다.`))return;
-    for(const id of ids) await txDel(STORE_ENTRIES,id);
+    await txDelMany(STORE_ENTRIES,ids);
     state.entries=state.entries.filter(e=>!ids.includes(e.id));
     state.compareIds=state.compareIds.filter(id=>!ids.includes(id));
     let folderChanged=false;state.folders.forEach(f=>{const before=(f.items||[]).length;f.items=(f.items||[]).filter(it=>!(it.type==='image'&&ids.includes(it.entryId)));if(f.items.length!==before){f.updatedAt=Date.now();folderChanged=true;}});if(folderChanged)await persistFolders();
