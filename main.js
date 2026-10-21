@@ -125,9 +125,41 @@ async function put(store,val){
   if(store==='meta'){const file=path.join(root,'meta.json'),m=await readJson(file,{});m[val.key]=val.value;await atomicJson(file,m);return}
   const encoded=await materializeBinary(val,binBase(store,val.id),{store,id:val.id,keyPath:[]});await atomicJson(recFile(store,val.id),encoded);if(store==='foldersV2')return encoded;
 }
+// Remove disk images only after their library record has been deleted.
+// Keep files that are still referenced by another record (including folders).
+async function pruneUnreferencedImages(refs){
+  const candidates=[...new Set(refs.filter(Boolean))];
+  if(!candidates.length)return;
+  const live=new Set();
+  for(const store of ['entries','atlasEntries','foldersV2']){
+    const dir=path.join(root,STORE_DIR[store]);let names=[];
+    try{names=await fsp.readdir(dir)}catch{continue}
+    for(const name of names){
+      if(!name.endsWith('.json'))continue;
+      const record=await readJson(path.join(dir,name));
+      collectImageRefs(record,live);
+    }
+  }
+  const imageRoot=path.resolve(root,'images')+path.sep;
+  for(const rel of candidates){
+    if(live.has(rel))continue;
+    const abs=path.resolve(root,rel);
+    if(!abs.startsWith(imageRoot))continue;
+    try{await fsp.unlink(abs)}catch(err){if(err.code!=='ENOENT')console.warn('Image cleanup failed',rel,err)}
+  }
+}
+function collectImageRefs(value,refs){
+  if(!value||typeof value!=='object')return;
+  if(typeof value.__naiFile==='string'){refs.add(value.__naiFile);return}
+  if(Array.isArray(value)){for(const item of value)collectImageRefs(item,refs);return}
+  for(const item of Object.values(value))collectImageRefs(item,refs);
+}
 async function del(store,id){
   if(store==='meta'){const file=path.join(root,'meta.json'),m=await readJson(file,{});delete m[id];await atomicJson(file,m);return}
-  try{await fsp.unlink(recFile(store,id))}catch{}
+  const file=recFile(store,id),record=await readJson(file),refs=new Set();
+  collectImageRefs(record,refs);
+  try{await fsp.unlink(file)}catch(err){if(err.code!=='ENOENT')throw err}
+  await pruneUnreferencedImages([...refs]);
 }
 async function replace(store,vals){
   if(store==='meta')throw new Error('meta replace unsupported');
