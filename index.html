@@ -3051,7 +3051,7 @@ body.is-home .refresh-icon-btn{display:grid}
       const files=[...e.target.files];e.target.value='';
       const folderId=state.currentFolderId,f=folderById(folderId);
       if(!f||!files.length)return;
-      const valid=files.filter(file=>/\\.(png|jpe?g|webp)$/i.test(file.name)||/^image\\/(png|jpeg|webp)$/i.test(file.type));
+      const valid=files.filter(file=>/\.(png|jpe?g|webp)$/i.test(file.name)||/^image\/(png|jpeg|webp)$/i.test(file.type));
       if(!valid.length){toast('PNG, JPG, WEBP 이미지를 선택해주세요.');return}
       const task=taskStart('폴더에 파일 추가','파일 저장 준비 중',valid.length);
       let added=0,failed=0;
