@@ -123,7 +123,14 @@ async function putMany(store,vals){
 }
 async function put(store,val){
   if(store==='meta'){const file=path.join(root,'meta.json'),m=await readJson(file,{});m[val.key]=val.value;await atomicJson(file,m);return}
-  const encoded=await materializeBinary(val,binBase(store,val.id),{store,id:val.id,keyPath:[]});await atomicJson(recFile(store,val.id),encoded);if(store==='foldersV2')return encoded;
+  const old=await readJson(recFile(store,val.id)),oldRefs=new Set();
+  collectImageRefs(old,oldRefs);
+  const encoded=await materializeBinary(val,binBase(store,val.id),{store,id:val.id,keyPath:[]});
+  await atomicJson(recFile(store,val.id),encoded);
+  const nextRefs=new Set();collectImageRefs(encoded,nextRefs);
+  const removed=[...oldRefs].filter(ref=>!nextRefs.has(ref));
+  if(removed.length)await pruneUnreferencedImages(removed);
+  if(store==='foldersV2')return encoded;
 }
 // Remove disk images only after their library record has been deleted.
 // Keep files that are still referenced by another record (including folders).
@@ -166,7 +173,13 @@ async function replace(store,vals){
   const dir=path.join(root,STORE_DIR[store]);await fsp.mkdir(dir,{recursive:true});
   const keep=new Set(vals.map(v=>safe(v.id)+'.json'));
   for(const v of vals)await put(store,v);
-  for(const n of await fsp.readdir(dir))if(n.endsWith('.json')&&!keep.has(n))await fsp.unlink(path.join(dir,n));
+  const removedRefs=new Set();
+  for(const n of await fsp.readdir(dir)){
+    if(!n.endsWith('.json')||keep.has(n))continue;
+    collectImageRefs(await readJson(path.join(dir,n)),removedRefs);
+    await fsp.unlink(path.join(dir,n));
+  }
+  if(removedRefs.size)await pruneUnreferencedImages([...removedRefs]);
 }
 async function importLooseImages(kind,{force=false}={}){
   const cfg=kind==='atlas'
