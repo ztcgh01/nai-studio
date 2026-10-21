@@ -1642,6 +1642,13 @@ body.is-home .refresh-icon-btn{display:grid}
 #bulkBar button,#atlasGroupSelectionBar button,#atlasSelectionBar button,#folderBulkBar button,#imageFolderBulkBar button{white-space:nowrap!important}
 @media(max-width:720px){#bulkBar:not(.hidden),#atlasGroupSelectionBar:not(.hidden),#atlasSelectionBar:not(.hidden),#folderBulkBar:not(.hidden),#imageFolderBulkBar:not(.hidden){left:6px!important;right:6px!important;max-height:86px!important}}
 </style>
+<style id="folder-fullscreen-v1248">
+.image-folder-dialog{width:100vw!important;max-width:100vw!important;height:100dvh!important;max-height:100dvh!important;margin:0!important;border:0!important;border-radius:0!important}
+.image-folder-dialog .modal-shell{height:100dvh!important;max-height:100dvh!important;width:100%!important}
+.image-folder-dialog .image-folder-grid:not(.atlas-folder-grid){grid-template-columns:repeat(var(--folder-image-cols,4),minmax(0,1fr))}
+.image-folder-dialog .image-folder-grid{min-height:0}
+.image-folder-dialog .image-folder-tools{flex-wrap:wrap;gap:8px}
+</style>
 </head>
 <body><div id="pageFindBar" class="hidden" role="search"><input id="pageFindInput" type="text" autocomplete="off" spellcheck="false" placeholder="이 화면에서 찾기"><span id="pageFindCount"></span><button id="pageFindPrev" type="button">↑</button><button id="pageFindNext" type="button">↓</button><button id="pageFindClose" type="button">×</button></div>
   <div class="floating-menu-tools"><button id="menuBtn" class="menu-btn" aria-label="메뉴"><span></span></button><button id="refreshBtn" class="refresh-icon-btn" aria-label="새로고침" title="새로고침">↻</button></div>
@@ -2171,7 +2178,7 @@ body.is-home .refresh-icon-btn{display:grid}
       </div>
       <div class="image-folder-tools">
         <span><span id="imageFolderCount">0 IMG</span><button id="imageFolderFilterClear" class="mini-btn hidden" type="button">← 전체 작가</button></span>
-        <div><span class="image-folder-view-toggle"><button id="imageFolderImageViewBtn" class="mini-btn active" type="button">▦ 이미지</button><button id="imageFolderAtlasViewBtn" class="mini-btn" type="button">◫ 도감형</button></span><label id="imageFolderAtlasColsWrap" class="image-folder-atlas-cols hidden">한 줄 <select id="imageFolderAtlasCols" aria-label="도감형 한 줄 작가 수"><option value="2">2명</option><option value="3">3명</option><option value="4">4명</option><option value="5">5명</option><option value="6">6명</option></select></label><label id="imageFolderAtlasRepWrap" class="image-folder-atlas-cols hidden">사진 <select id="imageFolderAtlasRepCount" aria-label="도감형 작가당 표시 사진 수"><option value="1">1장 보기</option><option value="2" selected>2장 보기</option><option value="3">3장 보기</option><option value="4">4장 보기</option></select></label><button id="imageFolderImportBtn" class="mini-btn">＋ 불러오기</button><button id="imageFolderSelectBtn" class="mini-btn">선택</button><button id="imageFolderExportBtn" class="mini-btn">내보내기</button></div>
+        <div><span class="image-folder-view-toggle"><button id="imageFolderImageViewBtn" class="mini-btn active" type="button">▦ 이미지</button><button id="imageFolderAtlasViewBtn" class="mini-btn" type="button">◫ 도감형</button></span><label id="imageFolderAtlasColsWrap" class="image-folder-atlas-cols hidden">한 줄 <select id="imageFolderAtlasCols" aria-label="도감형 한 줄 작가 수"><option value="2">2명</option><option value="3">3명</option><option value="4">4명</option><option value="5">5명</option><option value="6">6명</option></select></label><label id="imageFolderAtlasRepWrap" class="image-folder-atlas-cols hidden">사진 <select id="imageFolderAtlasRepCount" aria-label="도감형 작가당 표시 사진 수"><option value="1">1장 보기</option><option value="2" selected>2장 보기</option><option value="3">3장 보기</option><option value="4">4장 보기</option></select></label><button id="imageFolderImportBtn" class="mini-btn">＋ 불러오기</button><button id="imageFolderDirectAddBtn" class="mini-btn" type="button">＋ 파일 추가</button><input id="imageFolderDirectFileInput" type="file" accept="image/png,image/jpeg,image/webp" multiple hidden><label id="imageFolderImageColsWrap" class="image-folder-atlas-cols">한 줄 <select id="imageFolderImageCols" aria-label="일반형 한 줄 이미지 수"><option value="2">2장</option><option value="3">3장</option><option value="4">4장</option><option value="5">5장</option><option value="6">6장</option><option value="7">7장</option><option value="8">8장</option><option value="10">10장</option><option value="12">12장</option></select></label><button id="imageFolderSelectBtn" class="mini-btn">선택</button><button id="imageFolderExportBtn" class="mini-btn">내보내기</button></div>
       </div>
       <div id="imageFolderGrid" class="image-folder-grid"></div>
       <div id="imageFolderBulkBar" class="image-folder-bulk hidden">
@@ -3039,6 +3046,33 @@ body.is-home .refresh-icon-btn{display:grid}
     els.imageFolderTitleInput.onchange=saveImageFolderTitle;
     els.imageFolderBookmarkBtn.onclick=toggleImageFolderBookmark;
     els.imageFolderImportBtn.onclick=()=>openSavedHub();
+    document.getElementById('imageFolderDirectAddBtn').onclick=()=>document.getElementById('imageFolderDirectFileInput').click();
+    document.getElementById('imageFolderDirectFileInput').onchange=async e=>{
+      const files=[...e.target.files];e.target.value='';
+      const folderId=state.currentFolderId,f=folderById(folderId);
+      if(!f||!files.length)return;
+      const valid=files.filter(file=>/\.(png|jpe?g|webp)$/i.test(file.name)||/^image\/(png|jpeg|webp)$/i.test(file.type));
+      if(!valid.length){toast('PNG, JPG, WEBP 이미지를 선택해주세요.');return}
+      const task=taskStart('폴더에 파일 추가','메타데이터 분석 중',valid.length);
+      try{
+        const analyzed=await analyzeImportFiles(valid,(done,total)=>taskUpdate('파일 분석 중',done,total,task));
+        const items=[];
+        for(const a of analyzed){
+          if(a.error)continue;
+          const meta=a.parsed||{};
+          items.push({id:crypto.randomUUID(),type:'attachment',name:a.file.name,mime:a.file.type||'image/png',blob:a.file,sourceLabel:'DIRECT',atlasMeta:{title:'',artistsText:meta.artistsText||'',artists:meta.artists||[],prompt:meta.prompt||'',characterPrompts:meta.characterPrompts||[],characterUc:meta.characterUc||[],uc:meta.uc||'',memo:'',seed:meta.seed,model:meta.model||'',modelSource:meta.modelSource||'',modelHash:meta.modelHash||'',modelVersion:meta.modelVersion||'',modelVariant:meta.modelVariant||'',modelKey:meta.modelKey||'',modelLabel:meta.modelLabel||''}});
+        }
+        if(items.length){f.items.push(...items);f.updatedAt=Date.now();await persistFolder(f);if(state.currentFolderId===folderId)renderImageFolder();renderFolders()}
+        taskEnd(`${items.length}개 이미지 추가 완료`,false,task);
+        toast(`${items.length}개 이미지가 폴더에 추가되었습니다.`);
+      }catch(err){console.error(err);taskEnd('파일 추가 실패',true,task);toast('파일 추가에 실패했습니다.')}
+    };
+    document.getElementById('imageFolderImageCols').onchange=async e=>{
+      const f=folderById(state.currentFolderId);if(!f)return;
+      f.imageColumns=Math.max(2,Math.min(12,Number(e.target.value)||4));
+      try{await persistFolder(f)}catch(err){console.error(err);toast('열 수 저장 실패')}
+      renderImageFolder();
+    };
     els.imageFolderMoreBtn.onclick=()=>els.imageFolderMoreMenu.classList.toggle('hidden');
     els.deleteImageFolderBtn.onclick=deleteCurrentImageFolder;
     els.imageFolderImageViewBtn.onclick=()=>setImageFolderViewMode('images');
@@ -5865,6 +5899,11 @@ async function confirmAtlasGalleryPicker(){const pickerTask=taskStart('Gallery �
     els.imageFolderImageViewBtn?.classList.toggle('active',mode==='images');els.imageFolderAtlasViewBtn?.classList.toggle('active',mode==='atlas');
     els.imageFolderDialog.classList.toggle('atlas-folder-view',mode==='atlas');
     els.imageFolderDialog.classList.toggle('selecting',state.imageFolderSelectMode);
+    const imageCols=Math.max(2,Math.min(12,Number(f.imageColumns)||4));
+    const imageColsInput=document.getElementById('imageFolderImageCols');
+    if(imageColsInput)imageColsInput.value=String(imageCols);
+    document.getElementById('imageFolderImageColsWrap')?.classList.toggle('hidden',mode!=='images');
+    els.imageFolderGrid.style.setProperty('--folder-image-cols',String(imageCols));
     if(mode==='atlas'&&!state.imageFolderArtistFilterKey){
       const groups=imageFolderArtistGroups(f);els.imageFolderCount.textContent=`${groups.length} ARTISTS · ${allItems.length} IMG`;els.imageFolderFilterClear?.classList.add('hidden');
       const atlasCols=Math.max(2,Math.min(6,Number(f.imageAtlasColumns)||2)),repCount=Math.max(1,Math.min(4,Number(f.imageAtlasRepCount)||2));if(els.imageFolderAtlasCols){els.imageFolderAtlasCols.value=String(atlasCols);els.imageFolderAtlasColsWrap?.classList.remove('hidden')}if(els.imageFolderAtlasRepCount){els.imageFolderAtlasRepCount.value=String(repCount);els.imageFolderAtlasRepWrap?.classList.remove('hidden')}els.imageFolderGrid.style.setProperty('--folder-atlas-cols',String(atlasCols));
