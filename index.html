@@ -1671,6 +1671,18 @@ body.is-home .refresh-icon-btn{display:grid}
 .selection-preview .selection-preview-stage{background:#f8f8f8!important}
 .selection-preview.folder-split-preview .selection-preview-details{border-left-color:#d9d9d9!important}
 </style>
+<style id="gallery-bulk-controls-fix-v1254">
+#bulkBar.bulk-bar{background:#fff!important;color:#111!important;border:1px solid #cfcfcf!important;z-index:1000!important;overflow:visible!important;flex-wrap:wrap}
+#bulkBar .bulk-left,#bulkBar .bulk-left span,#bulkBar .bulk-left .text-btn{color:#111!important;opacity:1!important;visibility:visible!important}
+#bulkBar .bulk-left .sweep-hint{display:inline!important;color:#555!important;font-size:11px}
+#bulkBar .bulk-actions{min-width:0;flex:1;justify-content:flex-end}
+#bulkBar .bulk-actions .btn{background:#fff!important;color:#111!important;border:1px solid #c9c9c9!important;opacity:1!important}
+#bulkBar .bulk-actions #deleteSelectedBtn{border-color:#a22!important;color:#a22!important;font-weight:700}
+#bulkBar #bulkMoreMenu{z-index:1005!important;background:#fff!important;color:#111!important;box-shadow:0 8px 32px #0003!important;max-height:min(65vh,520px);overflow-y:auto}
+#bulkBar #bulkMoreMenu.hidden{display:none!important}
+#bulkBar #bulkMoreMenu .btn{background:#fff!important;color:#111!important}
+@media(max-width:700px){#bulkBar .bulk-left{min-width:0;flex-wrap:wrap}#bulkBar .bulk-left .sweep-hint{display:none!important}#bulkBar .bulk-actions{justify-content:flex-start}}
+</style>
 </head>
 <body><div id="pageFindBar" class="hidden" role="search"><input id="pageFindInput" type="text" autocomplete="off" spellcheck="false" placeholder="이 화면에서 찾기"><span id="pageFindCount"></span><button id="pageFindPrev" type="button">↑</button><button id="pageFindNext" type="button">↓</button><button id="pageFindClose" type="button">×</button></div>
   <div class="floating-menu-tools"><button id="menuBtn" class="menu-btn" aria-label="메뉴"><span></span></button><button id="refreshBtn" class="refresh-icon-btn" aria-label="새로고침" title="새로고침">↻</button></div>
@@ -1997,7 +2009,8 @@ body.is-home .refresh-icon-btn{display:grid}
             <button id="selectedToAtlasCopyBtn" class="btn small">도감 복사</button>
             <button id="selectedToAtlasMoveBtn" class="btn small">도감 이동</button>
             <button id="saveSelectedOriginalBtn" class="btn small">원본 저장</button>
-            <button id="bulkMoreBtn" class="btn small">⋯ 더보기</button>
+            <button id="deleteSelectedBtn" class="btn small danger">선택 삭제</button>
+            <button id="bulkMoreBtn" class="btn small" aria-expanded="false">⋯ 더보기</button>
             <button id="cancelSelectBtn" class="btn small">취소</button>
           </div>
           <div id="bulkMoreMenu" class="bulk-more-menu hidden">
@@ -2010,7 +2023,6 @@ body.is-home .refresh-icon-btn{display:grid}
             <button id="selectedAtlasPdfBtn" class="btn small">도감 PDF</button>
             <button id="selectedAtlasImageBtn" class="btn small">도감 이미지</button>
             <button id="selectedBackupBtn" class="btn small">백업 ZIP</button>
-            <button id="deleteSelectedBtn" class="btn small danger">선택 삭제</button>
           </div>
         </div>
 
@@ -3254,7 +3266,20 @@ body.is-home .refresh-icon-btn{display:grid}
     els.artistListSort.onclick=e=>{const b=e.target.closest('[data-artist-sort]');if(!b)return;artistListState.sort=b.dataset.artistSort;syncArtistListDialog()};
     els.artistListFormat.onclick=e=>{const b=e.target.closest('[data-artist-format]');if(!b)return;artistListState.format=b.dataset.artistFormat;syncArtistListDialog()};
     els.artistListDownload.onclick=downloadArtistList;
-    els.bulkMoreBtn.onclick = ev => {ev.stopPropagation();els.bulkMoreMenu.classList.toggle('hidden');};
+    els.bulkMoreBtn.onclick = ev => {
+      ev.stopPropagation();
+      const menu=els.bulkMoreMenu,opening=menu.classList.contains('hidden');
+      menu.classList.toggle('hidden',!opening);
+      els.bulkMoreBtn.setAttribute('aria-expanded',String(opening));
+      if(opening){
+        const rect=els.bulkMoreBtn.getBoundingClientRect();
+        const width=Math.min(360,window.innerWidth-24);
+        menu.style.position='fixed';menu.style.width=width+'px';
+        menu.style.left=Math.max(12,Math.min(rect.right-width,window.innerWidth-width-12))+'px';
+        menu.style.right='auto';menu.style.bottom='auto';
+        menu.style.top=Math.max(12,rect.top-menu.offsetHeight-8)+'px';
+      }
+    };
     els.bulkFavoriteAddBtn.onclick = ()=>setSelectedFavorites(true);
     els.bulkFavoriteRemoveBtn.onclick = ()=>setSelectedFavorites(false);
     els.bulkEditBtn.onclick = openBulkEditor;
@@ -4862,7 +4887,7 @@ async function confirmAtlasGalleryPicker(){const pickerTask=taskStart('Gallery �
     els.selectModeBtn.textContent=state.selectMode?'선택 중':'선택';
     els.bulkBar.classList.toggle('hidden',!state.selectMode);
     els.bulkBar.style.setProperty('display',state.selectMode?'flex':'none','important');
-    if(!state.selectMode)els.bulkMoreMenu?.classList.add('hidden');
+    if(!state.selectMode){els.bulkMoreMenu?.classList.add('hidden');els.bulkMoreBtn?.setAttribute('aria-expanded','false')}
     els.selectedCount.textContent=`${state.selectedIds.length}개 선택`;
     const disabled=!state.selectedIds.length;
     [els.deleteSelectedBtn,els.selectedToFolderBtn,els.selectedToCompareBtn,els.selectedArtistCopyBtn,els.saveSelectedOriginalBtn,els.saveSelectedCleanBtn,els.selectedPdfBtn,els.selectedAtlasPdfBtn,els.selectedAtlasImageBtn,els.selectedBackupBtn].forEach(b=>{if(b)b.disabled=disabled;});
@@ -5728,7 +5753,7 @@ async function confirmAtlasGalleryPicker(){const pickerTask=taskStart('Gallery �
 
   async function deleteSelected(){
     const ids=[...state.selectedIds]; if(!ids.length)return;
-    if(!confirm(`선택한 ${ids.length}개 항목을 도감에서 삭제할까요?\n이 작업은 백업이 없다면 되돌릴 수 없습니다.`))return;
+    if(!confirm(`갤러리에서 선택한 ${ids.length}개 이미지와 NAI Studio에 저장된 해당 로컬 파일을 삭제할까요?\n이 작업은 백업이 없다면 되돌릴 수 없습니다.`))return;
     for(const id of ids) await txDel(STORE_ENTRIES,id);
     state.entries=state.entries.filter(e=>!ids.includes(e.id));
     state.compareIds=state.compareIds.filter(id=>!ids.includes(id));
