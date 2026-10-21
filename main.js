@@ -168,6 +168,22 @@ async function del(store,id){
   try{await fsp.unlink(file)}catch(err){if(err.code!=='ENOENT')throw err}
   await pruneUnreferencedImages([...refs]);
 }
+async function deleteMany(store,ids){
+  if(!Array.isArray(ids)||!ids.length)return {deleted:0};
+  if(store==='meta')throw new Error('meta bulk deletion unsupported');
+  if(!Object.hasOwn(STORE_DIR,store))throw new Error('Invalid store');
+  const refs=new Set(),unique=[...new Set(ids.map(String))];
+  let deleted=0;
+  for(const id of unique){
+    const file=recFile(store,id),record=await readJson(file);
+    if(!record)continue;
+    await fsp.unlink(file);
+    collectImageRefs(record,refs);
+    deleted++;
+  }
+  if(refs.size)await pruneUnreferencedImages([...refs]);
+  return {deleted};
+}
 async function replace(store,vals){
   if(store==='meta')throw new Error('meta replace unsupported');
   const dir=path.join(root,STORE_DIR[store]);await fsp.mkdir(dir,{recursive:true});
@@ -296,6 +312,7 @@ app.whenReady().then(()=>{
   ipcMain.handle('nai:putMany',(_,s,v)=>putMany(s,v));
   ipcMain.handle('nai:atlasToGalleryBatch',async(event,items)=>copyAtlasToGalleryBatch(items,(done,total)=>event.sender.send('nai:batchProgress',{kind:'atlasToGallery',done,total})));
   ipcMain.handle('nai:delete',(_,s,id)=>del(s,id));
+  ipcMain.handle('nai:deleteMany',(_,s,ids)=>deleteMany(s,ids));
   ipcMain.handle('nai:replace',(_,s,v)=>replace(s,v));
   ipcMain.handle('nai:dataPath',()=>root);
   ipcMain.handle('nai:openData',()=>shell.openPath(root));
