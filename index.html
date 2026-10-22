@@ -3000,7 +3000,15 @@ body.is-home .refresh-icon-btn{display:grid}
       atlasExportMenu.onclick=e=>e.stopPropagation();
       document.addEventListener('click',()=>{atlasExportMenu.classList.add('hidden');atlasExportBtn.setAttribute('aria-expanded','false');});
     }
-    els.atlasGroupGalleryBtn.onclick=()=>atlasEntriesToGallery(atlasGroupEntriesForSelection(false));
+    els.atlasGroupGalleryBtn.onclick=async()=>{
+      const entries=atlasGroupEntriesForSelection(false);
+      if(!entries.length){toast('전송할 작가 그룹을 먼저 선택해주세요.');return}
+      els.atlasGroupGalleryBtn.disabled=true;
+      const original=els.atlasGroupGalleryBtn.textContent;
+      els.atlasGroupGalleryBtn.textContent='전송 중…';
+      try{await atlasEntriesToGallery(entries)}
+      finally{els.atlasGroupGalleryBtn.disabled=false;els.atlasGroupGalleryBtn.textContent=original}
+    };
     els.atlasGroupRepPdfBtn.onclick=()=>openExportDialog({entries:atlasGroupEntriesForSelection(true),label:'선택 작가 대표 이미지',preset:'atlas',output:'pdf'});
     els.atlasGroupAllPdfBtn.onclick=()=>openExportDialog({entries:atlasGroupEntriesForSelection(false),label:'선택 작가 전체 이미지',preset:'full',output:'pdf'});
     els.atlasGroupDeleteBtn.onclick=deleteSelectedAtlasGroups;
@@ -4110,7 +4118,7 @@ function openDB(){
       const e={...a,id:crypto.randomUUID(),__fromAtlasId:a.id,createdAt:now,updatedAt:now,lastImportAt:now,favorite:false,memo:a.memo||'',title:a.title||''};
       delete e.atlasOnly;pending.push({atlasId:a.id,entry:e});if(a.hash)knownHashes.add(a.hash);knownAtlasSources.add(a.id);
     }
-    if(!pending.length){toast('선택한 이미지는 모두 Gallery에 있습니다.');return {added:0,skipped}}
+    if(!pending.length){const msg=`Gallery 전송 없음 · 이미 등록된 이미지 ${skipped}개`;toast(msg);return {added:0,skipped}}
     const t=taskStart('Atlas → Gallery','파일 복사 중',pending.length);let writes=[];
     try{
       if(DESKTOP_MODE){
