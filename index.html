@@ -1683,6 +1683,39 @@ body.is-home .refresh-icon-btn{display:grid}
 #bulkBar #bulkMoreMenu .btn{background:#fff!important;color:#111!important}
 @media(max-width:700px){#bulkBar .bulk-left{min-width:0;flex-wrap:wrap}#bulkBar .bulk-left .sweep-hint{display:none!important}#bulkBar .bulk-actions{justify-content:flex-start}}
 </style>
+<style id="atlas-group-selection-responsive-v1256">
+/* Never clip the select-all controls or horizontal actions. */
+#atlasGroupSelectionBar:not(.hidden){
+ box-sizing:border-box!important;left:12px!important;right:12px!important;
+ width:calc(100% - 24px)!important;max-width:none!important;max-height:min(55vh,340px)!important;
+ transform:none!important;overflow:visible!important;display:flex!important;
+ flex-wrap:wrap!important;justify-content:flex-start!important;align-content:center!important;
+ background:#fff!important;color:#111!important;padding:10px 12px!important;gap:8px!important;
+}
+#atlasGroupSelectionBar .bulk-left{
+ display:flex!important;flex:0 0 auto!important;min-width:0!important;align-items:center!important;
+ flex-wrap:wrap!important;gap:8px!important;color:#111!important;
+}
+#atlasGroupSelectionBar .bulk-left #atlasGroupSelectedCount,
+#atlasGroupSelectionBar .bulk-left #atlasGroupSelectAllBtn{display:inline-flex!important;visibility:visible!important;color:#111!important;opacity:1!important;white-space:nowrap!important}
+#atlasGroupSelectionBar .bulk-left .sweep-hint{color:#555!important}
+#atlasGroupSelectionBar .bulk-actions{
+ display:flex!important;flex:1 1 500px!important;min-width:0!important;max-width:100%!important;
+ align-items:center!important;flex-wrap:wrap!important;overflow:visible!important;gap:6px!important;
+}
+#atlasGroupSelectionBar .bulk-actions .btn,#atlasGroupSelectionBar .bulk-actions select{
+ background:#fff!important;color:#111!important;border:1px solid #ccc!important;
+ flex:0 0 auto!important;white-space:nowrap!important;
+}
+#atlasGroupSelectionBar .bulk-actions .btn.danger{color:#a11!important;border-color:#a11!important}
+#atlasGroupSelectionBar .atlas-export-menu-wrap{position:relative!important}
+#atlasGroupSelectionBar .atlas-export-menu{z-index:1100!important}
+@media(max-width:900px){
+ #atlasGroupSelectionBar:not(.hidden){max-height:min(65vh,420px)!important;overflow-y:auto!important}
+ #atlasGroupSelectionBar .bulk-left{flex:1 1 100%!important}
+ #atlasGroupSelectionBar .bulk-actions{flex:1 1 100%!important}
+}
+</style>
 </head>
 <body><div id="pageFindBar" class="hidden" role="search"><input id="pageFindInput" type="text" autocomplete="off" spellcheck="false" placeholder="이 화면에서 찾기"><span id="pageFindCount"></span><button id="pageFindPrev" type="button">↑</button><button id="pageFindNext" type="button">↓</button><button id="pageFindClose" type="button">×</button></div>
   <div class="floating-menu-tools"><button id="menuBtn" class="menu-btn" aria-label="메뉴"><span></span></button><button id="refreshBtn" class="refresh-icon-btn" aria-label="새로고침" title="새로고침">↻</button></div>
