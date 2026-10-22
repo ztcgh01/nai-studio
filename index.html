@@ -3023,7 +3023,12 @@ body.is-home .refresh-icon-btn{display:grid}
     els.atlasSelectedCompareBtn.onclick=addAtlasSelectedToCompare;
     els.atlasSelectedArtistCopyBtn.onclick=()=>copyArtistTagsFromEntries(atlasSelectedEntries());
     els.atlasSelectedOriginalBtn.onclick=()=>saveAtlasEntries(atlasSelectedEntries(),false);
-    els.atlasSelectedGalleryBtn.onclick=atlasBulkToGallery;
+    els.atlasSelectedGalleryBtn.onclick=async()=>{
+      if(!state.atlasSelectedIds.length){toast('전송할 이미지를 먼저 선택해주세요.');return}
+      const btn=els.atlasSelectedGalleryBtn,old=btn.textContent;
+      btn.disabled=true;btn.textContent='전송 중…';
+      try{await atlasBulkToGallery()}finally{btn.disabled=false;btn.textContent=old}
+    };
     els.atlasSelectedMoreBtn.onclick=ev=>{ev.stopPropagation();els.atlasSelectedMoreMenu.classList.toggle('hidden')};
     els.atlasSelectedCleanBtn.onclick=()=>saveAtlasEntries(atlasSelectedEntries(),true);
     els.atlasSelectedPdfBtn.onclick=()=>openExportDialog({entries:atlasSelectedEntries(),label:'Atlas 선택 이미지',preset:'custom',output:'pdf'});
