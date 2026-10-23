@@ -2092,7 +2092,7 @@ body.folder-lightbox-open{overflow:hidden}
       <div id="imageFolderGrid" class="image-folder-grid"></div>
       <div id="imageFolderBulkBar" class="image-folder-bulk hidden">
         <span id="imageFolderSelectedCount">0개 선택</span>
-        <div><button id="imageFolderSelectAllBtn" class="btn small">전체 선택</button><button id="imageFolderCompareBtn" class="btn small">Compare</button><button id="imageFolderExportSelectedBtn" class="btn small">내보내기</button><button id="imageFolderRemoveBtn" class="btn small danger">폴더에서 제거</button><button id="imageFolderCancelBtn" class="btn small">취소</button></div>
+        <div><button id="imageFolderSelectAllBtn" class="btn small">전체 선택</button><button id="imageFolderCompareBtn" class="btn small">Compare</button><button id="imageFolderArtistCopyBtn" class="btn small">작가명 복사</button><button id="imageFolderAddCollectionBtn" class="btn small">다른 폴더에 추가</button><button id="imageFolderSaveSelectedBtn" class="btn small">원본 저장</button><button id="imageFolderSaveCleanBtn" class="btn small">메타데이터 제거 저장</button><button id="imageFolderZipSelectedBtn" class="btn small">ZIP 다운로드</button><button id="imageFolderExportSelectedBtn" class="btn small">내보내기</button><button id="imageFolderRemoveBtn" class="btn small danger">폴더에서 제거</button><button id="imageFolderCancelBtn" class="btn small">취소</button></div>
       </div>
     </div>
   </dialog>
@@ -2795,6 +2795,11 @@ body.folder-lightbox-open{overflow:hidden}
     els.imageFolderSelectAllBtn.onclick=()=>{const f=folderById(state.currentFolderId),ids=folderImageItems(f).map(x=>x.id);state.imageFolderSelected=state.imageFolderSelected.length===ids.length?[]:ids;renderImageFolder()};
     els.imageFolderExportBtn.onclick=()=>openExportDialog({entries:imageFolderEntries(),label:'이미지 폴더',preset:'atlas',output:'pdf'});
     els.imageFolderExportSelectedBtn.onclick=()=>openExportDialog({entries:selectedImageFolderEntries(),label:'폴더 선택 이미지',preset:'atlas',output:'pdf'});
+    document.getElementById('imageFolderArtistCopyBtn').onclick=copySelectedFolderArtists;
+    document.getElementById('imageFolderAddCollectionBtn').onclick=addSelectedImagesToAnotherFolder;
+    document.getElementById('imageFolderSaveSelectedBtn').onclick=()=>saveSelectedFolderImages(false);
+    document.getElementById('imageFolderSaveCleanBtn').onclick=()=>saveSelectedFolderImages(true);
+    document.getElementById('imageFolderZipSelectedBtn').onclick=()=>saveSelectedFolderImages(false);
     els.imageFolderCompareBtn.onclick=()=>{const arr=selectedImageFolderEntries();for(const e of arr){if(String(e.id).startsWith('folder:'))continue;if(!state.compareIds.includes(e.id))state.compareIds.push(e.id)}saveCompareIds();renderCompare();toast(`${arr.length}개 중 Gallery 원본을 Compare에 추가했습니다.`)};
     els.imageFolderRemoveBtn.onclick=removeSelectedFromImageFolder;
     els.createFolderBtn.onclick=createFolder;
@@ -5155,6 +5160,40 @@ async function confirmAtlasGalleryPicker(){const pickerTask=taskStart('Gallery �
   }
   function selectedImageFolderEntries(){
     const f=folderById(state.currentFolderId);return folderImageItems(f).filter(it=>state.imageFolderSelected.includes(it.id)).map(imageFolderEntryFromItem).filter(Boolean)
+  }
+  async function copySelectedFolderArtists(){
+    const entries=selectedImageFolderEntries();
+    const names=new Set();
+    for(const e of entries){
+      for(const a of e.artists||[]){const n=String(typeof a==='string'?a:(a?.name||a?.tag||'')).replace(/^artist:/i,'').trim();if(n)names.add(n)}
+      for(const match of String(e.artistsText||'').matchAll(/artist:([^,\n]+)/gi)){const n=match[1].trim();if(n)names.add(n)}
+    }
+    if(!names.size){toast('선택 이미지에 작가명이 없습니다.');return}
+    const ok=await copyTextSafe([...names].map(n=>'artist:'+n).join(', '));
+    toast(ok?names.size+'개 작가명 복사 완료':'작가명 복사 실패');
+  }
+  async function addSelectedImagesToAnotherFolder(){
+    const src=folderById(state.currentFolderId),selected=folderImageItems(src).filter(it=>state.imageFolderSelected.includes(it.id));
+    if(!selected.length){toast('이미지를 먼저 선택해주세요.');return}
+    const targets=state.folders.filter(f=>f.id!==src.id&&folderKind(f)==='image');
+    if(!targets.length){toast('추가할 다른 이미지 폴더가 없습니다.');return}
+    const answer=prompt('추가할 폴더 번호를 입력하세요:\\n'+targets.map((f,i)=>(i+1)+'. '+f.name).join('\\n'));
+    if(answer===null)return;
+    const idx=Number(answer)-1;
+    if(!Number.isInteger(idx)||!targets[idx]){toast('올바른 폴더 번호를 입력해주세요.');return}
+    const target=targets[idx];let added=0;
+    for(const it of selected){
+      if(it.type==='image'&&target.items.some(x=>x.type==='image'&&x.entryId===it.entryId))continue;
+      if(it.type==='attachment'&&target.items.some(x=>x.type==='attachment'&&x.id===it.id))continue;
+      target.items.push({...it,id:crypto.randomUUID()});added++;
+    }
+    if(added){target.updatedAt=Date.now();await persistFolders();renderFolders()}
+    toast(target.name+' · '+added+'개 추가 완료');
+  }
+  async function saveSelectedFolderImages(clean=false){
+    const entries=selectedImageFolderEntries();
+    if(!entries.length){toast('이미지를 먼저 선택해주세요.');return}
+    await saveAtlasEntries(entries,clean);
   }
   async function saveImageFolderTitle(){const f=folderById(state.currentFolderId);if(!f)return;f.name=els.imageFolderTitleInput.value.trim()||'Untitled';f.updatedAt=Date.now();await persistFolders();renderFolders();renderBookmarks()}
   async function toggleImageFolderBookmark(){if(!state.currentFolderId)return;await setFolderBookmark(state.currentFolderId)}
