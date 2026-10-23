@@ -4,7 +4,7 @@
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
   <meta name="color-scheme" content="light" />
-  <title>NAI Studio v2.0.3 SAFE</title>
+  <title>NAI Studio v2.0.4 SAFE</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Young+Serif&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
@@ -5177,7 +5177,7 @@ async function confirmAtlasGalleryPicker(){const pickerTask=taskStart('Gallery �
     if(!selected.length){toast('이미지를 먼저 선택해주세요.');return}
     const targets=state.folders.filter(f=>f.id!==src.id&&folderKind(f)==='image');
     if(!targets.length){toast('추가할 다른 이미지 폴더가 없습니다.');return}
-    const answer=prompt('추가할 폴더 번호를 입력하세요:\\n'+targets.map((f,i)=>(i+1)+'. '+f.name).join('\\n'));
+    const answer=prompt('추가할 폴더 번호를 입력하세요:\n'+targets.map((f,i)=>(i+1)+'. '+f.name).join('\n'));
     if(answer===null)return;
     const idx=Number(answer)-1;
     if(!Number.isInteger(idx)||!targets[idx]){toast('올바른 폴더 번호를 입력해주세요.');return}
