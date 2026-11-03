@@ -3889,6 +3889,21 @@ function openDB(){
     const arr=all.slice(0,limit);
     const matchingImages=atlasMatchingImageCount(all);
     els.atlasCount.textContent=(atlasSearchTokens().length||multiArtistSearchNames(state.atlasSearch))?`${all.length} artists · ${matchingImages} matching images`:`${all.length} artists · ${state.atlasEntries.length} images`;
+    let missingAtlas=document.getElementById('atlasMissingArtistsNotice');
+    if(!missingAtlas){
+      missingAtlas=document.createElement('div');
+      missingAtlas.id='atlasMissingArtistsNotice';
+      missingAtlas.style.cssText='font-size:12px;color:#8a3d20;padding:6px 0;overflow-wrap:anywhere;white-space:normal';
+      const searchRow=els.atlasSearch?.closest('.atlas-search-wrap')||els.atlasSearch?.parentElement;
+      (searchRow||els.atlasCount).insertAdjacentElement('afterend',missingAtlas);
+    }
+    const requested=multiArtistSearchNames(state.atlasSearch);
+    if(requested?.length){
+      const found=new Set(all.flatMap(g=>(g.names||[]).map(norm)));
+      const missing=[...new Set(requested)].filter(name=>!found.has(name));
+      missingAtlas.textContent=missing.length?'검색 결과 없음 ('+missing.length+'개): '+missing.map(name=>'artist:'+name).join(', '):'';
+      missingAtlas.hidden=!missing.length;
+    }else{missingAtlas.textContent='';missingAtlas.hidden=true}
     els.atlasGrid.classList.toggle('gallery-mode',state.atlasViewMode==='gallery');
     els.atlasGrid.dataset.cols=String(state.atlasColumns);
     els.atlasGrid.innerHTML='';
