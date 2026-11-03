@@ -3839,6 +3839,15 @@ function openDB(){
       if(state.atlasSort==='recent')return ((a.latest-b.latest)||(a.latestOrder-b.latestOrder)||a.key.localeCompare(b.key))*sign;
       return (a.entries.length-b.entries.length)*sign || (b.latest-a.latest);
     });
+    const searchOrder=multiArtistSearchNames(state.atlasSearch);
+    if(searchOrder?.length){
+      const ranks=new Map(searchOrder.map((name,index)=>[name,index]));
+      const groupRank=g=>{
+        const names=(g.names||[]).map(artistSearchNorm);
+        return Math.min(Infinity,...names.map(name=>ranks.get(name)??Infinity));
+      };
+      arr.sort((a,b)=>groupRank(a)-groupRank(b));
+    }
     return arr;
   }
   function atlasRepresentativeEntries(g){
