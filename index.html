@@ -3344,7 +3344,7 @@ body.is-home .refresh-icon-btn{display:grid}
       const searchNames=multiArtistSearchNames(state.search);
       if(selected.length)return copyArtistTagsFromEntries(selected);
       if(searchNames?.length){
-        const matches=new Set(filteredEntries().flatMap(e=>orderedArtistNames(e).map(norm)));
+        const matches=new Set(filteredEntries().flatMap(e=>orderedArtistNames(e).map(artistSearchNorm)));
         const ordered=[...new Set(searchNames)].filter(name=>matches.has(name));
         if(!ordered.length){toast('검색 결과에 복사할 작가명이 없습니다.');return}
         return copyTextSafe(ordered.map(name=>'artist:'+name).join(', ')+',').then(ok=>toast(ok?ordered.length+'개 검색 작가명 복사 완료':'작가명 복사 실패'));
@@ -3707,7 +3707,7 @@ function openDB(){
   function atlasGroupMatchesSearch(g,tokens=atlasSearchTokens()){
     const multi=multiArtistSearchNames(state.atlasSearch);
     if(multi){
-      const groupNames=(g.names||[]).map(norm);
+      const groupNames=(g.names||[]).map(artistSearchNorm);
       return multi.some(name=>groupNames.includes(name));
     }
     if(!tokens.length)return true;
@@ -3899,7 +3899,7 @@ function openDB(){
     }
     const requested=multiArtistSearchNames(state.atlasSearch);
     if(requested?.length){
-      const found=new Set(all.flatMap(g=>(g.names||[]).map(norm)));
+      const found=new Set(all.flatMap(g=>(g.names||[]).map(artistSearchNorm)));
       const missing=[...new Set(requested)].filter(name=>!found.has(name));
       missingAtlas.textContent=missing.length?'검색 결과 없음 ('+missing.length+'개): '+missing.map(name=>'artist:'+name).join(', '):'';
       missingAtlas.hidden=!missing.length;
@@ -4727,23 +4727,24 @@ async function confirmAtlasGalleryPicker(){const pickerTask=taskStart('Gallery �
     const stamp=`${e.updatedAt||e.createdAt||0}:${e.modelLabel||''}`,cached=gallerySearchCache.get(e);if(cached?.stamp===stamp)return cached.text;
     const text=[e.title,e.artistsText,e.prompt,(e.characterPrompts||[]).join('\n'),(e.characterUc||[]).join('\n'),e.uc,e.memo,e.model,modelLabel(e),e.seed!=null?String(e.seed):'',e.fileName||''].join('\n').toLowerCase();gallerySearchCache.set(e,{stamp,text});return text;
   }
+  const artistSearchNorm=value=>norm(value).replace(/_/g,' ').replace(/\s+/g,' ').trim();
   function multiArtistSearchNames(query){
     const raw=String(query||'').trim();
     if(!raw)return null;
     const parts=raw.split(/[,\n\r]+/).map(x=>x.trim()).filter(Boolean);
     if(!parts.length||!parts.every(x=>/^(?:(?:\d+(?:\.\d+)?|\.\d+)\s*::\s*)?artist\s*:/i.test(x)))return null;
-    const names=parts.map(x=>norm(x.replace(/^(?:(?:\d+(?:\.\d+)?|\.\d+)\s*::\s*)?artist\s*:/i,'').replace(/::\s*$/,'').trim())).filter(Boolean);
+    const names=parts.map(x=>artistSearchNorm(x.replace(/^(?:(?:\d+(?:\.\d+)?|\.\d+)\s*::\s*)?artist\s*:/i,'').replace(/::\s*$/,'').trim())).filter(Boolean);
     return names.length===parts.length?names:null;
   }
   function entryHasAnyArtist(e,names){
     if(!names?.length)return false;
-    const entryNames=orderedArtistNames(e).map(norm);
+    const entryNames=orderedArtistNames(e).map(artistSearchNorm);
     return names.some(name=>entryNames.includes(name));
   }
   function entryArtistCount(e){return new Set((e.artists||[]).map(a=>normalizeArtistName(a.name||'')).filter(Boolean)).size}
   function filteredEntries(){
     const multiArtistNames=multiArtistSearchNames(state.search);
-    const tokens=!multiArtistNames&&state.search?String(state.search).toLowerCase().split(/\s+/).map(x=>x.trim()).filter(Boolean):[];const artistNeedles=state.artistFilters.map(norm);
+    const tokens=!multiArtistNames&&state.search?String(state.search).toLowerCase().split(/\s+/).map(x=>x.trim()).filter(Boolean):[];const artistNeedles=state.artistFilters.map(artistSearchNorm);
     let arr=state.entries.filter(e=>{
       if(state.galleryArtistCountFilter!=='all'&&entryArtistCount(e)!==Number(state.galleryArtistCountFilter))return false;
       if(state.favOnly&&!e.favorite)return false;if(state.memoOnly&&!e.memo?.trim())return false;if(!modelMatches(e,state.modelFilter))return false;
@@ -4751,7 +4752,7 @@ async function confirmAtlasGalleryPicker(){const pickerTask=taskStart('Gallery �
       if(state.galleryFilter==='memo'&&!e.memo?.trim())return false;
       if(state.galleryFilter==='character'&&!(e.characterPrompts||[]).some(x=>String(x||'').trim()))return false;
       if(state.galleryFilter==='charuc'&&!(e.characterUc||[]).some(x=>String(x||'').trim()))return false;
-      if(artistNeedles.length){const names=(e.artists||[]).map(a=>norm(a.name));const tests=artistNeedles.map(f=>names.includes(f));if(state.logic==='AND'?!tests.every(Boolean):!tests.some(Boolean))return false}
+      if(artistNeedles.length){const names=orderedArtistNames(e).map(artistSearchNorm);const tests=artistNeedles.map(f=>names.includes(f));if(state.logic==='AND'?!tests.every(Boolean):!tests.some(Boolean))return false}
       if(multiArtistNames&&!entryHasAnyArtist(e,multiArtistNames))return false;
       if(tokens.length&&!tokens.every(t=>galleryEntrySearchText(e).includes(t)))return false;
       return true;
@@ -4764,7 +4765,7 @@ async function confirmAtlasGalleryPicker(){const pickerTask=taskStart('Gallery �
     }else arr.sort((a,b)=>state.sort==='oldest'?a.createdAt-b.createdAt:state.sort==='artist'?(a.artistsText||'').localeCompare(b.artistsText||''):state.sort==='favorite'?(Number(b.favorite)-Number(a.favorite)||b.createdAt-a.createdAt):state.sort==='seed'?((Number(a.seed)||0)-(Number(b.seed)||0)):state.sort==='model'?modelLabel(a).localeCompare(modelLabel(b)):(b.lastImportAt||b.createdAt)-(a.lastImportAt||a.createdAt));
     if(multiArtistNames?.length){
       const rank=new Map(multiArtistNames.map((name,i)=>[name,i]));
-      const priority=e=>Math.min(...orderedArtistNames(e).map(name=>rank.get(norm(name))??Infinity));
+      const priority=e=>Math.min(...orderedArtistNames(e).map(name=>rank.get(artistSearchNorm(name))??Infinity));
       arr.sort((a,b)=>priority(a)-priority(b));
     }
     return arr;
@@ -5212,7 +5213,7 @@ async function confirmAtlasGalleryPicker(){const pickerTask=taskStart('Gallery �
       els.resultCount.insertAdjacentElement('afterend',missingNotice);
     }
     if(searchArtists?.length){
-      const found=new Set(arr.flatMap(e=>orderedArtistNames(e).map(norm)));
+      const found=new Set(arr.flatMap(e=>orderedArtistNames(e).map(artistSearchNorm)));
       const missing=[...new Set(searchArtists)].filter(name=>!found.has(name));
       missingNotice.textContent=missing.length?'검색 결과 없음 ('+missing.length+'개): '+missing.map(name=>'artist:'+name).join(', '):'';
       missingNotice.hidden=!missing.length;
