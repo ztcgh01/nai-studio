@@ -3339,7 +3339,18 @@ body.is-home .refresh-icon-btn{display:grid}
     els.scrollTopBtn.onclick=()=>window.scrollTo({top:0,behavior:'smooth'});
     window.addEventListener('scroll',updateScrollTopButton,{passive:true});
     els.selectedToCompareBtn.onclick = addSelectedToCompare;
-    els.selectedArtistCopyBtn.onclick=()=>copyArtistTagsFromEntries(state.selectedIds.map(galleryEntry).filter(Boolean));
+    els.selectedArtistCopyBtn.onclick=()=>{
+      const selected=state.selectedIds.map(galleryEntry).filter(Boolean);
+      const searchNames=multiArtistSearchNames(state.search);
+      if(selected.length)return copyArtistTagsFromEntries(selected);
+      if(searchNames?.length){
+        const matches=new Set(filteredEntries().flatMap(e=>orderedArtistNames(e).map(norm)));
+        const ordered=[...new Set(searchNames)].filter(name=>matches.has(name));
+        if(!ordered.length){toast('검색 결과에 복사할 작가명이 없습니다.');return}
+        return copyTextSafe(ordered.map(name=>'artist:'+name).join(', ')+',').then(ok=>toast(ok?ordered.length+'개 검색 작가명 복사 완료':'작가명 복사 실패'));
+      }
+      toast('이미지를 선택하거나 artist: 검색어를 입력해주세요.');
+    };
     els.selectedToAtlasCopyBtn.onclick = ()=>transferGallerySelectionToAtlas(false);
     els.selectedToAtlasMoveBtn.onclick = ()=>transferGallerySelectionToAtlas(true);
     els.saveSelectedOriginalBtn.onclick = ()=>saveSelectedImages(false);
@@ -4736,6 +4747,11 @@ async function confirmAtlasGalleryPicker(){const pickerTask=taskStart('Gallery �
       for(const e of arr){const key=galleryGroupKey(e);keys.set(e.id,key);const t=time(e);if(t>(groupLatest.get(key)||0))groupLatest.set(key,t)}
       arr.sort((a,b)=>(groupLatest.get(keys.get(b.id))||0)-(groupLatest.get(keys.get(a.id))||0)||keys.get(a.id).localeCompare(keys.get(b.id))||time(b)-time(a)||String(a.id).localeCompare(String(b.id)));
     }else arr.sort((a,b)=>state.sort==='oldest'?a.createdAt-b.createdAt:state.sort==='artist'?(a.artistsText||'').localeCompare(b.artistsText||''):state.sort==='favorite'?(Number(b.favorite)-Number(a.favorite)||b.createdAt-a.createdAt):state.sort==='seed'?((Number(a.seed)||0)-(Number(b.seed)||0)):state.sort==='model'?modelLabel(a).localeCompare(modelLabel(b)):(b.lastImportAt||b.createdAt)-(a.lastImportAt||a.createdAt));
+    if(multiArtistNames?.length){
+      const rank=new Map(multiArtistNames.map((name,i)=>[name,i]));
+      const priority=e=>Math.min(...(e.artists||[]).map(a=>rank.get(norm(a.name))??Infinity));
+      arr.sort((a,b)=>priority(a)-priority(b));
+    }
     return arr;
   }
 
