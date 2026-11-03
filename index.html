@@ -4722,7 +4722,7 @@ async function confirmAtlasGalleryPicker(){const pickerTask=taskStart('Gallery �
   }
   function entryHasAnyArtist(e,names){
     if(!names?.length)return false;
-    const entryNames=(e.artists||[]).map(a=>norm(a.name));
+    const entryNames=orderedArtistNames(e).map(norm);
     return names.some(name=>entryNames.includes(name));
   }
   function entryArtistCount(e){return new Set((e.artists||[]).map(a=>normalizeArtistName(a.name||'')).filter(Boolean)).size}
@@ -4749,7 +4749,7 @@ async function confirmAtlasGalleryPicker(){const pickerTask=taskStart('Gallery �
     }else arr.sort((a,b)=>state.sort==='oldest'?a.createdAt-b.createdAt:state.sort==='artist'?(a.artistsText||'').localeCompare(b.artistsText||''):state.sort==='favorite'?(Number(b.favorite)-Number(a.favorite)||b.createdAt-a.createdAt):state.sort==='seed'?((Number(a.seed)||0)-(Number(b.seed)||0)):state.sort==='model'?modelLabel(a).localeCompare(modelLabel(b)):(b.lastImportAt||b.createdAt)-(a.lastImportAt||a.createdAt));
     if(multiArtistNames?.length){
       const rank=new Map(multiArtistNames.map((name,i)=>[name,i]));
-      const priority=e=>Math.min(...(e.artists||[]).map(a=>rank.get(norm(a.name))??Infinity));
+      const priority=e=>Math.min(...orderedArtistNames(e).map(name=>rank.get(norm(name))??Infinity));
       arr.sort((a,b)=>priority(a)-priority(b));
     }
     return arr;
@@ -5188,6 +5188,20 @@ async function confirmAtlasGalleryPicker(){const pickerTask=taskStart('Gallery �
     if(els.galleryArtistCountFilter)els.galleryArtistCountFilter.value=state.galleryArtistCountFilter||'all';
     rebuildDisplayTitleIndex();
     const arr=filteredEntries(); els.resultCount.textContent=`${arr.length}개`;
+    const searchArtists=multiArtistSearchNames(state.search);
+    let missingNotice=document.getElementById('galleryMissingArtistsNotice');
+    if(!missingNotice){
+      missingNotice=document.createElement('div');
+      missingNotice.id='galleryMissingArtistsNotice';
+      missingNotice.style.cssText='font-size:12px;color:#8a3d20;margin:6px 0;overflow-wrap:anywhere;white-space:normal';
+      els.resultCount.insertAdjacentElement('afterend',missingNotice);
+    }
+    if(searchArtists?.length){
+      const found=new Set(arr.flatMap(e=>orderedArtistNames(e).map(norm)));
+      const missing=[...new Set(searchArtists)].filter(name=>!found.has(name));
+      missingNotice.textContent=missing.length?'검색 결과 없음 ('+missing.length+'개): '+missing.map(name=>'artist:'+name).join(', '):'';
+      missingNotice.hidden=!missing.length;
+    }else{missingNotice.textContent='';missingNotice.hidden=true;}
     const isListView=state.tab==='list';
     els.galleryColumnCount.classList.toggle('hidden',isListView);
     els.gallery.dataset.cols=String(state.galleryColumns);
